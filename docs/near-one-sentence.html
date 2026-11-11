@@ -1,0 +1,1219 @@
+<title>NEAR in One Sentence</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,6..72,400..600&display=swap">
+<style>
+/* Layout: a long brief in a 68-character column with one working object, the prototype, beside the thesis.
+   Borrowed from the cheque: blanks are underlined with a tiny caption beneath. What the person wrote is set
+   in pen (blue italic). What the system promises is set in print. Colour is reserved for consequence. */
+:root{
+  --paper:#ECF0F3;--surface:#F6F8FA;--raise:#FFFFFF;
+  --ink:#0E1A2B;--ink-2:#3E4E66;--ink-3:#5E6C82;--rule:#D0D8E1;
+  --pen:#2140D0;--pen-soft:#E1E7FC;
+  --ok:#136B45;--ok-soft:#DBF0E4;--warn:#8A4F00;--warn-soft:#F7E9CF;--stop:#A8271E;--stop-soft:#F8DFDC;
+  --shadow:rgba(14,26,43,.28);
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --text:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --hand:"Newsreader",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0A121C;--surface:#101A27;--raise:#152132;
+  --ink:#E6EBF1;--ink-2:#AEBACA;--ink-3:#8593A8;--rule:#253349;
+  --pen:#96AAFF;--pen-soft:#1A2852;
+  --ok:#5FCB97;--ok-soft:#112F20;--warn:#E6AA52;--warn-soft:#32250C;--stop:#F38E85;--stop-soft:#3B1715;
+  --shadow:rgba(0,0,0,.55);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0A121C;--surface:#101A27;--raise:#152132;
+  --ink:#E6EBF1;--ink-2:#AEBACA;--ink-3:#8593A8;--rule:#253349;
+  --pen:#96AAFF;--pen-soft:#1A2852;
+  --ok:#5FCB97;--ok-soft:#112F20;--warn:#E6AA52;--warn-soft:#32250C;--stop:#F38E85;--stop-soft:#3B1715;
+  --shadow:rgba(0,0,0,.55);color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 var(--text);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--pen);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--pen);outline-offset:2px;border-radius:4px}
+button{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--display);font-weight:650;letter-spacing:-.015em;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,5.2vw,58px);line-height:1.02;letter-spacing:-.025em}
+h2{font-size:clamp(26px,3.2vw,34px);line-height:1.1}
+h3{font-size:19px;line-height:1.25}
+p{margin:0}
+.eyebrow,.cap{font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.pen{font-family:var(--hand);font-style:italic;font-weight:500;color:var(--pen);font-size:1.08em}
+.prose{max-width:68ch;display:grid;gap:14px}
+.prose p{color:var(--ink-2)}
+.prose strong{color:var(--ink);font-weight:600}
+.lede{font-size:18px;color:var(--ink-2);max-width:60ch}
+section{padding-block:60px;border-top:1px solid var(--rule)}
+.head{display:grid;gap:10px;margin-bottom:28px}
+.sub{margin-top:44px;margin-bottom:18px;display:grid;gap:8px}
+
+/* hero */
+.hero{padding-block:44px 56px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:52px;align-items:start}
+.hero-text{display:grid;gap:22px;min-width:0}
+.short{list-style:none;margin:0;padding:0;display:grid;gap:0;border-top:1px solid var(--rule)}
+.short li{display:grid;grid-template-columns:118px minmax(0,1fr);gap:16px;padding:12px 0;border-bottom:1px solid var(--rule);font-size:15px;color:var(--ink-2)}
+.short b{font-weight:600;color:var(--ink)}
+.toc{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px}
+.toc a{color:var(--ink-2)}
+.proto-col{display:grid;gap:10px;min-width:0}
+.proto-note{font-size:12.5px;color:var(--ink-3);text-align:center}
+
+/* phone prototype */
+.phone{background:var(--raise);border:1px solid var(--rule);border-radius:28px;box-shadow:0 26px 50px -30px var(--shadow);overflow:hidden;width:100%;max-width:380px;margin-inline:auto;display:flex;flex-direction:column}
+.phone-bar{display:flex;justify-content:space-between;gap:12px;padding:11px 18px;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--rule)}
+.phone-body{padding:18px 18px 16px;min-height:590px;display:flex;flex-direction:column;gap:12px}
+.tense{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule)}
+.tense button{background:none;border:0;padding:13px 4px 14px;font-family:var(--display);font-weight:600;font-size:14px;color:var(--ink-3);cursor:pointer}
+.tense button[aria-current="page"]{color:var(--ink);box-shadow:inset 0 2px 0 var(--ink)}
+.tense b{font:600 11px var(--text);color:var(--pen);margin-left:3px}
+.total .big{font-family:var(--display);font-weight:650;font-size:36px;line-height:1.1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.link{background:none;border:0;padding:0;color:var(--ink-2);font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;text-align:left}
+.back{text-decoration:none;align-self:flex-start}
+.forms{font-size:13px;color:var(--ink-2);margin-top:6px;font-variant-numeric:tabular-nums}
+.moment{width:100%;text-align:left;background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:11px 14px 12px;display:grid;gap:3px;cursor:pointer}
+.moment:hover{border-color:var(--pen)}
+.moment .why{font-size:12.5px;color:var(--ink-3)}
+.moment .say{font-family:var(--display);font-weight:600;font-size:17px;line-height:1.3}
+.verbs{font-family:var(--display);font-weight:600;font-size:17px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.verb,.opt{background:var(--raise);border:1px solid var(--rule);border-radius:999px;padding:4px 13px 5px;font-family:var(--hand);font-style:italic;font-weight:500;font-size:17px;color:var(--pen);cursor:pointer}
+.verb:hover,.opt:hover{border-color:var(--pen)}
+.opt[aria-pressed="true"]{background:var(--pen-soft);border-color:var(--pen)}
+.sentence{font-family:var(--display);font-weight:600;font-size:24px;line-height:2.2;letter-spacing:-.012em;color:var(--ink)}
+.sentence.plain{line-height:1.3}
+.sentence.quiet{font-size:18px;line-height:1.35;color:var(--ink-2)}
+.slot{display:inline-flex;flex-direction:column;align-items:flex-start;vertical-align:baseline;background:none;border:0;padding:0 1px;cursor:pointer;line-height:1.1}
+.slot i{font-family:var(--hand);font-style:italic;font-weight:500;font-size:1.1em;color:var(--pen);border-bottom:1.5px dashed var(--pen);padding:0 2px 1px}
+.slot span{font:600 9.5px/1 var(--text);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-top:4px;padding-left:2px}
+.slot[aria-expanded="true"] i{background:var(--pen-soft);border-bottom-style:solid}
+span.slot{cursor:default}
+.tray{display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--surface);border:1px solid var(--rule);border-radius:12px}
+.hint{font-size:12.5px;color:var(--ink-3)}
+.outcome{margin:0;display:grid;grid-template-columns:96px minmax(0,1fr);gap:7px 12px;font-size:14px;line-height:1.4}
+.outcome dt{color:var(--ink-3);font-size:12.5px;padding-top:1px}
+.outcome dd{margin:0;font-variant-numeric:tabular-nums}
+.outcome small{display:block;font-size:12px;color:var(--ink-3);font-weight:400}
+.t-ok{color:var(--ok)}.t-warn{color:var(--warn)}.t-stop{color:var(--stop);font-weight:600}
+.ack,.sim{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--ink-2);cursor:pointer}
+.ack{background:var(--stop-soft);border-radius:10px;padding:9px 11px;color:var(--ink)}
+.ack input,.sim input{margin-top:3px;accent-color:var(--pen)}
+.sim{margin-top:auto;padding-top:6px;color:var(--ink-3);font-size:12.5px}
+.sign{position:relative;overflow:hidden;width:100%;min-height:54px;border:0;border-radius:14px;background:var(--ink);color:var(--paper);font-weight:600;font-size:15px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.sign .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--pen);transition:width 150ms linear}
+.sign.holding .fill{width:100%}
+.sign .lbl{position:relative}
+.sign[aria-disabled="true"]{opacity:.42;cursor:not-allowed}
+.steps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:12px;font-size:15px}
+.steps li{display:flex;gap:10px;align-items:center;color:var(--ink-3)}
+.steps .dot{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--rule);display:grid;place-items:center;font-size:12px;line-height:1}
+.steps .done{color:var(--ink)}.steps .done .dot{background:var(--ok);border-color:var(--ok);color:var(--raise)}
+.steps .now{color:var(--ink);font-weight:600}.steps .now .dot{border-color:var(--pen);box-shadow:0 0 0 4px var(--pen-soft)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.btn{background:var(--ink);color:var(--paper);border:1px solid var(--ink);border-radius:12px;padding:10px 14px;font-weight:600;font-size:14px;cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--rule)}
+.list{list-style:none;margin:0;padding:0;display:grid}
+.list li{padding:12px 0;border-bottom:1px solid var(--rule);display:grid;gap:6px}
+.list .say{font-family:var(--display);font-weight:600;font-size:16px;line-height:1.3}
+.list .meta{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-3)}
+.mini{background:none;border:1px solid var(--rule);border-radius:999px;padding:3px 11px;font-size:12.5px;font-weight:600;cursor:pointer}
+
+/* research */
+.finds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-bottom:8px}
+.finds div{display:grid;gap:8px;align-content:start;border-top:2px solid var(--ink);padding-top:14px}
+.finds p{font-size:15px;color:var(--ink-2)}
+.opps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:44px}
+.opp{padding:20px 0;border-top:1px solid var(--rule);display:grid;gap:10px;align-content:start;min-width:0}
+.opp header{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline;justify-content:space-between}
+.opp h3{font-size:17.5px;max-width:30ch}
+.pill{font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill.live{background:var(--ok-soft);color:var(--ok)}.pill.part{background:var(--warn-soft);color:var(--warn)}.pill.gap{background:var(--stop-soft);color:var(--stop)}
+.kv{margin:0;display:grid;grid-template-columns:86px minmax(0,1fr);gap:5px 12px;font-size:14px;line-height:1.5}
+.kv dt{color:var(--ink-3);font-size:12.5px;padding-top:2px}
+.kv dd{margin:0;color:var(--ink-2)}
+.aside{font-size:14px;color:var(--ink-3);max-width:68ch;margin-top:22px}
+
+/* bends */
+.bends{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 44px}
+.bend{padding:22px 0;border-top:1px solid var(--rule);display:grid;gap:8px;align-content:start}
+.bend .asked{font-size:13px;color:var(--ink-3)}
+.bend p{font-size:15px;color:var(--ink-2)}
+.counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-top:6px}
+.counts div{background:var(--surface);padding:10px 12px;font-size:13px;color:var(--ink-2);display:grid;gap:2px;align-content:start}
+.counts b{font-family:var(--display);font-size:24px;line-height:1;color:var(--ink)}
+
+/* grammar */
+.anatomy{background:var(--raise);border:1px solid var(--rule);border-radius:18px;padding:18px 24px 22px;margin-bottom:26px}
+.anatomy .sentence{font-size:clamp(22px,3vw,32px)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:11px 14px 11px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+td{color:var(--ink-2)}
+td.v{font-family:var(--hand);font-style:italic;font-size:18px;color:var(--pen);white-space:nowrap}
+td.s{font-family:var(--display);font-weight:600;color:var(--ink)}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:30px}
+.three div{display:grid;gap:6px;align-content:start}
+.three p{font-size:15px;color:var(--ink-2)}
+
+/* concepts */
+.concept{display:grid;grid-template-columns:300px minmax(0,1fr);gap:32px;padding-block:28px;border-top:1px solid var(--rule)}
+.mock{background:var(--raise);border:1px solid var(--rule);border-radius:18px;padding:16px;min-height:178px;display:grid;gap:10px;align-content:center}
+.mock .sentence{font-size:19px;line-height:2.1}
+.mock svg{width:100%;height:auto;display:block}
+.mk-t{font:500 11px var(--text);fill:var(--ink)}.mk-m{font:500 10px var(--text);fill:var(--ink-3)}.mk-p{font:italic 500 13px var(--hand);fill:var(--pen)}
+.mk-c{fill:var(--surface);stroke:var(--rule);stroke-width:1.2}.mk-on{fill:var(--pen-soft);stroke:var(--pen);stroke-width:1.4}
+.mk-l{stroke:var(--rule);stroke-width:1.2;fill:none}.mk-pl{stroke:var(--pen);stroke-width:1.5;fill:none}.mk-d{fill:var(--ink-3)}.mk-pd{fill:var(--pen)}
+.mrow{font-size:12.5px;color:var(--ink-2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{font-size:12px;border:1px solid var(--rule);border-radius:999px;padding:2px 9px;color:var(--ink-2)}
+.fakebar{background:var(--ink);color:var(--paper);border-radius:10px;text-align:center;font-size:12.5px;font-weight:600;padding:8px}
+.meter{height:6px;border-radius:3px;background:var(--rule);overflow:hidden}.meter i{display:block;height:100%;width:75%;background:var(--pen)}
+.cbody{display:grid;gap:12px;align-content:start;min-width:0}
+.cbody h3{font-size:22px}
+.cbody .kv{grid-template-columns:96px minmax(0,1fr);font-size:15px}
+
+/* journeys */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.tabs button{background:none;border:1px solid var(--rule);border-radius:999px;padding:7px 15px;font-weight:600;font-size:14px;cursor:pointer;color:var(--ink-2)}
+.tabs button[aria-selected="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.j{padding:26px 0;border-top:1px solid var(--rule);display:grid;gap:14px}
+.j header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;justify-content:space-between}
+.count{font-size:12.5px;font-weight:600;color:var(--ink-2);border:1px solid var(--rule);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.jsteps{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:0}
+.jsteps li{counter-increment:s;display:grid;grid-template-columns:28px repeat(3,minmax(0,1fr));gap:6px 20px;padding:12px 0;border-top:1px dashed var(--rule);font-size:14.5px;color:var(--ink-2)}
+.jsteps li::before{content:counter(s);font-family:var(--display);font-weight:650;font-size:17px;color:var(--ink)}
+.jsteps .lab{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:2px}
+.jnote{font-size:14.5px;color:var(--ink-2);max-width:86ch}
+.jnote b{color:var(--ink);font-weight:600}
+
+/* verdict */
+.matrix td,.matrix th{padding-right:10px}
+.matrix td.n{font-family:var(--display);font-weight:600;color:var(--ink);white-space:nowrap}
+.sc{display:inline-flex;align-items:center;gap:7px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.sc::after{content:"";width:44px;height:5px;border-radius:3px;background:linear-gradient(to right,var(--ink-2) calc(var(--v)*20%),var(--rule) 0)}
+.matrix tr.pick td{background:var(--pen-soft)}
+.matrix tr.pick td.n{white-space:normal;min-width:220px}
+.matrix tr.pick td:first-child{padding-left:10px;border-radius:8px 0 0 8px}
+.matrix tr.pick td:last-child{border-radius:0 8px 8px 0}
+.matrix .tot{font-family:var(--display);font-weight:650;font-size:17px;color:var(--ink)}
+.cols2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 44px;margin-top:30px}
+.cols2 > div{display:grid;gap:8px;align-content:start}
+.cols2 p,.cols2 li{font-size:15px;color:var(--ink-2)}
+.cols2 ul{margin:0;padding-left:18px;display:grid;gap:6px}
+
+/* direction */
+.tenses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.tensecard{background:var(--raise);border:1px solid var(--rule);border-radius:18px;padding:16px 16px 6px;display:grid;gap:4px;align-content:start}
+.tensecard h3{font-size:18px}
+.tensecard > p{font-size:13px;color:var(--ink-3)}
+.words{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 28px}
+.words div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14.5px}
+.words s{color:var(--ink-3);text-decoration-thickness:1px}
+.rules{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 44px}
+.rules li{padding:14px 0;border-top:1px solid var(--rule);font-size:15px;color:var(--ink-2)}
+.rules b{display:block;color:var(--ink);font-family:var(--display);font-size:17px;font-weight:650;margin-bottom:2px}
+.phases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+.phases div{display:grid;gap:8px;align-content:start;border-top:2px solid var(--ink);padding-top:14px}
+.phases p,.phases li{font-size:14.5px;color:var(--ink-2)}
+.phases ul{margin:0;padding-left:18px;display:grid;gap:5px}
+.sources{font-size:13.5px;color:var(--ink-2);columns:2;column-gap:44px;padding-left:20px;margin:0}
+.sources li{break-inside:avoid;margin-bottom:6px;overflow-wrap:anywhere}
+footer{padding-block:28px 48px;font-size:13px;color:var(--ink-3);border-top:1px solid var(--rule)}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:minmax(0,1fr);gap:36px}
+  .finds,.three,.phases,.tenses{grid-template-columns:minmax(0,1fr)}
+  .opps,.bends,.cols2,.rules{grid-template-columns:minmax(0,1fr)}
+  .concept{grid-template-columns:minmax(0,1fr);gap:18px}
+  .mock{max-width:380px}
+  .counts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jsteps li{grid-template-columns:28px minmax(0,1fr)}
+  .jsteps li > div{grid-column:2}
+  .sources{columns:1}
+  section{padding-block:44px}
+}
+@media (max-width:520px){
+  .short li{grid-template-columns:minmax(0,1fr);gap:2px}
+  .kv,.cbody .kv{grid-template-columns:minmax(0,1fr);gap:1px}
+  .kv dd{margin-bottom:6px}
+  .phone-body{min-height:560px}
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">A design direction for one surface over NEAR · November 2026</p>
+    <h1>Every capability is a sentence you can sign.</h1>
+    <p class="lede">NEAR already delivers a payment from bitcoin to dollars across more than thirty networks, runs AI its own operators cannot read, and lets software act for you inside hard limits. People cannot find any of it, because each capability sits behind a different app and a different vocabulary. This direction gives all of it one grammar: say what you want, see exactly what will happen, sign.</p>
+    <p class="lede">The prototype is the recommended direction. Tap a suggestion, change any underlined word, then hold to sign.</p>
+    <ul class="short">
+      <li><b>Research</b><span>The rails are closer to one product than the interfaces are. A single API request now covers paying, changing, earning, price orders and privacy.</span></li>
+      <li><b>The constraint</b><span>Three holds when you count decisions and price them by risk. Loans, new recipients and standing authority should cost a fourth.</span></li>
+      <li><b>The pick</b><span>The Sentence. Moments are how people discover it. Standing orders are a tense of it.</span></li>
+      <li><b>Biggest gap</b><span>Bank money in and out is not live. First use has to lead with what works at a zero balance.</span></li>
+    </ul>
+    <nav class="toc" aria-label="Sections">
+      <a href="#research">1 Research</a>
+      <a href="#model">2 Interaction model</a>
+      <a href="#concepts">3 Five concepts</a>
+      <a href="#journeys">4 Journeys</a>
+      <a href="#verdict">5 Verdict and direction</a>
+      <a href="#sources">Sources</a>
+    </nav>
+  </div>
+  <div class="proto-col">
+    <div class="phone" aria-label="Interactive prototype of the recommended direction">
+      <div class="phone-bar"><span>Ana’s account</span><span>Prototype</span></div>
+      <div class="phone-body" id="screen"></div>
+      <nav class="tense" id="tense" aria-label="Prototype places">
+        <button type="button" data-tab="home" aria-current="page">Now</button>
+        <button type="button" data-tab="standing">Standing<b id="stcount"></b></button>
+        <button type="button" data-tab="said">Said</button>
+      </nav>
+    </div>
+    <p class="proto-note">Example figures. Nothing here touches a network.</p>
+  </div>
+</header>
+
+<!-- 1 RESEARCH -->
+<section id="research">
+  <div class="head">
+    <p class="eyebrow">1 · Research</p>
+    <h2>What NEAR lets a person do today</h2>
+    <p class="lede">I looked for outcomes an ordinary person would recognise, then checked each against what is running in November 2026. Three findings shaped everything after.</p>
+  </div>
+  <div class="finds">
+    <div>
+      <h3>The back end has already converged</h3>
+      <p>One request to NEAR Intents states what you have, what you want, who receives it and where refunds go. That same request now covers cross-network payment, earning, price-conditional orders and confidential mode. Cumulative volume passed $30 billion in September 2026, most of it through other companies’ wallets such as Ledger, Trust Wallet and Zashi. The interfaces on top still present these as separate features.</p>
+    </div>
+    <div>
+      <h3>NEAR shipped its own single surface, and it is a wallet</h3>
+      <p>near.com launched in February 2026 with swaps across 35+ networks, confidential mode, peer-to-peer trades and yield. Bank accounts, debit cards and AI agents are on its roadmap. It consolidates features well and still asks people to think in assets and networks. A different interaction model should reuse its rails, and has no reason to rebuild them.</p>
+    </div>
+    <div>
+      <h3>Only two capabilities are new in kind</h3>
+      <p>Most of the apparent breadth is a better form of moving money. Two things have no equivalent in a banking app: AI whose privacy you can check, and software that acts for you inside limits the network enforces. They are also the least finished as consumer products.</p>
+    </div>
+  </div>
+
+  <div class="sub"><h3>Twelve things a person could do, and how real each one is</h3></div>
+  <div class="opps">
+    <article class="opp">
+      <header><h3>Pay anyone in the money they want, from the money you have</h3><span class="pill live">Live</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>You hold bitcoin and your friend wants dollars. Nobody should have to ask which network the other is on.</dd>
+        <dt>Hard today</dt><dd>You need their network, a bridge, a fee token, and a wrong choice can lose the money.</dd>
+        <dt>Rails</dt><dd>NEAR Intents. You fix the amount that must arrive. Market makers compete to deliver it. Payments that cannot be delivered come back.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Get paid by anyone, in anything</h3><span class="pill part">Rails live, product missing</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Freelancers, sellers and friends splitting a bill should share one link and receive the money they prefer.</dd>
+        <dt>Hard today</dt><dd>The payer has to match your network and currency exactly.</dd>
+        <dt>Rails</dt><dd>Per-payer quotes with one-time deposit addresses are live. A permanent accept-anything address is partner-only and converts only above $1,000, so a consumer request link needs a small service on top.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>One account for bitcoin, dollars and the rest, opened with a fingerprint</h3><span class="pill live">Live</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>No seed phrase. No separate wallet for each network.</dd>
+        <dt>Hard today</dt><dd>Every network has its own wallet, address format and recovery ritual.</dd>
+        <dt>Rails</dt><dd>near.com accounts and passkey signing in NEAR Intents. Chain Signatures were reported in September 2026 to put 30+ networks and 180+ assets behind one passkey. Recovery after a lost device still has to be designed.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Keep your money private</h3><span class="pill live">Live</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Rent, salary and shopping should not be a public record.</dd>
+        <dt>Hard today</dt><dd>Everything is public by default elsewhere. Privacy tools are separate, complex and carry stigma.</dd>
+        <dt>Rails</dt><dd>Confidential Intents, generally available since July 2026. One parameter hides the link between what was sent and what arrived. It hides you from the public. The network’s operators and compliance screening still see what they need.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Put idle money to work and take it back whenever</h3><span class="pill live">Live</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Dollars sitting still earn nothing.</dd>
+        <dt>Hard today</dt><dd>Choosing a lender, moving money to its network and judging the risk are each expert tasks.</dd>
+        <dt>Rails</dt><dd>The Earn route in the same API. Three sources today, including Gauntlet’s USDC vault on Morpho. Rates move and principal is not guaranteed.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Borrow dollars without selling your bitcoin</h3><span class="pill part">Live elsewhere</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Cover a bill today and keep the asset you believe in.</dd>
+        <dt>Hard today</dt><dd>Separate apps, wrapped tokens, and a forced-sale rule most people learn about when it happens to them.</dd>
+        <dt>Rails</dt><dd>Templar lends against native bitcoin through NEAR’s signing network, live since October 2025 with about $14 million lent. RHEA lends on NEAR. Neither is reachable from the payments API yet.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Name a price or a schedule and walk away</h3><span class="pill part">Half live</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>“Buy when it dips” and “a little every Friday” are how most people want to invest.</dd>
+        <dt>Hard today</dt><dd>It takes an exchange account or a trading screen.</dd>
+        <dt>Rails</dt><dd>Price-conditional orders are live in the order API. Recurring schedules are not. They need a scheduler that holds limited authority.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Ask an AI what you would not type into a normal chatbot</h3><span class="pill live">Live</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Health, debt, legal and relationship questions deserve confidentiality.</dd>
+        <dt>Hard today</dt><dd>Every chatbot says it is private. None lets you check.</dd>
+        <dt>Rails</dt><dd>NEAR AI Private Chat runs models inside sealed hardware and returns a signed proof with each answer. Brave’s assistant uses the same service. It needs no money, so it works on day one.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Give an assistant a job and a budget instead of your keys</h3><span class="pill gap">Primitives only</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Pay bills, top up savings, rebalance, without handing over everything.</dd>
+        <dt>Hard today</dt><dd>The choice is all or nothing. Software gets full control or you do it yourself.</dd>
+        <dt>Rails</dt><dd>NEAR keys can be limited to specific actions and amounts. Shade Agents enforce such limits in a contract. IronClaw runs agents in sealed hardware with a credential vault. No consumer product ties these together.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Hire software for a one-off task and pay when it delivers</h3><span class="pill part">Live, agent-first</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Research, translation or a data clean-up without a subscription.</dd>
+        <dt>Hard today</dt><dd>Onboarding is written for agents and developers. Quality and dispute handling are unproven.</dd>
+        <dt>Rails</dt><dd>NEAR AI Agent Market. You post a task with a budget, agents bid, payment sits in escrow, and a dispute agent rules on conflicts.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Send to a name and never think about fees</h3><span class="pill part">Live on NEAR only</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>maya.near is harder to get wrong than 42 random characters.</dd>
+        <dt>Hard today</dt><dd>Names work inside NEAR. Recipients on other networks are still raw addresses.</dd>
+        <dt>Rails</dt><dd>Named accounts and sponsored fees are native. A contact book that maps people to addresses across networks is app-level work.</dd>
+      </dl>
+    </article>
+    <article class="opp">
+      <header><h3>Move between bank money and digital money</h3><span class="pill gap">Not live</span></header>
+      <dl class="kv">
+        <dt>Why</dt><dd>Without this, everything above serves people who already hold crypto.</dd>
+        <dt>Hard today</dt><dd>Exchanges, identity checks, and withdrawals to the right network.</dd>
+        <dt>Rails</dt><dd>Virtual bank accounts and debit cards are on near.com’s published roadmap. I found no evidence that either has shipped. This needs licensed partners more than it needs design.</dd>
+      </dl>
+    </article>
+  </div>
+  <p class="aside">Left out on purpose: staking NEAR, governance, collectibles, and reward apps such as Sweat. They exist. None is unique to NEAR or useful to someone who arrives with no stake in the ecosystem.</p>
+</section>
+
+<!-- 2 MODEL -->
+<section id="model">
+  <div class="head">
+    <p class="eyebrow">2 · Interaction model</p>
+    <h2>Where the brief should bend, and the grammar that follows</h2>
+    <p class="lede">Six of your assumptions deserve a push before any interface is drawn. Each change makes the product more honest and, in most cases, simpler.</p>
+  </div>
+  <div class="bends">
+    <div class="bend">
+      <p class="asked">You asked for three interactions at most.</p>
+      <h3>Count decisions, and price them by risk</h3>
+      <p>Say, see, sign. For a repeat payment that is one tap and a fingerprint. The right number depends on how hard the act is to undo.</p>
+      <div class="counts">
+        <div><b>1</b>Ask privately. Create a request.</div>
+        <div><b>2</b>Repeat something you have signed before.</div>
+        <div><b>3</b>Pay, change, put money to work.</div>
+        <div><b>4</b>New recipient. A loan. Any standing order.</div>
+      </div>
+      <p>Two rules sit under this. Preview and consent never merge into one tap. And three gets you to committed, not finished: delivery across networks takes seconds to minutes, so the wait needs its own designed state.</p>
+    </div>
+    <div class="bend">
+      <p class="asked">You excluded authentication from the count.</p>
+      <h3>Make the fingerprint the third interaction</h3>
+      <p>A confirm button followed by a biometric prompt is one decision asked twice. NEAR Intents accepts passkey signatures directly, so the fingerprint can be the signature. The hold gesture exists to prevent accidents, and its length scales with risk.</p>
+    </div>
+    <div class="bend">
+      <p class="asked">You asked for a single surface.</p>
+      <h3>One grammar, several doorways</h3>
+      <p>Most intentions start somewhere else: a message from a friend, a code at a till, an invoice in an email. The same sentence should open from a link, a scan or a share sheet. The home screen is one doorway among several.</p>
+    </div>
+    <div class="bend">
+      <p class="asked">You want capability revealed without understanding what makes it possible.</p>
+      <h3>Hide mechanisms. Never hide consequences</h3>
+      <p>Nobody needs the word bridge. Everybody needs six facts before signing: what leaves, what arrives, when, who can see it, what happens if it fails, and whether it can be undone. Those facts get more room on screen than the button.</p>
+    </div>
+    <div class="bend">
+      <p class="asked">You asked to look beyond swapping and sending.</p>
+      <h3>Be honest about breadth</h3>
+      <p>Six verbs cover everything worth a consumer’s attention today. A surface that implies twenty capabilities reads as a directory however it is drawn. The breadth worth showing is how far each verb reaches.</p>
+    </div>
+    <div class="bend">
+      <p class="asked">You are designing for everyday consumers and agent assistance.</p>
+      <h3>Design for a zero balance, and keep models away from consent</h3>
+      <p>With no bank on-ramp live, a newcomer can do two useful things: ask privately and ask to be paid. Lead with those. A language model may draft a sentence from speech or a pasted invoice. It never confirms one, because a model that reads $40 as $400 has to be caught by the person, in plain sight.</p>
+    </div>
+  </div>
+
+  <div class="sub">
+    <h3>The grammar</h3>
+    <p class="lede">A cheque is the oldest intent interface. You state who gets how much, you sign, and the banks work out the route. NEAR Intents works the same way: you sign a statement of the outcome and competing market makers work out how to deliver it. The interface can take the same shape as the protocol.</p>
+  </div>
+  <div class="anatomy">
+    <p class="sentence">
+      <span class="slot"><i>Pay</i><span>verb</span></span>
+      <span class="slot"><i>Maya</i><span>who</span></span>
+      <span class="slot"><i>$40</i><span>what</span></span>
+      from <span class="slot"><i>my bitcoin</i><span>from</span></span>,
+      <span class="slot"><i>every Friday</i><span>when</span></span>,
+      <span class="slot"><i>privately</i><span>how</span></span>.
+    </p>
+  </div>
+  <div class="scroll">
+    <table style="min-width:680px">
+      <thead><tr><th>Verb</th><th>Reads as</th><th>Runs on</th><th>Today</th></tr></thead>
+      <tbody>
+        <tr><td class="v">pay</td><td class="s">Pay Maya $40 from my bitcoin.</td><td>NEAR Intents, quote with a fixed amount arriving</td><td><span class="pill live">Live</span></td></tr>
+        <tr><td class="v">get paid</td><td class="s">Ask anyone for $120, paid to me as dollars.</td><td>Same quote with you as recipient, wrapped in a request link</td><td><span class="pill part">Link service to build</span></td></tr>
+        <tr><td class="v">change</td><td class="s">Change $50 of my dollars into bitcoin, when bitcoin is under $90,000.</td><td>NEAR Intents swap, order API for the condition</td><td><span class="pill live">Live</span></td></tr>
+        <tr><td class="v">grow</td><td class="s">Put $400 of my dollars to work.</td><td>Earn route, third-party lenders</td><td><span class="pill live">Live</span></td></tr>
+        <tr><td class="v">borrow</td><td class="s">Borrow $200 against my bitcoin.</td><td>Templar or RHEA</td><td><span class="pill part">Needs integration</span></td></tr>
+        <tr><td class="v">ask</td><td class="s">Ask privately about a medical result.</td><td>NEAR AI Cloud, sealed hardware with proofs</td><td><span class="pill live">Live</span></td></tr>
+        <tr><td class="v">let</td><td class="s">Let my assistant pay bills, up to $300 a month.</td><td>Limited keys, Shade Agents, IronClaw</td><td><span class="pill gap">Product to build</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="three">
+    <div><h3>Say</h3><p>Pick a suggested sentence or a verb. Context fills most blanks, so many sentences are ready as offered. Each blank offers only what is possible given the others.</p></div>
+    <div><h3>See</h3><p>The outcome is recomputed from a dry quote each time a word changes. It always answers the same six questions, in the same order, in plain words.</p></div>
+    <div><h3>Sign</h3><p>Hold, then fingerprint. A tap when nothing leaves the account, a longer hold for loans and standing orders. What you signed is kept in the past tense as your receipt.</p></div>
+  </div>
+  <p class="aside">This is also how the surface grows. A new capability arrives as a verb, as a new kind of thing that fits a blank, or as a modifier such as <span class="pen">privately</span> or <span class="pen">every Friday</span>. It does not arrive as a new screen.</p>
+</section>
+
+<!-- 3 CONCEPTS -->
+<section id="concepts">
+  <div class="head">
+    <p class="eyebrow">3 · Five concepts</p>
+    <h2>Five different ways to hold all of it</h2>
+    <p class="lede">Each one organises the same capabilities around a different idea: language, space, context, delegation and time.</p>
+  </div>
+
+  <div class="concept">
+    <div class="mock">
+      <p class="sentence">Pay <span class="slot"><i>Maya</i><span>to</span></span> <span class="slot"><i>$40</i><span>amount</span></span> from <span class="slot"><i>my bitcoin</i><span>from</span></span>.</p>
+      <p class="mrow">Maya gets $40.00 exactly · arrives in about 20 seconds</p>
+    </div>
+    <div class="cbody">
+      <h3>A · The Sentence</h3>
+      <dl class="kv">
+        <dt>Metaphor</dt><dd>A cheque you can write for anything. One line of plain language with underlined blanks.</dd>
+        <dt>Discovery</dt><dd>Changing the verb changes the blanks. Each blank lists only what is possible, so the pickers are the catalogue.</dd>
+        <dt>Adapts by</dt><dd>Taking a time, a condition or “privately” on the same line. A one-off becomes a standing order without leaving the screen.</dd>
+        <dt>Breaks when</dt><dd>The line starts empty, which is a blank page. Word order differs by language, so every locale needs its own templates.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="mock">
+      <svg viewBox="0 0 300 170" role="img" aria-label="Objects on a surface. Bitcoin is being dragged toward Maya, and valid targets are highlighted.">
+        <circle class="mk-c" cx="62" cy="58" r="28"/><text class="mk-t" x="62" y="62" text-anchor="middle">bitcoin</text>
+        <circle class="mk-c" cx="58" cy="128" r="24"/><text class="mk-t" x="58" y="132" text-anchor="middle">dollars</text>
+        <circle class="mk-on" cx="226" cy="46" r="25"/><text class="mk-t" x="226" y="50" text-anchor="middle">Maya</text>
+        <circle class="mk-on" cx="244" cy="122" r="23"/><text class="mk-t" x="244" y="126" text-anchor="middle">rent</text>
+        <circle class="mk-on" cx="150" cy="138" r="22"/><text class="mk-t" x="150" y="142" text-anchor="middle">grow</text>
+        <path class="mk-pl" stroke-dasharray="4 4" d="M92 52 C130 26 168 24 198 40"/>
+        <circle class="mk-pd" cx="198" cy="40" r="3.5"/>
+        <text class="mk-p" x="146" y="22" text-anchor="middle">pay</text>
+      </svg>
+    </div>
+    <div class="cbody">
+      <h3>B · The Table</h3>
+      <dl class="kv">
+        <dt>Metaphor</dt><dd>Your money, people and goals are objects on a surface. Drop one on another to act.</dd>
+        <dt>Discovery</dt><dd>Pick something up and valid targets light up, each with a verb. Bitcoin over Maya reads “pay”. Dollars over a goal reads “grow”.</dd>
+        <dt>Adapts by</dt><dd>Asking only the one missing question after the drop, usually how much.</dd>
+        <dt>Breaks when</dt><dd>Dragging is slow on a phone and hard to make accessible. Amounts, dates and conditions have no spatial form. Every new capability adds an object, so the table fills up.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="mock">
+      <p class="cap">Scanned at Café Orla</p>
+      <p class="sentence plain" style="font-size:18px">Pay <span class="pen">Café Orla</span> <span class="pen">$4.50</span> from <span class="pen">my dollars</span>.</p>
+      <div class="fakebar">Hold to sign</div>
+      <p class="cap" style="margin-top:6px">0.0089 bitcoin arrived from Leo</p>
+      <div class="chips"><span>Keep it</span><span>Change it into dollars</span><span>Put it to work</span></div>
+    </div>
+    <div class="cbody">
+      <h3>C · Moments</h3>
+      <dl class="kv">
+        <dt>Metaphor</dt><dd>No home screen. The surface appears where the intention does: a scanned code, a friend’s request, money arriving.</dd>
+        <dt>Discovery</dt><dd>Capabilities introduce themselves when they become relevant. Receiving bitcoin offers three things to do with it.</dd>
+        <dt>Adapts by</dt><dd>Arriving with the sentence already written, so most actions are one decision and a signature.</dd>
+        <dt>Breaks when</dt><dd>Something has no trigger, because then it is invisible. It depends on notifications, links and a camera the person may refuse. Ranked badly, it becomes a feed of nudges.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="mock">
+      <p class="sentence plain" style="font-size:17px">Every <span class="pen">Friday</span>, change <span class="pen">$50</span> of my dollars into <span class="pen">bitcoin</span>.</p>
+      <div class="meter"><i></i></div>
+      <p class="mrow">$150 of $200 this month</p>
+      <p class="mrow"><span class="t-ok">Can</span> change dollars into bitcoin<br><span class="t-stop">Can never</span> send money to anyone</p>
+      <div class="chips"><span>Stop</span><span>See what it did</span></div>
+    </div>
+    <div class="cbody">
+      <h3>D · Standing Orders</h3>
+      <dl class="kv">
+        <dt>Metaphor</dt><dd>A household ledger of written instructions. You set rules and ceilings. A bounded agent carries them out and logs each act.</dd>
+        <dt>Discovery</dt><dd>Templates for common instructions, such as “keep $500 as dollars and put the rest to work”.</dd>
+        <dt>Adapts by</dt><dd>Turning any one-off into a rule once it has a schedule or condition and a ceiling.</dd>
+        <dt>Breaks when</dt><dd>The person is new, because rules are the hardest thing to ask of a first-time user. It does nothing for one-off needs. The scheduler and limit enforcement are the least finished part of the stack.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="mock">
+      <svg viewBox="0 0 300 170" role="img" aria-label="A timeline. Past payments sit to the left of now. Scheduled payments and a growth curve sit to the right.">
+        <path class="mk-l" d="M10 112 H290"/>
+        <path class="mk-pl" d="M118 34 V136"/><text class="mk-p" x="118" y="26" text-anchor="middle">now</text>
+        <circle class="mk-d" cx="34" cy="112" r="4"/><circle class="mk-d" cx="66" cy="112" r="4"/><circle class="mk-d" cx="96" cy="112" r="4"/>
+        <text class="mk-m" x="34" y="130" text-anchor="middle">paid</text><text class="mk-m" x="66" y="130" text-anchor="middle">got</text><text class="mk-m" x="96" y="130" text-anchor="middle">paid</text>
+        <circle class="mk-on" cx="170" cy="112" r="5"/><text class="mk-t" x="170" y="130" text-anchor="middle">Fri · $50</text>
+        <circle class="mk-on" cx="242" cy="112" r="5"/><text class="mk-t" x="242" y="130" text-anchor="middle">1st · rent</text>
+        <path class="mk-pl" stroke-dasharray="3 4" d="M118 96 C180 92 230 78 290 58"/>
+        <text class="mk-m" x="288" y="50" text-anchor="end">if put to work</text>
+        <path class="mk-l" stroke-dasharray="3 4" d="M236 152 H126"/><path class="mk-l" d="M132 147 L126 152 L132 157"/>
+        <text class="mk-m" x="240" y="156">borrow</text>
+      </svg>
+    </div>
+    <div class="cbody">
+      <h3>E · The Horizon</h3>
+      <dl class="kv">
+        <dt>Metaphor</dt><dd>Money laid along time. Behind you, what happened. At the line, what you can spend. Ahead, what is promised, scheduled or growing.</dd>
+        <dt>Discovery</dt><dd>Tap any point ahead to see what could sit there: a payment due, a balance if money were put to work, a loan pulling future money back to today.</dd>
+        <dt>Adapts by</dt><dd>Treating paying as placing money at now, saving as placing it ahead, and borrowing as dragging it backward with the cost drawn as slope.</dd>
+        <dt>Breaks when</dt><dd>The intention is not time-shaped. Paying a friend today and asking a private question gain nothing from an axis.</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- 4 JOURNEYS -->
+<section id="journeys">
+  <div class="head">
+    <p class="eyebrow">4 · Journeys</p>
+    <h2>A first-time user, eight real tasks</h2>
+    <p class="lede">Ana has never used crypto. A friend sent her 0.0089 bitcoin last month and she has $412 in digital dollars. The Table and the Horizon are left out here. The verdict explains why.</p>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Concept">
+    <button type="button" role="tab" id="t-s" aria-controls="p-s" aria-selected="true">The Sentence</button>
+    <button type="button" role="tab" id="t-m" aria-controls="p-m" aria-selected="false">Moments</button>
+    <button type="button" role="tab" id="t-o" aria-controls="p-o" aria-selected="false">Standing Orders</button>
+  </div>
+
+  <div role="tabpanel" id="p-s" aria-labelledby="t-s">
+    <article class="j">
+      <header><h3>Pay a friend who wants dollars, using bitcoin</h3><span class="count">3 decisions</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Taps “Maya asked you for $40”.</div><div><span class="lab">On screen</span>“Pay Maya $40 from my bitcoin, openly.” Every underlined word can be changed.</div><div><span class="lab">Behind it</span>Maya’s request supplies who and how much. Bitcoin is chosen because it is most of what Ana holds. A dry quote is fetched.</div></li>
+        <li><div><span class="lab">Ana</span>Reads. She may tap “openly” and choose “privately”.</div><div><span class="lab">On screen</span>Maya gets $40.00 exactly. Leaves you 0.00041 bitcoin, cost of 10¢ included. Arrives in about 20 seconds. Once it arrives, only Maya can send it back.</div><div><span class="lab">Behind it</span>Each change re-quotes. The price shown is held for 30 seconds.</div></li>
+        <li><div><span class="lab">Ana</span>Holds the sign bar, then uses her fingerprint.</div><div><span class="lab">On screen</span>Three steps tick off. Then “You paid Maya $40.00.”</div><div><span class="lab">Behind it</span>One intent is signed with the passkey. A market maker delivers dollars on Maya’s network.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> If no one will deliver at the quoted price, nothing leaves and the screen offers a fresh price. That holds when the money already sits in the account, because the intent settles all at once or not at all. Paying from an outside wallet is different: the money is sent first and returns as a refund, which can take minutes and cost a network fee. The screen has to say which case applies.</p>
+      <p class="jnote"><b>What can’t be undone.</b> A delivered payment. That line is on screen in red before signing. A first payment to a new address adds a fourth step: $1 goes first and the rest follows once it lands.</p>
+    </article>
+    <article class="j">
+      <header><h3>Get paid by someone who uses different money</h3><span class="count">2 decisions</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Taps “get paid”.</div><div><span class="lab">On screen</span>“Ask anyone with the link for $120, paid to me as dollars.”</div><div><span class="lab">Behind it</span>Nothing yet. No quote exists until a payer shows up.</div></li>
+        <li><div><span class="lab">Ana</span>Taps “Create the request”. No hold, since nothing leaves her account.</div><div><span class="lab">On screen</span>A link and a code to share. Under Standing: “Waiting for $120.”</div><div><span class="lab">Behind it</span>The payer opens the link, sees “Pay Ana $120 with…” and picks what they hold. A quote and a one-time deposit address are created for them at that point.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> A payer who sends too little gets it back after the deadline. One who sends too much gets the extra back. If nobody pays, the link expires. These refund rules exist in the API today. The link service around them does not.</p>
+    </article>
+    <article class="j">
+      <header><h3>Borrow without selling</h3><span class="count">4 decisions</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Taps “borrow”.</div><div><span class="lab">On screen</span>“Borrow $200 against my bitcoin.”</div><div><span class="lab">Behind it</span>The most she can borrow is worked out from what she holds, so larger amounts are not offered.</div></li>
+        <li><div><span class="lab">Ana</span>Reads.</div><div><span class="lab">On screen</span>You get $200 now. 0.00408 bitcoin is set aside and stays yours. About 6.2% a year. If bitcoin falls below $58,800, your bitcoin is sold to repay.</div><div><span class="lab">Behind it</span>The sale price comes from the lender’s rules and today’s price.</div></li>
+        <li><div><span class="lab">Ana</span>Ticks “I understand my bitcoin can be sold if its price falls.”</div><div><span class="lab">On screen</span>The sign bar unlocks.</div><div><span class="lab">Behind it</span>Nothing. This step exists for Ana.</div></li>
+        <li><div><span class="lab">Ana</span>Holds for a second and a half, then fingerprint.</div><div><span class="lab">On screen</span>“You borrowed $200 against your bitcoin.” It now sits under Standing with a Repay button.</div><div><span class="lab">Behind it</span>Bitcoin is locked with the lender and dollars arrive.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> As the price nears the line, Ana is warned at 25% and 10% above it, each time with two ready sentences: “Repay $200” and “Set aside more bitcoin”.</p>
+      <p class="jnote"><b>What can’t be undone.</b> A forced sale. This is the journey where I would refuse to hit three.</p>
+    </article>
+    <article class="j">
+      <header><h3>Ask something private, with no money at all</h3><span class="count">1 decision</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Taps “Ask privately about a medical result”, then “Start asking”.</div><div><span class="lab">On screen</span>Read by only you. The hardware signs a proof for each answer. Needs no money in your account.</div><div><span class="lab">Behind it</span>The proof from the sealed hardware is checked before a single word is sent.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> If the proof does not check out, nothing is sent and the screen says so: “We could not confirm this session is sealed, so your question was not sent.” The screen also says an AI can be wrong, because privacy does nothing for accuracy.</p>
+    </article>
+  </div>
+
+  <div role="tabpanel" id="p-m" aria-labelledby="t-m" hidden>
+    <article class="j">
+      <header><h3>Pay at a café</h3><span class="count">2 decisions</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Points her camera at the code on the counter.</div><div><span class="lab">On screen</span>A sheet over the camera: “Pay Café Orla $4.50 from my dollars.” Leaves you $4.50.</div><div><span class="lab">Behind it</span>The code carries the café’s request: the amount and what they accept.</div></li>
+        <li><div><span class="lab">Ana</span>Holds, then fingerprint.</div><div><span class="lab">On screen</span>“You paid Café Orla $4.50.” The sheet closes.</div><div><span class="lab">Behind it</span>The same intent as any other payment.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> A code that is not a payment request gets a plain description and no action. A place Ana has never paid shows “first time paying here” and the name the code claims, marked unverified.</p>
+      <p class="jnote"><b>Feasibility.</b> The payment works today. Merchants issuing these codes do not exist yet, and that is a distribution problem design cannot solve.</p>
+    </article>
+    <article class="j">
+      <header><h3>Money arrives and she doesn’t know what to do with it</h3><span class="count">2 decisions</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Opens a notification: “0.0089 bitcoin arrived from Leo, about $872.”</div><div><span class="lab">On screen</span>Three ready sentences: “Keep it as bitcoin.” “Change it into dollars.” “Put it to work.”</div><div><span class="lab">Behind it</span>The arrival is the trigger. Each option is a dry quote.</div></li>
+        <li><div><span class="lab">Ana</span>Picks one and signs. Keeping it needs no signature.</div><div><span class="lab">On screen</span>The past-tense receipt.</div><div><span class="lab">Behind it</span>An ordinary change or earn request.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> If Ana ignores it, nothing happens, which is the right default. The real risk is commercial: this pattern is easy to turn into upselling. The rule should be that a moment is offered once and never repeated after dismissal.</p>
+    </article>
+  </div>
+
+  <div role="tabpanel" id="p-o" aria-labelledby="t-o" hidden>
+    <article class="j">
+      <header><h3>Buy a little bitcoin every week</h3><span class="count">4 decisions</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Picks the template.</div><div><span class="lab">On screen</span>“Every Friday, change $50 of my dollars into bitcoin.”</div><div><span class="lab">Behind it</span>Nothing yet.</div></li>
+        <li><div><span class="lab">Ana</span>Sets a ceiling.</div><div><span class="lab">On screen</span>“…never more than $200 a month.”</div><div><span class="lab">Behind it</span>The ceiling becomes part of the permission, so it is enforced by the network and not by the app.</div></li>
+        <li><div><span class="lab">Ana</span>Reads two lists.</div><div><span class="lab">On screen</span>Can: change dollars into bitcoin on Fridays, up to the ceiling. Can never: send money to anyone, raise its own ceiling, touch anything else.</div><div><span class="lab">Behind it</span>The lists are generated from the permission itself.</div></li>
+        <li><div><span class="lab">Ana</span>Holds for a second and a half, then fingerprint.</div><div><span class="lab">On screen</span>The order appears under Standing with a Stop button and a log.</div><div><span class="lab">Behind it</span>A key limited to that one action is issued to an agent running in sealed hardware.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> A Friday with too few dollars is skipped and reported. The order never borrows from elsewhere. If the agent is offline, nothing happens and the missed run is shown.</p>
+      <p class="jnote"><b>What can’t be undone.</b> Past purchases stand. Stopping removes the key, so the order cannot run again.</p>
+      <p class="jnote"><b>Feasibility.</b> Limited keys and sealed agent runtimes exist. A scheduler with these guarantees, built for consumers, does not. “When bitcoin is under $90,000” needs none of this and is live through the order API.</p>
+    </article>
+    <article class="j">
+      <header><h3>Keep $500 ready and let the rest earn</h3><span class="count">4 decisions</span></header>
+      <ol class="jsteps">
+        <li><div><span class="lab">Ana</span>Picks the template.</div><div><span class="lab">On screen</span>“Keep $500 as dollars. Put anything above that to work.”</div><div><span class="lab">Behind it</span>Nothing yet.</div></li>
+        <li><div><span class="lab">Ana</span>Chooses where.</div><div><span class="lab">On screen</span>One lender, named, with today’s rate and the line “not a bank, no deposit insurance”.</div><div><span class="lab">Behind it</span>The lender is fixed in the permission. The agent cannot pick another.</div></li>
+        <li><div><span class="lab">Ana</span>Reads can and can never.</div><div><span class="lab">On screen</span>Can: move dollars between your account and this one lender. Can never: send money to anyone or choose a different lender.</div><div><span class="lab">Behind it</span>Generated from the permission.</div></li>
+        <li><div><span class="lab">Ana</span>Holds, then fingerprint.</div><div><span class="lab">On screen</span>Under Standing: “$500 is kept ready. $0 is at work.”</div><div><span class="lab">Behind it</span>A watcher checks her balance and moves the difference.</div></li>
+      </ol>
+      <p class="jnote"><b>If it goes wrong.</b> If the lender pauses withdrawals, the order pauses and says so. Ana is trusting an ongoing judgement here, which earns her a monthly statement in plain words.</p>
+      <p class="jnote"><b>Feasibility.</b> This is the most useful rule in the set and the furthest from shippable.</p>
+    </article>
+  </div>
+</section>
+
+<!-- 5 VERDICT -->
+<section id="verdict">
+  <div class="head">
+    <p class="eyebrow">5 · Verdict</p>
+    <h2>The Sentence wins, and takes two things from the others</h2>
+    <p class="lede">Scores run from 1 to 5 and are unweighted. Doubling the weight on originality lifts the Table and the Horizon, and both still lose on room to grow.</p>
+  </div>
+  <div class="scroll">
+    <table class="matrix" style="min-width:780px">
+      <thead><tr><th>Concept</th><th>Simplicity</th><th>Discoverability</th><th>Originality</th><th>Feasibility</th><th>Usefulness</th><th>Room to grow</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td class="n">A · The Sentence</td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:5">5</span></td><td><span class="sc" style="--v:5">5</span></td><td><span class="sc" style="--v:5">5</span></td><td class="tot">25</td></tr>
+        <tr><td class="n">B · The Table</td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:5">5</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:2">2</span></td><td class="tot">20</td></tr>
+        <tr><td class="n">C · Moments</td><td><span class="sc" style="--v:5">5</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:4">4</span></td><td class="tot">22</td></tr>
+        <tr><td class="n">D · Standing Orders</td><td><span class="sc" style="--v:2">2</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:2">2</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:3">3</span></td><td class="tot">18</td></tr>
+        <tr><td class="n">E · The Horizon</td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:5">5</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:3">3</span></td><td><span class="sc" style="--v:2">2</span></td><td class="tot">20</td></tr>
+        <tr class="pick"><td class="n">Recommended: A, with C as its front door and D as a tense</td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:4">4</span></td><td><span class="sc" style="--v:5">5</span></td><td><span class="sc" style="--v:5">5</span></td><td class="tot">26</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="cols2">
+    <div>
+      <h3>Why the Sentence</h3>
+      <p>It is the only concept whose shape matches the protocol’s. An intent is a signed statement of an outcome, and so is the sentence. That makes it cheap to build on today’s API and it means the thing a person reads is the thing they sign.</p>
+      <p>It is also the only one that absorbs new capabilities without new screens. Privacy became one word. Standing orders became one blank.</p>
+    </div>
+    <div>
+      <h3>What it takes from the others</h3>
+      <ul>
+        <li><strong>From Moments:</strong> the cure for the blank page. The home view offers three sentences already written for this person, right now.</li>
+        <li><strong>From Standing Orders:</strong> the “can” and “can never” lists, the ceiling, and the one-tap stop, applied to any sentence with <span class="pen">every</span> or <span class="pen">when</span>.</li>
+        <li><strong>From the Horizon:</strong> nothing in the first version. It would make a good layout for the Standing view later.</li>
+        <li><strong>From the Table:</strong> nothing. Its strength is delight and its cost is everything else.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Why the usual patterns lose here</h3>
+      <p>A chat box and a command bar share the Sentence’s flexibility and neither can show what is possible before you type. Both also put a language model between the person and their money. The Sentence keeps language as the form and removes free text from the consent path.</p>
+    </div>
+    <div>
+      <h3>Where I am least sure</h3>
+      <p>Originality. Fill-in-the-blank forms are an old idea, and the novelty here is applying one to money and using tense as navigation. If testing shows people treat the sentence as a form to fill in, the fallback is Moments with the Sentence as its detail view.</p>
+    </div>
+  </div>
+
+  <div class="sub">
+    <p class="eyebrow">Product direction</p>
+    <h3 style="font-size:26px">Tense is the navigation</h3>
+    <p class="lede">The product has three places, and each one is a tense. There is no portfolio screen, no feature menu and no app directory. Identity, limits, recovery and proofs sit behind the person’s name.</p>
+  </div>
+  <div class="tenses">
+    <div class="tensecard">
+      <h3>Now</h3><p>What you could say. Imperative.</p>
+      <ul class="list">
+        <li><span class="say">Pay <span class="pen">Maya</span> <span class="pen">$40</span>.</span><span class="meta"><span>Maya asked you</span></span></li>
+        <li><span class="say">Put <span class="pen">$400</span> of my dollars to work.</span><span class="meta"><span>Idle for three weeks</span></span></li>
+        <li><span class="say">I want to <span class="pen">…</span></span><span class="meta"><span>Six verbs</span></span></li>
+      </ul>
+    </div>
+    <div class="tensecard">
+      <h3>Standing</h3><p>What is still in force. Present.</p>
+      <ul class="list">
+        <li><span class="say">Every Friday, $50 of your dollars becomes bitcoin.</span><span class="meta"><span>$150 of $200 this month</span><span>Stop</span></span></li>
+        <li><span class="say">$400 is at work, earning about 4.1% a year.</span><span class="meta"><span>Rate checked today</span><span>Take it out</span></span></li>
+        <li><span class="say">Waiting for $120 from anyone with the link.</span><span class="meta"><span>Expires in 19 hours</span><span>Cancel</span></span></li>
+      </ul>
+    </div>
+    <div class="tensecard">
+      <h3>Said</h3><p>What you signed. Past.</p>
+      <ul class="list">
+        <li><span class="say">You paid Maya $40.00.</span><span class="meta"><span>Today, 14:02</span><span>Say it again</span></span></li>
+        <li><span class="say">You received 0.0089 bitcoin from Leo.</span><span class="meta"><span>12 October</span></span></li>
+        <li><span class="say">You asked privately about a contract.</span><span class="meta"><span>9 October</span><span>Proof</span></span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sub"><h3>Words the surface uses</h3><p class="prose" style="color:var(--ink-2);font-size:15px">Plain word first. The exact term is one tap beneath it: tapping “dollars” shows “USDC on Base”.</p></div>
+  <div class="words">
+    <div><span>dollars</span><s>USDC, stablecoin</s></div>
+    <div><span>network</span><s>chain</s></div>
+    <div><span>change</span><s>swap, bridge</s></div>
+    <div><span>put to work</span><s>stake, yield, deposit</s></div>
+    <div><span>set aside</span><s>collateral</s></div>
+    <div><span>sold to repay</span><s>liquidated</s></div>
+    <div><span>cost</span><s>gas, fee, slippage</s></div>
+    <div><span>sign</span><s>approve transaction</s></div>
+    <div><span>account</span><s>wallet</s></div>
+    <div><span>proof</span><s>attestation</s></div>
+  </div>
+
+  <div class="sub"><h3>Visual principles</h3></div>
+  <ul class="rules">
+    <li><b>Pen and print</b>Words the person chose are set in pen, blue and italic. Everything the system promises is in print. You can always see which part was yours.</li>
+    <li><b>One sentence per screen, set large</b>The sentence is the layout. There are no feature tiles and no tabs of tools.</li>
+    <li><b>Consequences outrank controls</b>After the sentence, the outcome is the largest thing on screen. The sign bar comes last and stays plain.</li>
+    <li><b>Colour means consequence</b>Green for what arrives or stays yours. Amber for what may change or runs unattended. Red for what cannot be undone. Buttons carry no brand colour.</li>
+    <li><b>Friction you can see</b>A tap when nothing leaves. A hold of about a second for payments. A longer hold for loans and standing orders.</li>
+    <li><b>Precision on demand</b>The asset, network, lender, rate and proof are always one tap under the plain word, and never more than one.</li>
+  </ul>
+
+  <div class="sub"><h3>Trust rules that are not negotiable</h3></div>
+  <ul class="rules">
+    <li><b>The numbers shown are the numbers signed</b>Every change triggers a fresh dry quote, held for 30 seconds. If the price moves, the person is asked again.</li>
+    <li><b>The failure path is visible before signing</b>Each outcome says what happens if it fails and whether the money ever leaves.</li>
+    <li><b>A model may draft and never sign</b>Speech or a pasted invoice can fill the blanks. Consent is always given on the structured sentence.</li>
+    <li><b>New recipients get a test payment</b>One dollar first. The rest follows when it lands. This costs a fourth step on purpose.</li>
+    <li><b>Standing orders list what they can never do</b>The list is generated from the permission. Stop is one tap. A statement arrives monthly.</li>
+    <li><b>Private means what it says</b>“No public record” is accurate. “Nobody can see” is not, since operators and screening still do. The surface uses the accurate line.</li>
+  </ul>
+
+  <div class="sub"><h3>What to build, in order</h3></div>
+  <div class="phases">
+    <div>
+      <h3>First: existing rails only</h3>
+      <ul>
+        <li>Account opened with a passkey</li>
+        <li>Pay, change now, change when, grow, ask</li>
+        <li>Said, as the receipt history</li>
+      </ul>
+      <p>New work is the sentence engine, templates for each language, and the renderer that turns a quote into the six outcome lines.</p>
+    </div>
+    <div>
+      <h3>Next: thin services</h3>
+      <ul>
+        <li>Request links, for get paid</li>
+        <li>Test payments to new recipients</li>
+        <li>Borrow, through Templar</li>
+        <li>Moments from in-app events</li>
+      </ul>
+      <p>Each one wraps something that already runs. None needs protocol changes.</p>
+    </div>
+    <div>
+      <h3>Later: new infrastructure</h3>
+      <ul>
+        <li>Recurring standing orders with limited keys and a sealed scheduler</li>
+        <li>The verb “let”, for assistants</li>
+        <li>Hiring an agent, with escrow</li>
+        <li>Bank money in and out</li>
+      </ul>
+      <p>These depend on partners and on parts of the stack that are still developer tools.</p>
+    </div>
+  </div>
+
+  <div class="cols2">
+    <div>
+      <h3>Open risks</h3>
+      <ul>
+        <li><strong>Money in.</strong> Without a bank on-ramp this serves people who already hold crypto or get paid in it.</li>
+        <li><strong>The word dollars.</strong> USDC is not a bank balance. The first encounter should say “digital dollars, issued by Circle”, and legal review may insist on it everywhere.</li>
+        <li><strong>A ceiling on verbs.</strong> Past about nine, the first blank turns into a menu and the model fails its own clutter test.</li>
+        <li><strong>Languages.</strong> Word order and inflection differ. Each locale needs hand-built templates.</li>
+        <li><strong>Regulation.</strong> Earning and borrowing are regulated in many places and will need gating by country.</li>
+        <li><strong>Custody.</strong> Balances sit in a contract account, and private mode relies on a permissioned operator set. The surface must not imply bank-style protection.</li>
+        <li><strong>Lost devices.</strong> Passkey recovery has to exist before launch.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What to test first</h3>
+      <p>Five people who have never held crypto, one prototype, five questions.</p>
+      <ul>
+        <li>After paying Maya, can they say what she received and what they gave up without looking?</li>
+        <li>Can they work out how to get paid without being told the verb?</li>
+        <li>Do they notice the red line on borrowing, and can they explain it back?</li>
+        <li>Do they believe “read by only you”? What would make them?</li>
+        <li>Where do they look for something they did yesterday?</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="sources">
+  <div class="head"><p class="eyebrow">Sources</p><h2>What the research rests on</h2>
+  <p class="aside" style="margin-top:0">Checked in November 2026. Volume, user and adoption figures come from NEAR’s own announcements or secondary reporting and are not independently verified. Rates and prices in the prototype are examples.</p></div>
+  <ol class="sources">
+    <li><a href="https://docs.near-intents.org/resources/chain-support">NEAR Intents docs: supported chains and signing standards</a></li>
+    <li><a href="https://docs.near-intents.org/integration/distribution-channels/1click-api/swap-types">NEAR Intents docs: swap types and refund rules</a></li>
+    <li><a href="https://docs.near-intents.org/api-reference/oneclick/request-a-swap-quote">NEAR Intents docs: request a quote, dry quotes, confidentiality</a></li>
+    <li><a href="https://docs.near-intents.org/integration/distribution-channels/1click-api/earn">NEAR Intents docs: Earn</a></li>
+    <li><a href="https://docs.near-intents.org/integration/distribution-channels/1click-api/quickstart/confidential-swaps">NEAR Intents docs: confidential swaps</a></li>
+    <li><a href="https://docs.near-intents.org/resources/fees">NEAR Intents docs: fees</a></li>
+    <li><a href="https://tools.prnewswire.com/en-us/live/20813/release/20260225EN95768">NEAR press release, 25 February 2026: near.com, Confidential Intents, IronClaw</a></li>
+    <li><a href="https://www.coindesk.com/business/2026/02/23/near-launches-near-com-super-app-touting-ai-capabilities-and-confidential-transactions">CoinDesk: NEAR launches near.com</a></li>
+    <li><a href="https://www.pymnts.com/blockchain/2026/near-unveils-super-app-to-centralize-crypto-activities/">PYMNTS: near.com features and roadmap</a></li>
+    <li><a href="https://phemex.com/academy/near-intents-explained-swap-fees">Phemex: NEAR Intents volume and network count, September 2026</a></li>
+    <li><a href="https://glitchwire.com/news/nears-confidential-intents-reaches-general-availability-bringing-privacy-infrast/">Glitchwire: Confidential Intents general availability</a></li>
+    <li><a href="https://near.ai/blog/near-ai-launches-ironclaw-confidential-gpu-marketplace-and-multimodal-confidential-inference">NEAR AI: IronClaw and confidential inference</a></li>
+    <li><a href="https://near.ai/blog/introducing-near-ai-agent-market">NEAR AI: Agent Market</a></li>
+    <li><a href="https://docs.near.org/ai/shade-agents/concepts/framework-overview">NEAR docs: Shade Agents</a></li>
+    <li><a href="https://bitcoinmagazine.com/news/templar-launches-native-bitcoin-lending-without-intermediaries">Bitcoin Magazine: Templar mainnet</a></li>
+    <li><a href="https://defillama.com/protocol/templar-protocol">DefiLlama: Templar active loans</a></li>
+    <li><a href="https://pro.edgex.exchange/en-US/news/article/near-chain-signatures-cross-chain-transfers">CoinTrust via edgeX: Chain Signatures and passkey accounts, September 2026</a></li>
+    <li><a href="https://www.ledger.com/blog-near-intents-joins-ledger-wallet-via-swapkit">Ledger: NEAR Intents in Ledger Wallet</a></li>
+  </ol>
+</section>
+
+<footer>A design exploration. It is independent of NEAR and describes no shipped product.</footer>
+</div>
+
+<script>
+(function(){
+  var BTC=98000, ETH=3400, PRICE={usd:1,btc:BTC,eth:ETH}, ASSET={usd:'dollars',btc:'bitcoin',eth:'ether'};
+  var NAMES={maya:'Maya',dad:'Dad','new':'0x71…9c4e'};
+  function usd(n){return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function cents(n){return n<1?Math.round(n*100)+'¢':usd(n);}
+  function coin(n,d){return n.toFixed(d||5);}
+
+  var V={
+    pay:{chip:'pay',
+      parts:['Pay ','who',' ','amt',' from ','from',', ','how','.'],
+      slots:{
+        who:{cap:'to',opts:[['maya','Maya'],['dad','Dad'],['new','0x71…9c4e']]},
+        amt:{cap:'amount',opts:[[10,'$10'],[40,'$40'],[120,'$120']]},
+        from:{cap:'from',opts:[['btc','my bitcoin'],['usd','my dollars']]},
+        how:{cap:'seen by',opts:[['open','openly'],['priv','privately']]}},
+      def:{who:'maya',amt:40,from:'btc',how:'open'},
+      out:function(v){
+        var n=NAMES[v.who], isNew=v.who==='new';
+        var cost=Math.max(.02,+(v.amt*(v.from==='btc'?.0025:.001)).toFixed(2));
+        var leaves=v.from==='btc'
+          ? coin((v.amt+cost)/BTC)+' bitcoin<small>about '+usd(v.amt+cost)+', cost of '+cents(cost)+' included</small>'
+          : usd(v.amt+cost)+'<small>cost of '+cents(cost)+' included</small>';
+        var rows=[
+          [isNew?'They get':n+' gets', usd(v.amt)+' exactly, as dollars<small>on the network '+(isNew?'this address':n)+' uses</small>','ok'],
+          ['Leaves you',leaves],
+          ['Arrives','in about 20 seconds'],
+          ['Seen by',v.how==='open'?'anyone who looks it up<small>amount and addresses are public</small>':'you and '+(isNew?'them':n)+'<small>no public record</small>'],
+          ['If it fails','nothing leaves your account'],
+          ['Once it arrives','only '+(isNew?'they':n)+' can send it back','stop']];
+        if(isNew) rows.splice(1,0,['First time','$1.00 goes first. The rest follows when it lands.','warn']);
+        return {rows:rows,cta:'Hold to sign',hold:900,
+          steps:['Confirming it’s you',v.from==='btc'?'Changing bitcoin into dollars':'Sending your dollars',isNew?'Arriving at '+n:'Arriving with '+n],
+          past:'You paid '+n+' '+usd(v.amt)+'.',
+          fail:(isNew?'The address':n)+' was not paid. Nothing left your account.',
+          why:'No one would deliver at the price you were shown.',retry:'See a fresh price'};
+      }},
+    getpaid:{chip:'get paid',
+      parts:['Ask ','who',' for ','amt',', paid to me as ','as','.'],
+      slots:{
+        who:{cap:'from',opts:[['any','anyone with the link'],['maya','Maya']]},
+        amt:{cap:'amount',opts:[[40,'$40'],[120,'$120'],[600,'$600']]},
+        as:{cap:'receive as',opts:[['usd','dollars'],['btc','bitcoin']]}},
+      def:{who:'any',amt:120,as:'usd'},
+      out:function(v){
+        var who=v.who==='any'?'anyone with the link':'Maya';
+        return {rows:[
+          ['They pay with','whatever they have<small>30+ networks, any common currency</small>'],
+          ['You get',v.as==='usd'?usd(v.amt)+' as dollars':usd(v.amt)+' worth of bitcoin<small>priced when they pay</small>','ok'],
+          ['The link','works once, for 24 hours'],
+          ['Costs you','nothing<small>the payer covers the cost</small>'],
+          ['If nobody pays','the link expires and nothing else happens']],
+          cta:'Create the request',hold:0,steps:['Writing the request'],
+          past:'You asked '+who+' for '+usd(v.amt)+'.',
+          after:'Share the link. The request waits under Standing until it is paid.',
+          standing:{t:'Waiting for '+usd(v.amt)+' from '+who+'.',m:'Expires in 24 hours',stop:'Cancel',ended:'You cancelled a request for '+usd(v.amt)+'.'},
+          fail:'The request was not created. Nothing was sent or received.',
+          why:'The service that issues request links did not answer.'};
+      }},
+    change:{chip:'change',
+      parts:['Change ','amt',' of ','from',' into ','to',', ','when','.'],
+      slots:{
+        amt:{cap:'amount',opts:[[50,'$50'],[200,'$200']]},
+        from:{cap:'from',opts:[['usd','my dollars'],['btc','my bitcoin']]},
+        to:{cap:'into',opts:[['btc','bitcoin'],['usd','dollars'],['eth','ether']]},
+        when:{cap:'when',opts:[['now','now'],['fri','every Friday'],['dip','when bitcoin is under $90,000']]}},
+      def:{amt:50,from:'usd',to:'btc',when:'now'},
+      fix:function(v,k){ if(v.from===v.to){ if(k==='from') v.to=v.from==='usd'?'btc':'usd'; else v.from=v.to==='usd'?'btc':'usd'; } },
+      out:function(v){
+        var cost=+(v.amt*.002).toFixed(2), net=v.amt-cost, to=ASSET[v.to], from=ASSET[v.from];
+        var qty=v.to==='usd'?usd(net):coin(net/PRICE[v.to],v.to==='eth'?4:5)+' '+to;
+        if(v.when==='fri') return {rows:[
+            ['Each Friday',usd(v.amt)+' of your '+from+' becomes '+to+'<small>at that day’s price</small>'],
+            ['It can only','do this one thing. It cannot send money to anyone.','ok'],
+            ['Ceiling','stops at '+usd(v.amt*4)+' a month'],
+            ['Runs','without asking you each time','warn'],
+            ['Stop it','any time, under Standing']],
+          cta:'Hold to sign a standing order',hold:1500,
+          steps:['Confirming it’s you','Writing the ceiling into your account','Scheduled for Friday'],
+          past:'You set a standing order: '+usd(v.amt)+' into '+to+' every Friday.',
+          after:'It lives under Standing, where you can stop it.',
+          standing:{t:'Every Friday, '+usd(v.amt)+' of your '+from+' becomes '+to+'.',m:'$0 of '+usd(v.amt*4)+' this month',stop:'Stop',ended:'You stopped the Friday order.'},
+          fail:'The standing order was not set. Nothing will run.',why:'The ceiling could not be written, so no permission was given.'};
+        if(v.when==='dip') return {rows:[
+            ['Waits until','bitcoin is under $90,000'],
+            ['Then','changes '+usd(v.amt)+' of your '+from+' into '+to],
+            ['Until then','your money stays where it is','ok'],
+            ['Might','never happen','warn'],
+            ['Cancel','any time, under Standing']],
+          cta:'Hold to sign',hold:900,steps:['Confirming it’s you','Instruction recorded'],
+          past:'You left an instruction: change '+usd(v.amt)+' into '+to+' when bitcoin is under $90,000.',
+          after:'It waits under Standing until the price is met or you cancel.',
+          standing:{t:'When bitcoin is under $90,000, '+usd(v.amt)+' of your '+from+' becomes '+to+'.',m:'Waiting',stop:'Cancel',ended:'You cancelled a waiting instruction.'},
+          fail:'The instruction was not recorded. Nothing is waiting.',why:'The order service did not accept it.'};
+        return {rows:[
+            ['You get',qty,'ok'],
+            ['Leaves you',usd(v.amt)+' of your '+from+'<small>cost of '+cents(cost)+' included</small>'],
+            ['Takes','about 10 seconds'],
+            ['If the price moves','you are asked again before anything happens'],
+            ['Afterwards','you can change it back, at that day’s price']],
+          cta:'Hold to sign',hold:900,steps:['Confirming it’s you','Changing '+from+' into '+to,'Arrived in your account'],
+          past:'You changed '+usd(v.amt)+' of your '+from+' into '+to+'.',
+          fail:'Nothing was changed. Your '+from+' is where it was.',why:'The price moved before it could be delivered.',retry:'See a fresh price'};
+      }},
+    grow:{chip:'grow',
+      parts:['Put ','amt',' of my dollars to work.'],
+      slots:{amt:{cap:'amount',opts:[[100,'$100'],[400,'$400']]}},
+      def:{amt:400},
+      out:function(v){
+        return {rows:[
+            ['Earns','about 4.1% a year today<small>the rate moves daily</small>'],
+            ['On '+usd(v.amt),'roughly '+usd(v.amt*.041)+' a year'],
+            ['Take it out','any time, in about a minute','ok'],
+            ['Run by','Gauntlet, on Morpho<small>an independent lender</small>'],
+            ['Not a bank','no deposit insurance. You could lose money.','stop']],
+          cta:'Hold to sign',hold:900,steps:['Confirming it’s you','Moving your dollars','Now earning'],
+          past:'You put '+usd(v.amt)+' to work.',
+          after:'It lives under Standing, where you can take it out.',
+          standing:{t:usd(v.amt)+' is at work, earning about 4.1% a year.',m:'Rate checked today',stop:'Take it out',ended:'You took '+usd(v.amt)+' out.'},
+          fail:'Nothing was moved. Your '+usd(v.amt)+' is where it was.',why:'The lender had no room for new money.'};
+      }},
+    borrow:{chip:'borrow',
+      parts:['Borrow ','amt',' against ','against','.'],
+      slots:{amt:{cap:'amount',opts:[[100,'$100'],[200,'$200'],[400,'$400']]},against:{cap:'set aside',opts:[['btc','my bitcoin']]}},
+      def:{amt:200,against:'btc'},
+      out:function(v){
+        return {rows:[
+            ['You get',usd(v.amt)+' now, as dollars','ok'],
+            ['Set aside',coin(2*v.amt/BTC)+' bitcoin<small>about '+usd(2*v.amt)+'. It stays yours.</small>'],
+            ['Costs','about 6.2% a year<small>'+usd(v.amt*.062/12)+' a month</small>'],
+            ['Repay','any time, and your bitcoin is released'],
+            ['If bitcoin falls below $58,800','your bitcoin is sold to repay. This cannot be reversed.','stop']],
+          ack:'I understand my bitcoin can be sold if its price falls.',
+          cta:'Hold to sign',hold:1500,steps:['Confirming it’s you','Setting your bitcoin aside','Dollars arriving'],
+          past:'You borrowed '+usd(v.amt)+' against your bitcoin.',
+          after:'The loan lives under Standing, where you can repay it.',
+          standing:{t:'You owe '+usd(v.amt)+'. '+coin(2*v.amt/BTC)+' bitcoin is set aside.',m:'Sold if bitcoin falls below $58,800',stop:'Repay',ended:'You repaid '+usd(v.amt)+'. Your bitcoin was released.'},
+          fail:'No loan was made. Your bitcoin was not touched.',why:'The lender could not fund it at the rate you were shown.',retry:'See a fresh rate'};
+      }},
+    ask:{chip:'ask',
+      parts:['Ask privately about ','topic','.'],
+      slots:{topic:{cap:'about',opts:[['med','a medical result'],['debt','money I owe'],['contract','a contract I was sent']]}},
+      def:{topic:'med'},
+      out:function(){
+        return {rows:[
+            ['Read by','only you<small>not us, and not the company running the computers</small>','ok'],
+            ['How you know','the hardware signs a proof for each answer'],
+            ['Kept','on this device only'],
+            ['Needs','no money in your account'],
+            ['Still true','an AI can be wrong. Treat answers as a second opinion.','warn']],
+          cta:'Start asking',hold:0,steps:['Checking the proof','Sealed session open'],
+          past:'You opened a private session.',
+          after:'The prototype stops here. No model is connected.',
+          fail:'We could not confirm this session is sealed, so nothing was sent.',why:'The proof from the hardware did not check out.'};
+      }}
+  };
+
+  var S={view:'home',verb:null,vals:{},open:null,fail:false,ack:false,step:0,timer:null,forms:false,
+    standing:[],
+    said:[{t:'You received 0.0089 bitcoin from Leo.',d:'12 October'},{t:'You paid Dad $25.00.',d:'3 October'}]};
+  var scr=document.getElementById('screen'), tense=document.getElementById('tense'), stcount=document.getElementById('stcount');
+
+  function label(verb,k,val){var o=V[verb].slots[k].opts;for(var i=0;i<o.length;i++){if(o[i][0]===val)return o[i][1];}return '';}
+  function sentence(verb,vals,live){
+    var d=V[verb];
+    return d.parts.map(function(p){
+      var s=d.slots[p]; if(!s) return p;
+      var t=label(verb,p,vals[p]);
+      return live
+        ? '<button type="button" class="slot" data-slot="'+p+'" aria-expanded="'+(S.open===p)+'"><i>'+t+'</i><span>'+s.cap+'</span></button>'
+        : '<span class="pen">'+t+'</span>';
+    }).join('');
+  }
+  function out(){return V[S.verb].out(S.vals);}
+  function moment(verb,vals,why){
+    var all={};var d=V[verb].def;for(var k in d)all[k]=d[k];for(var j in vals)all[j]=vals[j];
+    return '<button type="button" class="moment" data-go="'+verb+'" data-vals=\''+JSON.stringify(vals)+'\'><span class="why">'+why+'</span><span class="say">'+sentence(verb,all,false)+'</span></button>';
+  }
+
+  var views={
+    home:function(){
+      return '<div class="total"><span class="cap">You have</span><div class="big">$1,284.40</div>'+
+        '<button type="button" class="link" data-act="forms" aria-expanded="'+S.forms+'">'+(S.forms?'Hide the breakdown':'In two forms')+'</button>'+
+        (S.forms?'<p class="forms">$412.20 in digital dollars (USDC)<br>0.0089 bitcoin, about $872.20</p>':'')+'</div>'+
+        '<div class="cap">Right now</div>'+
+        moment('pay',{who:'maya',amt:40},'Maya asked you for $40')+
+        moment('grow',{amt:400},'$412 has sat still for three weeks')+
+        moment('ask',{},'Works with no money in your account')+
+        '<div class="cap">Or say something else</div>'+
+        '<p class="verbs">I want to '+Object.keys(V).map(function(k){return '<button type="button" class="verb" data-go="'+k+'">'+V[k].chip+'</button>';}).join(' ')+'</p>';
+    },
+    compose:function(){
+      var d=V[S.verb], o=out();
+      var tray=S.open
+        ? '<div class="tray" role="group" aria-label="Choices">'+d.slots[S.open].opts.map(function(x){return '<button type="button" class="opt" data-opt="'+x[0]+'" aria-pressed="'+(S.vals[S.open]===x[0])+'">'+x[1]+'</button>';}).join('')+'</div>'
+        : '<p class="hint">Tap any underlined word to change it.</p>';
+      return '<button type="button" class="link back" data-tab="home">← Now</button>'+
+        '<div class="cap">Say</div><p class="sentence">'+sentence(S.verb,S.vals,true)+'</p>'+tray+
+        '<div class="cap">See</div><dl class="outcome">'+o.rows.map(function(r){return '<dt>'+r[0]+'</dt><dd class="'+(r[2]?'t-'+r[2]:'')+'">'+r[1]+'</dd>';}).join('')+'</dl>'+
+        (o.ack?'<label class="ack"><input type="checkbox" id="ack"'+(S.ack?' checked':'')+'><span>'+o.ack+'</span></label>':'')+
+        '<div class="cap">Sign</div>'+
+        '<button type="button" class="sign" data-hold="'+o.hold+'" aria-disabled="'+(!!o.ack&&!S.ack)+'"><span class="fill"></span><span class="lbl">'+o.cta+'</span></button>'+
+        '<p class="hint" id="signhint" aria-live="polite">'+(o.hold?'Hold, then confirm with your fingerprint.':'Nothing leaves your account, so a tap is enough.')+'</p>'+
+        '<label class="sim"><input type="checkbox" id="simfail"'+(S.fail?' checked':'')+'><span>Demo: make this one fail</span></label>';
+    },
+    working:function(){
+      var o=out();
+      return '<div class="cap">Signed</div><p class="sentence quiet">'+sentence(S.verb,S.vals,false)+'</p>'+
+        '<ol class="steps">'+o.steps.map(function(s,i){var c=i<S.step?'done':i===S.step?'now':'todo';return '<li class="'+c+'"><span class="dot" aria-hidden="true">'+(i<S.step?'✓':'')+'</span>'+s+(i===S.step?'…':'')+'</li>';}).join('')+'</ol>'+
+        '<p class="hint">You can leave this screen. It finishes without you.</p>';
+    },
+    done:function(){
+      var o=out();
+      return '<div class="cap t-ok">Done, just now</div><p class="sentence plain">'+o.past+'</p>'+
+        '<dl class="outcome">'+o.rows.slice(0,2).map(function(r){return '<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>';}).join('')+'</dl>'+
+        '<p class="hint">'+(o.after||'It is recorded under Said.')+'</p>'+
+        '<div class="row"><button type="button" class="btn" data-tab="home">Back to Now</button><button type="button" class="btn ghost" data-act="again">Say it again</button></div>';
+    },
+    failed:function(){
+      var o=out();
+      return '<div class="cap t-stop">Did not go through</div><p class="sentence plain">'+o.fail+'</p>'+
+        '<p class="hint">'+o.why+' You were not charged.</p>'+
+        '<div class="row"><button type="button" class="btn" data-act="again">'+(o.retry||'Try again')+'</button><button type="button" class="btn ghost" data-tab="home">Back to Now</button></div>';
+    },
+    standing:function(){
+      if(!S.standing.length) return '<div class="cap">Standing</div><p class="sentence plain" style="font-size:20px">Nothing is standing yet.</p>'+
+        '<p class="hint">Anything you sign that keeps going lives here until you stop it: money at work, a loan, a request waiting to be paid, or a sentence with <span class="pen">every</span> or <span class="pen">when</span>.</p>'+
+        '<div class="row"><button type="button" class="btn ghost" data-go="change" data-vals=\'{"when":"fri"}\'>Try “every Friday”</button></div>';
+      return '<div class="cap">Still in force</div><ul class="list">'+S.standing.map(function(x,i){
+        return '<li><span class="say">'+x.t+'</span><span class="meta"><span>'+x.m+'</span><button type="button" class="mini" data-stop="'+i+'">'+x.stop+'</button></span></li>';}).join('')+'</ul>'+
+        '<p class="hint">In the product, stopping is itself a sentence you see and sign.</p>';
+    },
+    said:function(){
+      return '<div class="cap">What you signed</div><ul class="list">'+S.said.map(function(x){
+        return '<li><span class="say">'+x.t+'</span><span class="meta"><span>'+x.d+'</span></span></li>';}).join('')+'</ul>';
+    }
+  };
+
+  function render(){
+    scr.innerHTML=views[S.view]();
+    var bs=tense.querySelectorAll('button');
+    for(var i=0;i<bs.length;i++){
+      var t=bs[i].getAttribute('data-tab');
+      var on=t===S.view||(t==='home'&&S.view!=='standing'&&S.view!=='said');
+      bs[i].setAttribute('aria-current',on?'page':'false');
+    }
+    stcount.textContent=S.standing.length?S.standing.length:'';
+    bindSign();
+  }
+  function tab(v){clearTimeout(S.timer);S.view=v;S.open=null;render();}
+  function go(verb,vals){
+    var d=V[verb].def;S.verb=verb;S.vals={};for(var k in d)S.vals[k]=d[k];
+    if(vals)for(var j in vals)S.vals[j]=vals[j];
+    S.open=null;S.ack=false;S.view='compose';render();
+  }
+  function hint(t){var h=document.getElementById('signhint');if(h)h.textContent=t;}
+  function signed(){S.view='working';S.step=0;render();tick();}
+  function tick(){
+    var o=out(), n=o.steps.length, failAt=Math.min(1,n-1);
+    S.timer=setTimeout(function(){
+      if(S.fail&&S.step===failAt){S.view='failed';render();return;}
+      S.step++;
+      if(S.step>=n){
+        S.said.unshift({t:o.past,d:'Just now'});
+        if(o.standing)S.standing.unshift(o.standing);
+        S.view='done';render();return;
+      }
+      render();tick();
+    },950);
+  }
+  function bindSign(){
+    var b=scr.querySelector('.sign'); if(!b) return;
+    var dur=+b.getAttribute('data-hold'), fill=b.querySelector('.fill'), t=null;
+    function ready(){ if(b.getAttribute('aria-disabled')==='true'){hint('Tick the box above first.');return false;} return true; }
+    if(dur===0){ b.addEventListener('click',function(){ if(ready()) signed(); }); return; }
+    function start(){ if(t||!ready()) return; fill.style.transitionDuration=dur+'ms'; b.classList.add('holding'); t=setTimeout(function(){t=null;signed();},dur); }
+    function stop(){ if(!t) return; clearTimeout(t); t=null; fill.style.transitionDuration='150ms'; b.classList.remove('holding'); hint('Keep holding to sign.'); }
+    b.addEventListener('pointerdown',function(e){e.preventDefault();start();});
+    b.addEventListener('pointerup',stop); b.addEventListener('pointerleave',stop); b.addEventListener('pointercancel',stop);
+    b.addEventListener('keydown',function(e){ if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();start();} });
+    b.addEventListener('keyup',function(e){ if(e.key===' '||e.key==='Enter') stop(); });
+    b.addEventListener('contextmenu',function(e){e.preventDefault();});
+  }
+
+  scr.addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b||!scr.contains(b)) return;
+    var ds=b.dataset;
+    if(ds.go){ go(ds.go, ds.vals?JSON.parse(ds.vals):null); }
+    else if(ds.slot){ var k=ds.slot; S.open=S.open===k?null:k; render(); var f=scr.querySelector('[data-slot="'+k+'"]'); if(f)f.focus(); }
+    else if(ds.opt!==undefined){
+      var key=S.open, d=V[S.verb], o=d.slots[key].opts;
+      for(var i=0;i<o.length;i++){ if(String(o[i][0])===ds.opt){ S.vals[key]=o[i][0]; break; } }
+      if(d.fix)d.fix(S.vals,key);
+      S.open=null;S.ack=false;render();
+      var g=scr.querySelector('[data-slot="'+key+'"]'); if(g)g.focus();
+    }
+    else if(ds.tab){ tab(ds.tab); }
+    else if(ds.act==='forms'){ S.forms=!S.forms; render(); }
+    else if(ds.act==='again'){ S.view='compose'; S.ack=false; S.open=null; render(); }
+    else if(ds.stop!==undefined){ var x=S.standing.splice(+ds.stop,1)[0]; S.said.unshift({t:x.ended,d:'Just now'}); render(); }
+  });
+  scr.addEventListener('change',function(e){
+    if(e.target.id==='ack'){ S.ack=e.target.checked; var s=scr.querySelector('.sign'); if(s)s.setAttribute('aria-disabled',String(!S.ack)); if(S.ack)hint('Hold, then confirm with your fingerprint.'); }
+    if(e.target.id==='simfail'){ S.fail=e.target.checked; }
+  });
+  tense.addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) tab(b.getAttribute('data-tab')); });
+  render();
+
+  // journey tabs
+  var tabs=document.querySelectorAll('[role="tab"]');
+  for(var i=0;i<tabs.length;i++){
+    tabs[i].addEventListener('click',function(){
+      for(var j=0;j<tabs.length;j++){
+        var on=tabs[j]===this;
+        tabs[j].setAttribute('aria-selected',String(on));
+        document.getElementById(tabs[j].getAttribute('aria-controls')).hidden=!on;
+      }
+    });
+  }
+})();
+</script>
