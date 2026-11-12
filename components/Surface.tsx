@@ -493,7 +493,7 @@ export default function Surface() {
                           {d && (
                             <div className="mt-3 text-[13px] leading-snug text-ink-3">
                               <p>
-                                Send exactly {d.amount} {d.word} on {d.networkName} to
+                                Send exactly {d.amount} {d.symbol ?? d.word} on {d.networkName} to
                               </p>
                               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                                 <span className="break-all font-mono text-[12.5px] text-ink-2">{d.address}</span>

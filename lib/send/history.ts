@@ -22,7 +22,7 @@ export type SentEntry = {
   links: { hash: string; url: string }[];
   deadline?: string;
   /** For an add: where and how much to send. */
-  deposit?: { address: string; memo?: string; amount: string; word: string; networkName: string };
+  deposit?: { address: string; memo?: string; amount: string; word: string; symbol?: string; networkName: string };
 };
 
 const KEY = "intuite.sent.v1";

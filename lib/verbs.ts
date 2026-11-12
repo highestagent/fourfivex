@@ -454,10 +454,10 @@ const addReal: RealVariant = {
         {
           k: "You send",
           v: `about ${coin(sends)} ${p.word}`,
-          sub: `about ${usd(inUsd)} · on ${p.networkName} · cost ${cost(Math.max(0, inUsd - amt))}`,
+          sub: `about ${usd(inUsd)} · ${p.symbol} on ${p.networkName} · cost ${cost(Math.max(0, inUsd - amt))}`,
         },
         { k: "Reaches you", v: `${wait(q ? q.seconds : 45)} after you send it` },
-        { k: "Sent back if", v: "it is too little or too late", sub: "to the address you give below", tone: "warn" },
+        { k: "Sent back if", v: "it is too little or too late", sub: "to the address you gave above", tone: "warn" },
         { k: "Signing", v: "not needed", sub: "nothing leaves your account" },
       ],
       status: quoteStatus(c.quote),

@@ -22,7 +22,7 @@ import { CopyButton, Panel, StatusPill } from "./ui";
 export type Signed = { past: string; standing?: Standing };
 
 /** What a person is asked to send, once an address has been requested. */
-type Requested = { prepared: Prepared; amount: string; word: string; networkName: string };
+type Requested = { prepared: Prepared; amount: string; symbol: string; networkName: string };
 
 const REFUND_HINT: Record<string, string> = { evm: "0x…", sol: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T", near: "name.near", btc: "bc1…" };
 const FAILED_ADD = ["short", "refunded", "failed"];
@@ -198,10 +198,10 @@ export function Composer({
 
   // Once an address has been given, the rows say what to do and how it is going.
   if (requested) {
-    const { prepared, amount, word, networkName } = requested;
+    const { prepared, amount, symbol, networkName } = requested;
     const copyable = (text: string, label: string, mono = false): ReactNode => (
       <span className="flex flex-wrap items-center gap-2">
-        <span className={mono ? "break-all font-mono text-[13px]" : undefined}>{mono ? text : `${text} ${word}`}</span>
+        <span className={mono ? "break-all font-mono text-[13px]" : undefined}>{mono ? text : `${text} ${symbol}`}</span>
         <CopyButton text={text} label={label} />
       </span>
     );
@@ -218,7 +218,8 @@ export function Composer({
     rows.push(
       { k: "Send exactly", v: copyable(amount, "Copy the amount") },
       { k: "To this address", v: copyable(prepared.depositAddress, "Copy the address", true) },
-      { k: "On", v: networkName },
+      // The one place the exact asset matters more than the plain word: sending anything else here loses it.
+      { k: "Only", v: `${symbol} on ${networkName}`, sub: "anything else sent to this address may be lost", tone: "warn" },
       { k: "Before", v: when(prepared.deadline) },
     );
     if (prepared.depositMemo)
@@ -247,6 +248,7 @@ export function Composer({
         memo: prepared.depositMemo,
         amount: exact(prepared.leaves.units, prepared.leaves.decimals),
         word: payIn.word,
+        symbol: payIn.symbol,
         networkName: payIn.networkName,
       };
       sent.add({
@@ -261,7 +263,7 @@ export function Composer({
         deadline: prepared.deadline,
         deposit,
       });
-      setRequested({ prepared, amount: deposit.amount, word: deposit.word, networkName: deposit.networkName });
+      setRequested({ prepared, amount: deposit.amount, symbol: deposit.symbol, networkName: deposit.networkName });
     } catch (e) {
       setReqError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
     } finally {
@@ -275,7 +277,7 @@ export function Composer({
             <SheetLabel>{phase === "done" ? "Said" : requested ? "Do" : "Say"}</SheetLabel>
             {requested && !addDone ? (
               <p className="animate-rise text-[clamp(22px,3.3vw,30px)] font-medium leading-[1.35] tracking-[-0.022em]">
-                Send {requested.amount} {requested.word} to the address below.
+                Send {requested.amount} {requested.symbol} on {requested.networkName} to the address below.
               </p>
             ) : phase === "done" ? (
               <p className="animate-rise text-[clamp(22px,3.3vw,30px)] font-medium leading-[1.35] tracking-[-0.022em]">

@@ -50,7 +50,7 @@ describe("add money, for a real account", () => {
     expect(o.rows.map((r) => r.k)).toEqual(["You get", "You send", "Reaches you", "Sent back if", "Signing"]);
     expect(o.rows[0].v).toBe("$20.00 exactly, as dollars");
     expect(o.rows[1].v).toBe("about 0.00966 ether");
-    expect(o.rows[1].sub).toBe("about $20.24 · on Ethereum · cost 24¢");
+    expect(o.rows[1].sub).toBe("about $20.24 · ETH on Ethereum · cost 24¢");
     expect(o.rows[2].v).toBe("about 45 seconds after you send it");
     expect(o.hold).toBe(0);
     expect(o.cta).toBe("Get my address");
