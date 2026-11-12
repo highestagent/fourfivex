@@ -6,7 +6,8 @@
  * signed transfer is submitted. The app holds no keys.
  */
 import { ASSETS, USDC_ON_BASE, type AssetKey, type Prices } from "./assets";
-import type { Network, SendAsk, SendState } from "./send/types";
+import { familyOf } from "./send/address";
+import { NETWORKS, type Network, type SendAsk, type SendState } from "./send/types";
 
 const BASE = "https://1click.chaindefuser.com/v0";
 
@@ -29,7 +30,7 @@ const HOME_ADDRESS: Record<AssetKey, string> = {
 };
 
 export type QuoteAsk =
-  | { kind: "pay"; from: AssetKey; usd: number; fromAssetId?: string }
+  | { kind: "pay"; from: AssetKey; usd: number; fromAssetId?: string; toNetwork?: Network }
   | { kind: "getpaid"; payer: AssetKey; usd: number }
   | { kind: "change"; from: AssetKey; to: AssetKey; usd: number; fromAssetId?: string };
 
@@ -94,7 +95,11 @@ export function parseAsk(body: unknown): QuoteAsk | null {
   // An account may name the exact token it holds. Anything else about it is refused.
   const named = b.fromAssetId === undefined ? {} : typeof b.fromAssetId === "string" && b.fromAssetId.length <= 120 ? { fromAssetId: b.fromAssetId } : null;
   if (named === null) return null;
-  if (b.kind === "pay" && isAsset(b.from)) return { kind: "pay", from: b.from, usd: amount, ...named };
+  if (b.kind === "pay" && isAsset(b.from)) {
+    if (b.toNetwork === undefined) return { kind: "pay", from: b.from, usd: amount, ...named };
+    const net = NETWORKS.find((n) => n === b.toNetwork);
+    return net ? { kind: "pay", from: b.from, usd: amount, ...named, toNetwork: net } : null;
+  }
   if (b.kind === "getpaid" && isAsset(b.payer) && b.payer !== "usd")
     return { kind: "getpaid", payer: b.payer, usd: amount };
   if (b.kind === "change" && isAsset(b.from) && isAsset(b.to) && b.from !== b.to)
@@ -119,6 +124,10 @@ async function buildRequest(ask: QuoteAsk): Promise<Record<string, unknown>> {
   };
   if (ask.kind === "pay") {
     // Money already in the account, delivered as an exact amount of dollars on the friend's network.
+    const usdc = ask.toNetwork ? await usdcOn(ask.toNetwork) : undefined;
+    if (ask.toNetwork && !usdc) throw new OneClickError("No dollars on that network", 400);
+    const family = ask.toNetwork ? familyOf(ask.toNetwork) : "evm";
+    const recipient = family === "sol" ? EXAMPLE.sol : family === "near" ? EXAMPLE.account : EXAMPLE.evm;
     return {
       ...common,
       swapType: "EXACT_OUTPUT",
@@ -126,9 +135,9 @@ async function buildRequest(ask: QuoteAsk): Promise<Record<string, unknown>> {
       depositType: "INTENTS",
       refundTo: EXAMPLE.account,
       refundType: "INTENTS",
-      destinationAsset: USDC_ON_BASE,
-      amount: toUnits(ask.usd, 6),
-      recipient: EXAMPLE.evm,
+      destinationAsset: usdc ? usdc.assetId : USDC_ON_BASE,
+      amount: toUnits(ask.usd, usdc ? usdc.decimals : 6),
+      recipient,
       recipientType: "DESTINATION_CHAIN",
     };
   }
@@ -171,6 +180,7 @@ export async function quote(ask: QuoteAsk): Promise<QuoteResult> {
   try {
     if ("fromAssetId" in ask && ask.fromAssetId && !(await findToken(ask.fromAssetId)))
       return { ok: false, reason: "bad-request" };
+    if (ask.kind === "pay" && ask.toNetwork && !(await usdcOn(ask.toNetwork))) return { ok: false, reason: "bad-request" };
     const res = await fetch(`${BASE}/quote`, {
       method: "POST",
       headers: headers(true),

@@ -524,7 +524,7 @@ export default function Surface() {
 
         <footer className="mono mt-12 max-w-[72ch] border-t border-line pt-6 leading-[1.7] text-ink-3">
           {real
-            ? "Your account and its balance are real. Change really sends. Pay and add are not connected yet."
+            ? "Your account and its balance are real. Change and pay really send. Add is not connected yet."
             : "A demo account with example balances. Prices and quotes are live dry runs from NEAR Intents. Signing is simulated and nothing is ever sent."}
         </footer>
       </div>

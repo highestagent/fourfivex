@@ -4,6 +4,8 @@ import type { AssetKey } from "../assets";
 export const NETWORKS = ["base", "eth", "arb", "sol", "near"] as const;
 export type Network = (typeof NETWORKS)[number];
 
+export const NETWORK_NAME: Record<Network, string> = { base: "Base", eth: "Ethereum", arb: "Arbitrum", sol: "Solana", near: "NEAR" };
+
 export type SendAsk =
   | { kind: "change"; accountId: string; fromAssetId: string; to: AssetKey; usd: number }
   | { kind: "pay"; accountId: string; fromAssetId: string; usd: number; to: { address: string; network: Network } }

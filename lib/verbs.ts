@@ -9,7 +9,7 @@ import { coin, cost, pct, usd, usd0, wait } from "./format";
 import type { QuoteAsk, QuoteOk } from "./oneclick";
 import { pickSource } from "./send/source";
 import type { Person } from "./send/people";
-import type { Prepared, SendAsk } from "./send/types";
+import { NETWORK_NAME, type Prepared, type SendAsk } from "./send/types";
 
 export type VerbKey = "pay" | "getpaid" | "change" | "grow" | "borrow" | "ask";
 export type Vals = Record<string, string | number>;
@@ -60,7 +60,7 @@ export type Opt = { v: string | number; label: string; asset?: AssetKey };
 /** What a blank may need to know to offer its choices. */
 export type SlotCtx = { prices: Prices; holdings: Holdings | null; people: Person[] };
 /** A blank is a chip to choose from, or a number to type. */
-export type Slot = { cap: string; kind?: "choice" | "amount"; opts: (c: SlotCtx) => Opt[] };
+export type Slot = { cap: string; kind?: "choice" | "amount" | "person"; opts: (c: SlotCtx) => Opt[] };
 export type Part = string | { slot: string };
 
 /** What a real send needs: who is asking, what they saw, and the one token it draws from. */
@@ -204,17 +204,24 @@ function shortReason(holdings: Holdings | null, group: Money, most: number): str
   return `Your ${word} ${group === "usd" ? "are" : "is"} spread across networks. The most one sentence can use is ${usd(most)}.`;
 }
 
+/** Only the kinds of money the account actually holds. Shared by every real sentence that spends. */
+const realFromSlot: Slot = {
+  cap: "From",
+  opts: (c) => {
+    const held = c.holdings ? MONEY.filter((g) => c.holdings!.groups[g].usd > 0) : [];
+    return (held.length ? held : (["usd"] as Money[])).map((g) => ({ v: g, label: `my ${heldWord(g)}`, asset: g }));
+  },
+};
+
+const NEW_PERSON = "__new";
+
+const shortAddress = (a: string) => (a.length > 11 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
+
 const changeReal: RealVariant = {
   parts: ["Change ", slot("amt"), " of ", slot("from"), " into ", slot("to"), "."],
   slots: {
     amt: { cap: "Amount", kind: "amount", opts: () => [] },
-    from: {
-      cap: "From",
-      opts: (c) => {
-        const held = c.holdings ? MONEY.filter((g) => c.holdings!.groups[g].usd > 0) : [];
-        return (held.length ? held : (["usd"] as Money[])).map((g) => ({ v: g, label: `my ${heldWord(g)}`, asset: g }));
-      },
-    },
+    from: realFromSlot,
     to: {
       cap: "Into",
       opts: () => MONEY.map((g) => ({ v: g, label: heldWord(g), asset: g })),
@@ -283,6 +290,125 @@ const changeReal: RealVariant = {
   },
 };
 
+/** The money that would leave, from the final price when there is one, else the live quote. */
+function payQuote(c: Ctx): QuoteOk | null {
+  const m = c.moved;
+  if (m)
+    return {
+      ok: true,
+      amountIn: m.leaves.amount,
+      amountInUsd: m.leaves.usd,
+      amountOut: m.arrives.amount,
+      amountOutUsd: m.arrives.usd,
+      seconds: m.seconds,
+    };
+  return c.quote.status === "live" ? c.quote.data : null;
+}
+
+const payReal: RealVariant = {
+  parts: ["Pay ", slot("who"), " ", slot("amt"), " from ", slot("from"), "."],
+  slots: {
+    who: {
+      cap: "To",
+      kind: "person",
+      opts: (c) => [
+        ...c.people.map((p) => ({ v: p.id, label: p.name })),
+        { v: NEW_PERSON, label: "someone new" },
+      ],
+    },
+    amt: { cap: "Amount", kind: "amount", opts: () => [] },
+    from: realFromSlot,
+  },
+  def: (c) => ({ who: c.people[0]?.id ?? "", amt: 10, from: biggestGroup(c.holdings) }),
+  ask(v, c) {
+    const amt = Number(v.amt);
+    const person = c.people.find((p) => p.id === v.who);
+    if (tooSmall(amt) || !person || !c.holdings) return null;
+    const src = pickSource(c.holdings, v.from as Money, amt);
+    if (src.kind !== "ok") return null;
+    return { kind: "pay", from: v.from as AssetKey, usd: amt, fromAssetId: src.part.assetId, toNetwork: person.network };
+  },
+  out(v, c) {
+    const raw = Number(v.amt);
+    const from = v.from as Money;
+    const amt = tooSmall(raw) ? 1 : raw;
+    const person = c.people.find((p) => p.id === v.who);
+    const name = person ? person.name : "someone";
+    const net = person ? NETWORK_NAME[person.network] : "the network they use";
+    const m = c.moved;
+    const q = payQuote(c);
+    const leavesUsd = q ? q.amountInUsd : amt * 1.013;
+    const leaves = q ? q.amountIn : leavesUsd / c.prices[from];
+    const fee = Math.max(0, leavesUsd - amt);
+
+    const src = c.holdings && !tooSmall(raw) ? pickSource(c.holdings, from, raw) : null;
+    let blocked: string | undefined;
+    if (tooSmall(raw)) blocked = MIN_AMOUNT;
+    else if (!c.holdings) blocked = "Reading your account…";
+    else if (v.who === NEW_PERSON) blocked = "Add their details above first.";
+    else if (!person) blocked = "Choose who to pay.";
+    else if (src?.kind === "empty") blocked = `You don’t hold any ${heldWord(from)} yet.`;
+    else if (src?.kind === "short") blocked = shortReason(c.holdings, from, src.most);
+    else if (src?.kind === "ok" && q && q.amountInUsd > src.part.usd) blocked = shortReason(c.holdings, from, src.part.usd);
+    else if (!m && c.quote.status === "no-offer") blocked = NO_OFFER;
+    else if (!m && c.quote.status !== "live") blocked = "Getting a price…";
+
+    return {
+      rows: [
+        {
+          k: person ? `${name} gets` : "They get",
+          v: `${usd(amt)} exactly, as dollars`,
+          sub: `USDC on ${net}`,
+          tone: "ok",
+        },
+        {
+          k: "Leaves you",
+          v: from === "usd" ? `${usd(leavesUsd)} of your dollars` : `${coin(leaves)} ${ASSETS[from].name}`,
+          sub: `${from === "usd" ? "" : `about ${usd(leavesUsd)} · `}cost ${cost(fee)} (${pct(fee / amt)})`,
+        },
+        { k: "Arrives", v: `in ${wait(q ? q.seconds : 15)}` },
+        {
+          k: "Sent to",
+          v: person ? shortAddress(person.address) : "not chosen yet",
+          sub: person ? `on ${net} · check it with them` : undefined,
+          tone: "warn",
+        },
+        { k: "If it fails", v: "your money comes back to your account" },
+        { k: "Once it arrives", v: `only ${person ? name : "they"} can send it back`, tone: "stop" },
+      ],
+      status: m ? { label: "Final price", tone: "live" } : quoteStatus(c.quote),
+      cta: "Hold to sign",
+      hold: 900,
+      steps: [from === "usd" ? "Sending your dollars" : `Changing ${ASSETS[from].name} into dollars`, `Arriving with ${name}`],
+      doneLabel: `Paid ${name} ${usd(amt)}`,
+      past: `You paid ${name} ${usd(amt)}.`,
+      waiting: `Paying ${name} ${usd(amt)}.`,
+      fail: `${name} was not paid. Your money is back in your account.`,
+      why: "No one would deliver at the price you were shown.",
+      blocked,
+    };
+  },
+  plan(v, c): SendPlan | null {
+    const amt = Number(v.amt);
+    const person = c.people.find((p) => p.id === v.who);
+    if (payReal.out(v, c).blocked || !c.holdings || !c.accountId || !person) return null;
+    const src = pickSource(c.holdings, v.from as Money, amt);
+    const q = payQuote(c);
+    if (src.kind !== "ok" || !q) return null;
+    return {
+      ask: {
+        kind: "pay",
+        accountId: c.accountId,
+        fromAssetId: src.part.assetId,
+        usd: amt,
+        to: { address: person.address, network: person.network },
+      },
+      shown: q.amountIn,
+      source: src.part,
+    };
+  },
+};
+
 export const VERBS: Record<VerbKey, Verb> = {
   pay: {
     key: "pay",
@@ -317,6 +443,7 @@ export const VERBS: Record<VerbKey, Verb> = {
     },
     def: { who: "maya", amt: 40, from: "btc", how: "open" },
     loop: [1500, 2400, 2200],
+    real: payReal,
     ask: (v) => (tooSmall(Number(v.amt)) ? null : { kind: "pay", from: v.from as AssetKey, usd: Number(v.amt) }),
     out(v, c) {
       const who = String(v.who);
@@ -708,6 +835,7 @@ export function label(verb: Verb, key: string, vals: Vals, c: SlotCtx): string {
   const slot = verb.slots[key];
   if (slot.kind === "amount") return amountText(Number(vals[key]) || 0);
   const o = slot.opts(c).find((x) => x.v === vals[key]);
+  if (slot.kind === "person") return o ? o.label : "someone";
   return o ? o.label : "";
 }
 

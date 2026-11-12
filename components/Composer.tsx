@@ -7,6 +7,7 @@ import { useQuote, type StageState } from "@/lib/hooks";
 import type { Person } from "@/lib/send/people";
 import { useSend } from "@/lib/send/useSend";
 import { VERBS, type Ctx, type Outcome, type SlotCtx, type Standing, type Tone, type Vals, type VerbKey } from "@/lib/verbs";
+import { NewPerson } from "./NewPerson";
 import { Sentence } from "./Sentence";
 import { SignButton, type Phase } from "./SignButton";
 import { STAGES } from "./stages";
@@ -132,6 +133,8 @@ export function Composer({
     setHint(null);
   };
 
+  // The picture names the person being paid, which only the sentence's own list knows.
+  const stageVals: Vals = variant && verbKey === "pay" ? { ...vals, whoName: people.find((p) => p.id === vals.who)?.name ?? "them" } : vals;
   const stageState: StageState =
     phase === "working" ? "run" : phase === "done" ? "done" : phase === "failed" ? "fail" : "idle";
   const pricing = quote.status === "loading" && phase === "idle";
@@ -171,6 +174,12 @@ export function Composer({
               <Sentence verb={variant ? { ...verb, parts: variant.parts, slots: variant.slots } : verb} vals={vals} ctx={slotCtx} disabled={phase !== "idle"} onChange={setVal} />
             )}
           </div>
+
+          {variant && phase === "idle" && vals.who === "__new" && (
+            <div className="mt-5">
+              <NewPerson onSave={(person) => setVal("who", person.id)} onCancel={() => setVal("who", people[0]?.id ?? "")} />
+            </div>
+          )}
 
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             <div className="min-w-0">
@@ -214,7 +223,7 @@ export function Composer({
                 <Stage
                   state={stageState}
                   cycle={0}
-                  vals={vals}
+                  vals={stageVals}
                   prices={prices}
                   quote={quote}
                   live
@@ -262,7 +271,7 @@ export function Composer({
                       return;
                     }
                     setFrozen(current);
-                    engine.start(plan, { kind: "change", text: current.past, waitingText: current.waiting ?? current.past });
+                    engine.start(plan, { kind: verb.key as "change" | "pay", text: current.past, waitingText: current.waiting ?? current.past });
                     return;
                   }
                   setFrozen(current);

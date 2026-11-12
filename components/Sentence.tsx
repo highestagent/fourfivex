@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { ASSETS, type AssetKey } from "@/lib/assets";
 import type { SlotCtx, Vals, Verb } from "@/lib/verbs";
 import { Check, Chevron, Dot } from "./ui";
@@ -126,7 +126,7 @@ export function Sentence({
           );
         const opts = slot.opts(ctx);
         const current = opts.find((o) => o.v === vals[key]) ?? opts[0];
-        const fixed = opts.length < 2 || disabled;
+        const fixed = (opts.length < 2 && slot.kind !== "person") || disabled;
         const isOpen = open?.key === key;
         return (
           <span key={i} className="relative inline-block">
@@ -159,24 +159,27 @@ export function Sentence({
                 }`}
               >
                 <span className="mono block px-3 pb-1.5 pt-2 text-ink-3">{slot.cap}</span>
-                {opts.map((o) => {
+                {opts.map((o, n) => {
                   const selected = o.v === vals[key];
+                  const fresh = slot.kind === "person" && o.v === "__new";
                   return (
-                    <button
-                      key={String(o.v)}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      className="flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2 text-left hover:bg-black/[0.045]"
-                      onClick={() => {
-                        onChange(key, o.v);
-                        setOpen(null);
-                      }}
-                    >
-                      {o.asset && <Dot color={ASSETS[o.asset].color} />}
-                      <span className="flex-1">{o.label}</span>
-                      {selected && <Check size={15} className="text-blue" strokeWidth={2} />}
-                    </button>
+                    <Fragment key={String(o.v)}>
+                      {fresh && n > 0 && <span className="my-1 block h-px bg-line/70" />}
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2 text-left hover:bg-black/[0.045]"
+                        onClick={() => {
+                          onChange(key, o.v);
+                          setOpen(null);
+                        }}
+                      >
+                        {o.asset && <Dot color={ASSETS[o.asset].color} />}
+                        <span className="flex-1">{o.label}</span>
+                        {selected && !fresh && <Check size={15} className="text-blue" strokeWidth={2} />}
+                      </button>
+                    </Fragment>
                   );
                 })}
               </span>

@@ -105,7 +105,7 @@ function Labels({ left, right, mid }: { left: string; right: string; mid?: React
 function PayStage({ state, vals, live }: StageProps) {
   const amt = Number(vals.amt);
   const from = vals.from as AssetKey;
-  const who = NAMES[String(vals.who)];
+  const who = NAMES[String(vals.who)] ?? String(vals.whoName ?? "them");
   const unit = dotUnit(amt);
   const n = Math.max(1, Math.round(amt / unit));
   const rest = Math.max(0, 61 - n);
