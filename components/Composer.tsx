@@ -7,7 +7,8 @@ import { VERBS, type Outcome, type Standing, type Tone, type Vals, type VerbKey 
 import { Sentence } from "./Sentence";
 import { SignButton, type Phase } from "./SignButton";
 import { STAGES } from "./stages";
-import { Close, Panel, StatusPill } from "./ui";
+import { Sheet, SheetLabel } from "./Sheet";
+import { Panel, StatusPill } from "./ui";
 
 export type Signed = { past: string; standing?: Standing };
 
@@ -16,10 +17,6 @@ const TONE: Record<Tone, { text: string; dot: string }> = {
   warn: { text: "text-amber", dot: "bg-amber-2" },
   stop: { text: "font-medium text-rose", dot: "bg-rose" },
 };
-
-function Label({ children }: { children: string }) {
-  return <p className="mono mb-2.5 text-ink-3">{children}</p>;
-}
 
 /**
  * Say, see, sign. The sentence at the top, the outcome in words and in dots beneath it,
@@ -30,6 +27,7 @@ export function Composer({
   initial,
   prices,
   pricesLive,
+  real,
   onClose,
   onSigned,
 }: {
@@ -37,6 +35,8 @@ export function Composer({
   initial?: Vals;
   prices: Prices;
   pricesLive: boolean;
+  /** True when a real account is open. Sentences are not connected to real accounts yet. */
+  real: boolean;
   onClose: () => void;
   onSigned: (s: Signed) => void;
 }) {
@@ -55,26 +55,10 @@ export function Composer({
   const current = verb.out(vals, { prices, pricesLive, quote });
   const o = frozen ?? current;
 
-  const closeRef = useRef<HTMLButtonElement>(null);
   const signedRef = useRef(onSigned);
   useEffect(() => {
     signedRef.current = onSigned;
   });
-
-  // The sheet owns the page while it is open.
-  useEffect(() => {
-    const before = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", key);
-    return () => {
-      document.body.style.overflow = before;
-      document.removeEventListener("keydown", key);
-    };
-  }, [onClose]);
 
   // After the signature: confirm it's you, run each step, then settle.
   useEffect(() => {
@@ -120,38 +104,14 @@ export function Composer({
   const stageState: StageState =
     phase === "working" ? "run" : phase === "done" ? "done" : phase === "failed" ? "fail" : "idle";
   const pricing = quote.status === "loading" && phase === "idle";
-  const blocked = o.blocked ?? (o.ack && !ack ? "Tick the box above first." : undefined);
+  const blocked = real
+    ? "This sentence is not connected to your real account yet. You can read what it would do."
+    : (o.blocked ?? (o.ack && !ack ? "Tick the box above first." : undefined));
 
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-white/80 backdrop-blur-md"
-      style={{ animation: "fade .2s ease-out both" }}
-      onPointerDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="mx-auto w-full max-w-[960px] px-3 py-4 sm:px-6 sm:py-10"
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div role="dialog" aria-modal="true" aria-label={verb.title} className="animate-rise rounded-[28px] bg-card p-5 shadow-sheet sm:p-8">
-          <div className="flex items-center justify-between gap-4">
-            <span className="mono rounded-full bg-white px-3 py-2 shadow-chip">{verb.title}</span>
-            <button
-              ref={closeRef}
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-white text-ink-2 shadow-chip hover:text-ink"
-            >
-              <Close size={15} />
-            </button>
-          </div>
-
+    <Sheet title={verb.title} onClose={onClose}>
           <div className="mt-8">
-            <Label>{phase === "done" ? "Said" : "Say"}</Label>
+            <SheetLabel>{phase === "done" ? "Said" : "Say"}</SheetLabel>
             {phase === "done" ? (
               <p className="animate-rise text-[clamp(22px,3.3vw,30px)] font-medium leading-[1.35] tracking-[-0.022em]">
                 {o.past}
@@ -163,7 +123,7 @@ export function Composer({
 
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             <div className="min-w-0">
-              <Label>See</Label>
+              <SheetLabel>See</SheetLabel>
               <Panel className="p-5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="mono">{phase === "done" ? "What happened" : "What will happen"}</span>
@@ -198,7 +158,7 @@ export function Composer({
               </Panel>
             </div>
             <div className="flex min-w-0 flex-col">
-              <Label>In picture</Label>
+              <SheetLabel>In picture</SheetLabel>
               <div className="min-h-[318px] flex-1 rounded-[22px] bg-black/[0.028] px-4 py-5">
                 <Stage
                   state={stageState}
@@ -214,8 +174,8 @@ export function Composer({
           </div>
 
           <div className="mt-8">
-            <Label>Sign</Label>
-            {o.ack && phase === "idle" && (
+            <SheetLabel>Sign</SheetLabel>
+            {o.ack && phase === "idle" && !real && (
               <label className="mb-4 flex max-w-[520px] cursor-pointer items-start gap-3 rounded-[16px] bg-rose-3 px-4 py-3 text-[14px] leading-snug">
                 <input
                   type="checkbox"
@@ -247,8 +207,8 @@ export function Composer({
               <p className="min-h-5 text-[13.5px] leading-snug text-ink-2" aria-live="polite">
                 {phase === "idle" &&
                   (hint ??
-                    (o.blocked
-                      ? o.blocked
+                    (real || o.blocked
+                      ? blocked
                       : o.hold
                         ? "Hold, then confirm with your fingerprint."
                         : "Nothing leaves your account, so a tap is enough."))}
@@ -280,10 +240,12 @@ export function Composer({
                   </button>
                 )}
                 {(phase === "idle" || phase === "auth" || phase === "working") && (
-                  <span className="mono text-ink-3">Demo account · nothing is sent</span>
+                  <span className="mono text-ink-3">
+                    {real ? "Your account · sending is not connected yet" : "Demo account · nothing is sent"}
+                  </span>
                 )}
               </div>
-              {phase === "idle" && (
+              {phase === "idle" && !real && (
                 <label className="mono flex cursor-pointer items-center gap-2.5 text-ink-3">
                   Make this one fail
                   <input
@@ -297,8 +259,6 @@ export function Composer({
               )}
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }
