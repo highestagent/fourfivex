@@ -31,7 +31,7 @@ const HOME_ADDRESS: Record<AssetKey, string> = {
 
 export type QuoteAsk =
   | { kind: "pay"; from: AssetKey; usd: number; fromAssetId?: string; toNetwork?: Network }
-  | { kind: "getpaid"; payer: AssetKey; usd: number }
+  | { kind: "getpaid"; payer: AssetKey; usd: number; payAssetId?: string }
   | { kind: "change"; from: AssetKey; to: AssetKey; usd: number; fromAssetId?: string };
 
 export type QuoteOk = {
@@ -100,8 +100,13 @@ export function parseAsk(body: unknown): QuoteAsk | null {
     const net = NETWORKS.find((n) => n === b.toNetwork);
     return net ? { kind: "pay", from: b.from, usd: amount, ...named, toNetwork: net } : null;
   }
-  if (b.kind === "getpaid" && isAsset(b.payer) && b.payer !== "usd")
-    return { kind: "getpaid", payer: b.payer, usd: amount };
+  if (b.kind === "getpaid" && isAsset(b.payer)) {
+    // A real account names the exact token it will pay with, which may be dollars.
+    if (b.payAssetId === undefined) return b.payer !== "usd" ? { kind: "getpaid", payer: b.payer, usd: amount } : null;
+    return typeof b.payAssetId === "string" && b.payAssetId.length <= 120
+      ? { kind: "getpaid", payer: b.payer, usd: amount, payAssetId: b.payAssetId }
+      : null;
+  }
   if (b.kind === "change" && isAsset(b.from) && isAsset(b.to) && b.from !== b.to)
     return { kind: "change", from: b.from, to: b.to, usd: amount, ...named };
   return null;
@@ -143,6 +148,24 @@ async function buildRequest(ask: QuoteAsk): Promise<Record<string, unknown>> {
   }
   if (ask.kind === "getpaid") {
     // A payer on their own network, an exact amount of dollars arriving in the account.
+    if (ask.payAssetId) {
+      const token = await findToken(ask.payAssetId);
+      const family = token ? familyOf(token.blockchain) : null;
+      if (!token || !family) throw new OneClickError("Unknown asset", 400);
+      const home = family === "evm" ? EXAMPLE.evm : family === "sol" ? EXAMPLE.sol : family === "btc" ? EXAMPLE.btc : EXAMPLE.account;
+      return {
+        ...common,
+        swapType: "EXACT_OUTPUT",
+        originAsset: token.assetId,
+        depositType: "ORIGIN_CHAIN",
+        refundTo: home,
+        refundType: "ORIGIN_CHAIN",
+        destinationAsset: ASSETS.usd.id,
+        amount: toUnits(ask.usd, 6),
+        recipient: EXAMPLE.account,
+        recipientType: "INTENTS",
+      };
+    }
     return {
       ...common,
       swapType: "EXACT_OUTPUT",
@@ -180,6 +203,10 @@ export async function quote(ask: QuoteAsk): Promise<QuoteResult> {
   try {
     if ("fromAssetId" in ask && ask.fromAssetId && !(await findToken(ask.fromAssetId)))
       return { ok: false, reason: "bad-request" };
+    if (ask.kind === "getpaid" && ask.payAssetId) {
+      const token = await findToken(ask.payAssetId);
+      if (!token || !familyOf(token.blockchain)) return { ok: false, reason: "bad-request" };
+    }
     if (ask.kind === "pay" && ask.toNetwork && !(await usdcOn(ask.toNetwork))) return { ok: false, reason: "bad-request" };
     const res = await fetch(`${BASE}/quote`, {
       method: "POST",

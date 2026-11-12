@@ -126,15 +126,15 @@ describe("pay, for a real account", () => {
   });
 
   it("has no plan when blocked", () => {
-    expect(real.plan(vals({ amt: 0 }), ctx())).toBeNull();
-    expect(real.plan(vals({ who: "__new" }), ctx())).toBeNull();
-    expect(real.plan(vals({ amt: 100 }), ctx())).toBeNull();
-    expect(real.plan(vals(), ctx({ quote: { status: "loading" } }))).toBeNull();
-    expect(real.plan(vals(), ctx({ accountId: null }))).toBeNull();
+    expect(real.plan!(vals({ amt: 0 }), ctx())).toBeNull();
+    expect(real.plan!(vals({ who: "__new" }), ctx())).toBeNull();
+    expect(real.plan!(vals({ amt: 100 }), ctx())).toBeNull();
+    expect(real.plan!(vals(), ctx({ quote: { status: "loading" } }))).toBeNull();
+    expect(real.plan!(vals(), ctx({ accountId: null }))).toBeNull();
   });
 
   it("plans to the person's address and network from the token held", () => {
-    const plan = real.plan(vals(), ctx())!;
+    const plan = real.plan!(vals(), ctx())!;
     expect(plan.ask).toEqual({
       kind: "pay",
       accountId: "0xabc",
@@ -148,7 +148,7 @@ describe("pay, for a real account", () => {
 
   it("plans from what leaves in the final price once it moved", () => {
     const c = ctx({ moved });
-    expect(real.plan(vals(), c)!.shown).toBe(0.0006);
+    expect(real.plan!(vals(), c)!.shown).toBe(0.0006);
     expect(real.out(vals(), c).status).toEqual({ label: "Final price", tone: "live" });
   });
 

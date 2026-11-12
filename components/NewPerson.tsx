@@ -6,8 +6,8 @@ import { people, type Person } from "@/lib/send/people";
 import { NETWORKS, NETWORK_NAME, type Network } from "@/lib/send/types";
 import { Panel } from "./ui";
 
-const LABEL = "mono mb-2 block text-ink-3";
-const INPUT =
+export const LABEL = "mono mb-2 block text-ink-3";
+export const INPUT =
   "h-11 w-full rounded-[12px] bg-card px-3.5 text-[15px] outline-none placeholder:text-ink-3 focus:ring-2 focus:ring-blue";
 
 const PLACEHOLDER: Record<Network, string> = {

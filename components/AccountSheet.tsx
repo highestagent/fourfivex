@@ -17,7 +17,7 @@ import { memory, useDeviceMemory, type Passkey } from "@/lib/account/store";
 import type { HoldingsState } from "@/lib/account/useHoldings";
 import { coin, usd } from "@/lib/format";
 import { Sheet, SheetLabel } from "./Sheet";
-import { Finger, Panel, Spinner, StatusPill, Tick } from "./ui";
+import { CopyButton, Finger, Panel, Spinner, StatusPill, Tick } from "./ui";
 
 const noop = () => () => {};
 
@@ -210,7 +210,6 @@ function You({ accountId, holdings, onClose }: { accountId: string; holdings: Ho
   const [chain, setChain] = useState<Chain>(null);
   const [step, setStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -286,21 +285,7 @@ function You({ accountId, holdings, onClose }: { accountId: string; holdings: Ho
                 v={
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-[13px]">{short(accountId)}</span>
-                    <button
-                      type="button"
-                      className="mono cursor-pointer rounded-full bg-card px-2.5 py-1 hover:bg-ink hover:text-white"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(accountId);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 1600);
-                        } catch {
-                          /* clipboard refused: the id is still visible below */
-                        }
-                      }}
-                    >
-                      {copied ? "Copied" : "Copy"}
-                    </button>
+                    <CopyButton text={accountId} />
                   </span>
                 }
                 sub={<span className="break-all font-mono text-[11px]">{accountId}</span>}

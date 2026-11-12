@@ -3,18 +3,29 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Holdings } from "@/lib/account/holdings";
 import type { Prices } from "@/lib/assets";
+import { exact, when } from "@/lib/format";
 import { useQuote, type StageState } from "@/lib/hooks";
+import { prepareSend } from "@/lib/send/api";
+import { sent, useSent } from "@/lib/send/history";
+import { payInOf } from "@/lib/send/payin";
 import type { Person } from "@/lib/send/people";
+import type { Prepared } from "@/lib/send/types";
 import { useSend } from "@/lib/send/useSend";
 import { VERBS, type Ctx, type Outcome, type SlotCtx, type Standing, type Tone, type Vals, type VerbKey } from "@/lib/verbs";
-import { NewPerson } from "./NewPerson";
+import { INPUT, LABEL, NewPerson } from "./NewPerson";
 import { Sentence } from "./Sentence";
 import { SignButton, type Phase } from "./SignButton";
 import { STAGES } from "./stages";
 import { Sheet, SheetLabel } from "./Sheet";
-import { Panel, StatusPill } from "./ui";
+import { CopyButton, Panel, StatusPill } from "./ui";
 
 export type Signed = { past: string; standing?: Standing };
+
+/** What a person is asked to send, once an address has been requested. */
+type Requested = { prepared: Prepared; amount: string; word: string; networkName: string };
+
+const REFUND_HINT: Record<string, string> = { evm: "0x…", sol: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T", near: "name.near", btc: "bc1…" };
+const FAILED_ADD = ["short", "refunded", "failed"];
 
 const TONE: Record<Tone, { text: string; dot: string }> = {
   ok: { text: "text-green", dot: "bg-green-2" },
@@ -65,7 +76,18 @@ export function Composer({
     if (variant && !touched) setVals(variant.def(slotCtx));
   }
   const [localPhase, setPhase] = useState<Phase>("idle");
-  const phase: Phase = variant ? engine.phase : localPhase;
+  // A variant that asks for an address instead of signing. Nothing leaves the account.
+  const asking = !!variant?.request;
+  const [requesting, setRequesting] = useState(false);
+  const [requested, setRequested] = useState<Requested | null>(null);
+  const [reqError, setReqError] = useState<string | null>(null);
+  const mine = useSent(accountId);
+  const entry = requested ? mine.find((e) => e.id === requested.prepared.depositAddress) : undefined;
+  const entryState = entry?.state ?? "waiting";
+  const addDone = requested !== null && entryState === "done";
+  const addFailed = requested !== null && FAILED_ADD.includes(entryState);
+  const askPhase: Phase = requested ? (addDone ? "done" : addFailed ? "failed" : "working") : requesting ? "working" : "idle";
+  const phase: Phase = asking ? askPhase : variant ? engine.phase : localPhase;
   const [step, setStep] = useState(0);
   const [failNext, setFailNext] = useState(false);
   const [ack, setAck] = useState(false);
@@ -121,6 +143,7 @@ export function Composer({
       return fix ? fix(next, key) : next;
     });
     setTouched(true);
+    setReqError(null);
     engine.clearMoved();
     setAck(false);
     setHint(null);
@@ -129,6 +152,9 @@ export function Composer({
   const again = () => {
     setFrozen(null);
     engine.reset();
+    setRequested(null);
+    setRequesting(false);
+    setReqError(null);
     setPhase("idle");
     setStep(0);
     setAck(false);
@@ -136,7 +162,13 @@ export function Composer({
   };
 
   // The picture names the person being paid, which only the sentence's own list knows.
-  const stageVals: Vals = variant && verbKey === "pay" ? { ...vals, whoName: people.find((p) => p.id === vals.who)?.name ?? "them" } : vals;
+  const payIn = asking ? payInOf(vals.with) : null;
+  const stageVals: Vals =
+    variant && verbKey === "pay"
+      ? { ...vals, whoName: people.find((p) => p.id === vals.who)?.name ?? "them" }
+      : payIn
+        ? { ...vals, payer: payIn.word === "dollars" ? "usd" : payIn.family === "sol" ? "sol" : payIn.family === "btc" ? "btc" : "eth", word: payIn.word }
+        : vals;
   const stageState: StageState =
     phase === "working" ? "run" : phase === "done" ? "done" : phase === "failed" ? "fail" : "idle";
   const pricing = quote.status === "loading" && phase === "idle";
@@ -164,13 +196,90 @@ export function Composer({
     });
   const delivered = engine.receipt?.state === "done";
 
+  // Once an address has been given, the rows say what to do and how it is going.
+  if (requested) {
+    const { prepared, amount, word, networkName } = requested;
+    const copyable = (text: string, label: string, mono = false): ReactNode => (
+      <span className="flex flex-wrap items-center gap-2">
+        <span className={mono ? "break-all font-mono text-[13px]" : undefined}>{mono ? text : `${text} ${word}`}</span>
+        <CopyButton text={text} label={label} />
+      </span>
+    );
+    const status: Record<string, { v: string; tone?: Tone }> = {
+      waiting: { v: "Waiting for your money" },
+      seen: { v: "Seen. Adding it now." },
+      working: { v: "Seen. Adding it now." },
+      done: { v: "Added", tone: "ok" },
+      short: { v: "Too little arrived. It is being sent back.", tone: "stop" },
+      refunded: { v: "Sent back to you", tone: "stop" },
+      failed: { v: "It didn’t go through", tone: "stop" },
+    };
+    rows.length = 0;
+    rows.push(
+      { k: "Send exactly", v: copyable(amount, "Copy the amount") },
+      { k: "To this address", v: copyable(prepared.depositAddress, "Copy the address", true) },
+      { k: "On", v: networkName },
+      { k: "Before", v: when(prepared.deadline) },
+    );
+    if (prepared.depositMemo)
+      rows.push({
+        k: "Memo",
+        v: copyable(prepared.depositMemo, "Copy the memo", true),
+        sub: "the money cannot be matched without it",
+        tone: "warn",
+      });
+    rows.push({ k: "Status", v: status[entryState].v, tone: status[entryState].tone });
+  }
+
+  const request = async () => {
+    setHint(null);
+    const ask = variant?.request?.(vals, ctx);
+    if (!ask || !payIn) {
+      setHint(blocked ?? "This can’t be asked for right now.");
+      return;
+    }
+    setRequesting(true);
+    setReqError(null);
+    try {
+      const prepared = await prepareSend(ask);
+      const deposit = {
+        address: prepared.depositAddress,
+        memo: prepared.depositMemo,
+        amount: exact(prepared.leaves.units, prepared.leaves.decimals),
+        word: payIn.word,
+        networkName: payIn.networkName,
+      };
+      sent.add({
+        id: prepared.depositAddress,
+        accountId: ask.accountId,
+        kind: "add",
+        text: current.past,
+        waitingText: current.waiting ?? current.past,
+        at: Date.now(),
+        state: "waiting",
+        links: [],
+        deadline: prepared.deadline,
+        deposit,
+      });
+      setRequested({ prepared, amount: deposit.amount, word: deposit.word, networkName: deposit.networkName });
+    } catch (e) {
+      setReqError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   return (
-    <Sheet title={verb.title} onClose={onClose}>
+    <Sheet title={variant?.title ?? verb.title} onClose={onClose}>
           <div className="mt-8">
-            <SheetLabel>{phase === "done" ? "Said" : "Say"}</SheetLabel>
-            {phase === "done" ? (
+            <SheetLabel>{phase === "done" ? "Said" : requested ? "Do" : "Say"}</SheetLabel>
+            {requested && !addDone ? (
               <p className="animate-rise text-[clamp(22px,3.3vw,30px)] font-medium leading-[1.35] tracking-[-0.022em]">
-                {variant && !delivered ? (o.waiting ?? o.past) : o.past}
+                Send {requested.amount} {requested.word} to the address below.
+              </p>
+            ) : phase === "done" ? (
+              <p className="animate-rise text-[clamp(22px,3.3vw,30px)] font-medium leading-[1.35] tracking-[-0.022em]">
+                {variant && !asking && !delivered ? (o.waiting ?? o.past) : o.past}
               </p>
             ) : (
               <Sentence verb={variant ? { ...verb, parts: variant.parts, slots: variant.slots } : verb} vals={vals} ctx={slotCtx} disabled={phase !== "idle"} onChange={setVal} />
@@ -183,13 +292,35 @@ export function Composer({
             </div>
           )}
 
+          {asking && payIn && !requested && (
+            <div className="mt-5">
+              <Panel className="p-5">
+                <label className={LABEL} htmlFor="add-refund">
+                  {payIn.family === "btc" ? "The bitcoin address you are sending from" : `The address you are sending from, on ${payIn.networkName}`}
+                </label>
+                <input
+                  id="add-refund"
+                  className={`${INPUT} font-mono text-[13px]`}
+                  placeholder={REFUND_HINT[payIn.family]}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  disabled={requesting}
+                  value={String(vals.refund ?? "")}
+                  onChange={(e) => setVal("refund", e.target.value)}
+                />
+                <p className="mt-3 text-[13px] leading-snug text-ink-3">If the money can&apos;t be added, it is sent back here.</p>
+              </Panel>
+            </div>
+          )}
+
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             <div className="min-w-0">
               <SheetLabel>See</SheetLabel>
               <Panel className="p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="mono">{phase === "done" ? "What happened" : "What will happen"}</span>
-                  <StatusPill tone={o.status.tone}>{o.status.label}</StatusPill>
+                  <span className="mono">{requested ? "What to do now" : phase === "done" ? "What happened" : "What will happen"}</span>
+                  {!requested && <StatusPill tone={o.status.tone}>{o.status.label}</StatusPill>}
                 </div>
                 <dl className="mt-2">
                   {rows.map((row, i) => {
@@ -262,11 +393,15 @@ export function Composer({
                 label={o.cta}
                 hold={o.hold}
                 blocked={blocked}
-                working={variant ? (engine.step ?? "Working") : o.steps[Math.min(step, o.steps.length - 1)]}
-                done={variant ? (delivered ? o.doneLabel : "Sent. Still being delivered.") : o.doneLabel}
+                working={asking ? (requested ? "Waiting for your money" : "Getting your address") : variant ? (engine.step ?? "Working") : o.steps[Math.min(step, o.steps.length - 1)]}
+                done={variant && !asking ? (delivered ? o.doneLabel : "Sent. Still being delivered.") : o.doneLabel}
                 onSigned={() => {
                   setHint(null);
-                  if (variant) {
+                  if (asking) {
+                    void request();
+                    return;
+                  }
+                  if (variant && variant.plan) {
                     const plan = variant.plan(vals, ctx);
                     if (!plan) {
                       setHint(blocked ?? "This can't be sent right now.");
@@ -285,11 +420,11 @@ export function Composer({
                 {phase === "idle" &&
                   (variant ? (
                     (hint ??
-                      (engine.error ? (
-                        <span className="text-rose">{engine.error}</span>
+                      (asking ? reqError : engine.error) ? (
+                        <span className="text-rose">{asking ? reqError : engine.error}</span>
                       ) : (
-                        (blocked ?? "Hold, then confirm with your fingerprint.")
-                      )))
+                        (blocked ?? (asking ? "Nothing leaves your account, so a tap is enough." : "Hold, then confirm with your fingerprint."))
+                      ))
                   ) : (
                     (hint ??
                     (real || o.blocked
@@ -299,21 +434,28 @@ export function Composer({
                         : "Nothing leaves your account, so a tap is enough."))
                   ))}
                 {phase === "auth" && "You can leave this screen. It finishes without you."}
-                {phase === "working" &&
+                {asking && phase === "working" && requested && "You can close this. Standing keeps the address, and Said will show when it lands."}
+                {asking && phase === "done" && "It is recorded under Said."}
+                {asking && phase === "failed" && (
+                  <>
+                    <span className="text-ink">{o.fail}</span> {o.why}
+                  </>
+                )}
+                {!asking && phase === "working" &&
                   (variant ? "Keep this open if you like. It finishes without you." : "You can leave this screen. It finishes without you.")}
-                {phase === "done" &&
+                {!asking && phase === "done" &&
                   (variant
                     ? delivered
                       ? (o.after ?? "It is recorded under Said.")
                       : "It is on its way. Said will show when it lands."
                     : (o.after ?? "It is recorded under Said."))}
-                {phase === "failed" && variant &&
+                {!asking && phase === "failed" && variant &&
                   (engine.receipt?.state === "refunded" ? (
                     "It didn't go through. Your money is back in your account."
                   ) : (
                     <>It didn&apos;t go through. {o.why}</>
                   ))}
-                {phase === "failed" && !variant && (
+                {!asking && phase === "failed" && !variant && (
                   <>
                     <span className="text-ink">{o.fail}</span> {o.why} You were not charged.
                   </>
@@ -333,14 +475,31 @@ export function Composer({
                     </button>
                   </>
                 )}
-                {phase === "failed" && (
+                {asking && requested && phase === "working" && (
+                  <button type="button" onClick={onClose} className="h-10 cursor-pointer rounded-full bg-ink px-5 text-[14px] font-medium text-white shadow-pill">
+                    Done
+                  </button>
+                )}
+                {asking && phase === "failed" && (
+                  <>
+                    <button type="button" onClick={onClose} className="h-10 cursor-pointer rounded-full bg-ink px-5 text-[14px] font-medium text-white shadow-pill">
+                      Done
+                    </button>
+                    <button type="button" onClick={again} className="h-10 cursor-pointer rounded-full bg-white px-5 text-[14px] font-medium shadow-chip">
+                      Try again
+                    </button>
+                  </>
+                )}
+                {!asking && phase === "failed" && (
                   <button type="button" onClick={again} className="h-10 cursor-pointer rounded-full bg-ink px-5 text-[14px] font-medium text-white shadow-pill">
                     {verb.ask ? "See a fresh price" : "Try again"}
                   </button>
                 )}
-                {(phase === "idle" || phase === "auth" || phase === "working") && (
+                {(phase === "idle" || phase === "auth" || (phase === "working" && !requested)) && (
                   <span className="mono text-ink-3">
-                    {variant
+                    {asking
+                      ? "Your account · this gives you an address to send to"
+                      : variant
                       ? "Your account · this really sends"
                       : real
                         ? "Your account · sending is not connected yet"

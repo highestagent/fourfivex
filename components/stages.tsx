@@ -173,15 +173,28 @@ const TILT = ["-7deg", "4deg", "-3deg", "6deg"];
 
 function GetPaidStage({ state, cycle, vals, quote, live, onVal }: StageProps) {
   const amt = Number(vals.amt);
+  // A real account adding money names the plain word for what it pays with, and may pay with dollars.
+  const adding = live && typeof vals.word === "string";
   const payer = live ? (vals.payer as AssetKey) : PAYERS[cycle % PAYERS.length];
   const P = ASSETS[payer];
-  const who = vals.who === "maya" ? "Maya" : "Anyone with the link";
+  const who = adding ? "Your account" : vals.who === "maya" ? "Maya" : "Anyone with the link";
   const flowing = state === "run" || state === "done";
   const sends = quote.status === "live" ? `${coin(quote.data.amountIn)} ${P.name}` : null;
+  const tiles: AssetKey[] = adding ? ["usd", ...PAYERS] : PAYERS;
 
   let note: ReactNode;
   let tone: NoteTone = "muted";
-  if (state === "fail") {
+  if (adding) {
+    if (state === "fail") {
+      note = "Not added";
+      tone = "stop";
+    } else if (state === "done") {
+      note = "Added to your account";
+      tone = "ok";
+    } else if (state === "run") note = "Waiting for your money";
+    else
+      note = quote.status === "live" ? `With ${vals.word} you would send about ${coin(quote.data.amountIn)}` : "Pick what you will pay with";
+  } else if (state === "fail") {
     note = "Not created";
     tone = "stop";
   } else if (live) {
@@ -199,13 +212,17 @@ function GetPaidStage({ state, cycle, vals, quote, live, onVal }: StageProps) {
     <Frame>
       <div className="flex flex-col items-center">
         <div className="flex items-center gap-3">
-          {PAYERS.map((k, i) => {
+          {tiles.map((k, i) => {
             const active = k === payer;
             const cls = `grid size-11 place-items-center rounded-[13px] bg-white text-[18px] font-semibold shadow-chip transition-[transform,box-shadow] duration-300 ${
               active ? "scale-110 ring-2 ring-blue" : ""
             }`;
             const style = { color: ASSETS[k].color, ["--rot" as string]: TILT[i], animationDelay: `${i * -1.1}s` };
-            return live ? (
+            return adding ? (
+              <span key={k} className={cls} style={{ color: ASSETS[k].color }}>
+                {ASSETS[k].glyph}
+              </span>
+            ) : live ? (
               <button
                 key={k}
                 type="button"
@@ -223,12 +240,14 @@ function GetPaidStage({ state, cycle, vals, quote, live, onVal }: StageProps) {
               </span>
             );
           })}
-          <span
-            className={`mono grid h-11 place-items-center rounded-[13px] bg-white px-2.5 text-ink-3 shadow-chip ${live ? "" : "animate-floaty"}`}
-            style={{ ["--rot" as string]: TILT[3], animationDelay: "-2.6s" }}
-          >
-            +30
-          </span>
+          {!adding && (
+            <span
+              className={`mono grid h-11 place-items-center rounded-[13px] bg-white px-2.5 text-ink-3 shadow-chip ${live ? "" : "animate-floaty"}`}
+              style={{ ["--rot" as string]: TILT[3], animationDelay: "-2.6s" }}
+            >
+              +30
+            </span>
+          )}
         </div>
         <span
           className={`mt-2 h-7 w-0.5 animate-stream transition-opacity duration-300 ${flowing && !live ? "opacity-100" : "opacity-0"}`}

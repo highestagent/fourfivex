@@ -9,7 +9,9 @@ import { describe, expect, it } from "vitest";
 import { balancesOf, ContractError, currentSalt, hasPublicKey, publicKeysOf, simulate } from "../lib/account/chain";
 import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent } from "../lib/account/intents";
 import { accountIdOf, encodePublicKey } from "../lib/account/keys";
+import { getTokens } from "../lib/oneclick";
 import { payloadProblem } from "../lib/send/guard";
+import { PAY_IN } from "../lib/send/payin";
 import { prepare, status } from "../lib/send/server";
 import { makeAuthenticator } from "./virtual-authenticator";
 
@@ -100,5 +102,15 @@ describe.runIf(process.env.LIVE === "1")("the live verifier contract", () => {
     });
     expect(prepared.depositAddress).toBeTruthy();
     expect(prepared.payload).toBeUndefined();
+  });
+
+  it("lists every way to add money in the live token list, with the same decimals", async () => {
+    const tokens = await getTokens();
+    for (const p of PAY_IN) {
+      const t = tokens.find((x) => x.assetId === p.assetId);
+      expect(t, p.label).toBeDefined();
+      expect(t!.decimals, p.label).toBe(p.decimals);
+      expect(t!.blockchain, p.label).toBe(p.network);
+    }
   });
 });

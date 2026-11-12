@@ -5,7 +5,7 @@ import { countPasskeys } from "@/lib/account/flows";
 import { useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
 import { ASSETS, HOLDINGS } from "@/lib/assets";
-import { coin, usd } from "@/lib/format";
+import { coin, usd, when } from "@/lib/format";
 import { usePrices } from "@/lib/hooks";
 import { sendStatus } from "@/lib/send/api";
 import { sent, useSent, type SentEntry } from "@/lib/send/history";
@@ -14,7 +14,7 @@ import { VERBS, VERB_ORDER, type Standing, type Vals, type VerbKey } from "@/lib
 import { AccountSheet } from "./AccountSheet";
 import { Card } from "./Card";
 import { Composer, type Signed } from "./Composer";
-import { Arrow, Chevron, Dot, Finger, Panel, StatusPill } from "./ui";
+import { Arrow, Chevron, CopyButton, Dot, Finger, Panel, StatusPill } from "./ui";
 
 type View = "now" | "standing" | "said";
 type SaidItem = { t: string; d: string };
@@ -33,11 +33,6 @@ const STATE_WORD: Record<SentEntry["state"], string> = {
   failed: "Didn’t go through",
   short: "Short",
 };
-
-/** "12 Nov, 14:05". */
-function when(at: number): string {
-  return new Date(at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-}
 
 const GROUPS = ["usd", "btc", "eth", "sol"] as const;
 const GROUP_NAME = { usd: "dollars", btc: "bitcoin", eth: "ether", sol: "sol" } as const;
@@ -250,7 +245,7 @@ export default function Surface() {
   const counter = useRef(0);
 
   // Keep unfinished sends fresh, even when they were started in another visit.
-  const unfinished = mine.filter((e) => e.state === "waiting" || e.state === "seen" || e.state === "working");
+  const unfinished = mine.filter((e) => e.state === "waiting" || e.state === "seen" || e.state === "working" || e.state === "short");
   const watching = unfinished.map((e) => e.id).join(",");
   useEffect(() => {
     if (!watching) return;
@@ -263,6 +258,23 @@ export default function Surface() {
     const t = setInterval(check, 5000);
     return () => clearInterval(t);
   }, [watching]);
+
+  // Money being waited for: an address was given and the money has not landed or been sent back.
+  const waitingFor = mine.filter(
+    (e) => e.kind === "add" && (e.state === "waiting" || e.state === "seen" || e.state === "working" || e.state === "short"),
+  );
+  // The clock is read after the page loads, so the first paint matches the server's.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!waitingFor.length) return;
+    const tick = () => setNow(Date.now());
+    const first = setTimeout(tick, 0);
+    const every = setInterval(tick, 30_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(every);
+    };
+  }, [waitingFor.length]);
 
   const real = accountId !== null;
   const name = accountId ? (device.names[accountId] ?? "My account") : null;
@@ -309,7 +321,7 @@ export default function Surface() {
 
   const places: Place[] = [
     { key: "now", label: "Now" },
-    { key: "standing", label: "Standing", count: real ? 0 : standing.length },
+    { key: "standing", label: "Standing", count: real ? waitingFor.length : standing.length },
     { key: "said", label: "Said" },
   ];
 
@@ -405,13 +417,22 @@ export default function Surface() {
                   onAction={() => say("pay", { who: "maya", amt: 40 })}
                 />
               )}
-              {onePasskey && (
+              {real && h && h.total === 0 ? (
+                <Moment
+                  tone="info"
+                  text="Your account is empty. Add money to start using it."
+                  action="Add money"
+                  onAction={() => say("getpaid")}
+                />
+              ) : (
+                onePasskey && (
                 <Moment
                   tone="warn"
                   text="One passkey opens this account. Add a backup so a lost device doesn’t lose it."
                   action="Add a backup"
                   onAction={showAccount}
                 />
+                )
               )}
             </section>
 
@@ -430,12 +451,12 @@ export default function Surface() {
               title="Still in force"
               note="Anything you sign that keeps going lives here until you stop it: money at work, a loan, a request waiting to be paid, or a sentence with “every” or “when”."
             />
-            {real || standing.length === 0 ? (
+            {(real ? waitingFor.length === 0 : standing.length === 0) ? (
               <Empty
                 title="Nothing is standing yet."
                 note={
                   real
-                    ? "Sentences are not connected to real accounts yet, so nothing can be left standing."
+                    ? "Money you are waiting for is listed here until it arrives."
                     : "Sign a sentence that keeps going and it will wait here."
                 }
               >
@@ -449,6 +470,58 @@ export default function Surface() {
                   </button>
                 )}
               </Empty>
+            ) : real ? (
+              <div className="rounded-[28px] bg-card p-3 sm:p-5">
+                <Panel className="divide-y divide-line/70 px-5">
+                  {waitingFor.map((e) => {
+                    const expired = e.state === "waiting" && !!e.deadline && now !== null && new Date(e.deadline).getTime() < now;
+                    const meta = expired
+                      ? "Expired"
+                      : e.state === "waiting"
+                        ? e.deadline
+                          ? `Send before ${when(e.deadline)}`
+                          : "Waiting for your money"
+                        : e.state === "short"
+                          ? "Too little arrived"
+                          : "Seen. Adding it now.";
+                    const d = e.deposit;
+                    return (
+                      <div key={e.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-4">
+                        <div className="min-w-0">
+                          <p className="text-[16px] font-medium leading-snug tracking-[-0.01em]">{e.waitingText ?? e.text}</p>
+                          <p className="mono mt-1.5 text-ink-3">{meta}</p>
+                          {d && (
+                            <div className="mt-3 text-[13px] leading-snug text-ink-3">
+                              <p>
+                                Send exactly {d.amount} {d.word} on {d.networkName} to
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                <span className="break-all font-mono text-[12.5px] text-ink-2">{d.address}</span>
+                                <CopyButton text={d.address} label="Copy the address" />
+                              </div>
+                              {d.memo && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                  <span>
+                                    Memo <span className="break-all font-mono text-[12.5px] text-ink-2">{d.memo}</span>
+                                  </span>
+                                  <CopyButton text={d.memo} label="Copy the memo" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="mono h-8 cursor-pointer rounded-full bg-card px-3.5 hover:bg-ink hover:text-white"
+                          onClick={() => sent.remove(e.id)}
+                        >
+                          Forget
+                        </button>
+                      </div>
+                    );
+                  })}
+                </Panel>
+              </div>
             ) : (
               <div className="rounded-[28px] bg-card p-3 sm:p-5">
                 <Panel className="divide-y divide-line/70 px-5">
@@ -524,7 +597,7 @@ export default function Surface() {
 
         <footer className="mono mt-12 max-w-[72ch] border-t border-line pt-6 leading-[1.7] text-ink-3">
           {real
-            ? "Your account and its balance are real. Change and pay really send. Add is not connected yet."
+            ? "Your account and its balance are real. Change, pay and add really move money. Grow, borrow and ask are still examples."
             : "A demo account with example balances. Prices and quotes are live dry runs from NEAR Intents. Signing is simulated and nothing is ever sent."}
         </footer>
       </div>

@@ -1,4 +1,6 @@
-import type { ReactNode, SVGProps } from "react";
+"use client";
+
+import { useState, type ReactNode, type SVGProps } from "react";
 import type { StatusTone } from "@/lib/verbs";
 
 export function Panel({ className = "", children }: { className?: string; children: ReactNode }) {
@@ -36,6 +38,29 @@ export function StatusPill({ tone, children }: { tone: StatusTone; children: Rea
       {tone === "live" && <span className="size-[5px] rounded-full bg-current animate-pulse-dot" />}
       {children}
     </span>
+  );
+}
+
+/** A small pill that copies some text. It says "Copied" for a moment. */
+export function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="mono cursor-pointer rounded-full bg-card px-2.5 py-1 hover:bg-ink hover:text-white"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        } catch {
+          /* clipboard refused: the text is still visible */
+        }
+      }}
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
   );
 }
 

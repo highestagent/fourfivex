@@ -39,3 +39,21 @@ export function dotUnit(amount: number): number {
     unit *= 10;
   }
 }
+
+/**
+ * An amount in smallest units as an exact decimal string, with trailing zeros trimmed.
+ * Integer arithmetic only: this is what a person is told to send, so it never rounds.
+ */
+export function exact(units: string, decimals: number): string {
+  const n = BigInt(units);
+  const neg = n < BigInt(0);
+  const digits = (neg ? -n : n).toString().padStart(decimals + 1, "0");
+  const whole = digits.slice(0, digits.length - decimals);
+  const frac = digits.slice(digits.length - decimals).replace(/0+$/, "");
+  return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
+}
+
+/** "12 Nov, 14:05" in the viewer's own time. */
+export function when(at: number | string): string {
+  return new Date(at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
