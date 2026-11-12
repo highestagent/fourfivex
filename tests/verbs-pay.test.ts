@@ -62,7 +62,7 @@ const moved = {
 describe("pay, for a real account", () => {
   it("starts with the first saved person and the group holding the most", () => {
     expect(real.def(slotCtx())).toEqual({ who: "p1", amt: 10, from: "btc" });
-    expect(real.def(slotCtx({ people: [] }))).toEqual({ who: "", amt: 10, from: "btc" });
+    expect(real.def(slotCtx({ people: [] }))).toEqual({ who: "__new", amt: 10, from: "btc" });
     expect(real.def(slotCtx({ holdings: hold(USD) })).from).toBe("usd");
   });
 

@@ -319,7 +319,8 @@ const payReal: RealVariant = {
     amt: { cap: "Amount", kind: "amount", opts: () => [] },
     from: realFromSlot,
   },
-  def: (c) => ({ who: c.people[0]?.id ?? "", amt: 10, from: biggestGroup(c.holdings) }),
+  // With nobody saved yet, start on "someone new" so the form is already open.
+  def: (c) => ({ who: c.people[0]?.id ?? NEW_PERSON, amt: 10, from: biggestGroup(c.holdings) }),
   ask(v, c) {
     const amt = Number(v.amt);
     const person = c.people.find((p) => p.id === v.who);

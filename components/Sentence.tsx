@@ -125,7 +125,9 @@ export function Sentence({
             </span>
           );
         const opts = slot.opts(ctx);
-        const current = opts.find((o) => o.v === vals[key]) ?? opts[0];
+        // A person blank with nobody chosen says "someone" instead of borrowing the first option's name.
+        const current =
+          opts.find((o) => o.v === vals[key]) ?? (slot.kind === "person" ? { v: "", label: "someone" } : opts[0]);
         const fixed = (opts.length < 2 && slot.kind !== "person") || disabled;
         const isOpen = open?.key === key;
         return (

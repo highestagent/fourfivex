@@ -81,7 +81,9 @@ export function Composer({
   // Once something has been signed, the numbers shown are the ones that were signed.
   const ctx: Ctx = { prices, pricesLive, quote, holdings, people, accountId, moved: engine.receipt?.prepared ?? engine.moved };
   const current = (variant ?? verb).out(vals, ctx);
-  const o = variant && engine.phase === "idle" ? current : (frozen ?? current);
+  // The demo freezes what was on screen when it was signed. A real send does the same while it
+  // runs, then shows the numbers that were actually signed once there is a receipt.
+  const o = variant && (engine.phase === "idle" || engine.receipt) ? current : (frozen ?? current);
 
   const signedRef = useRef(onSigned);
   useEffect(() => {
