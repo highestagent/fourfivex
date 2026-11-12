@@ -193,6 +193,17 @@ function biggestGroup(h: Holdings | null): Money {
   return best;
 }
 
+/**
+ * Why a send can't be covered. Usually the person simply holds less than they typed. Only when
+ * the money sits on several networks is the one-source limit the real reason, so say that only then.
+ */
+function shortReason(holdings: Holdings | null, group: Money, most: number): string {
+  const word = heldWord(group);
+  const places = holdings ? holdings.parts.filter((p) => p.group === group && p.usd > 0).length : 1;
+  if (places <= 1) return `You hold ${usd(most)} of ${word}. That is the most this sentence can use.`;
+  return `Your ${word} ${group === "usd" ? "are" : "is"} spread across networks. The most one sentence can use is ${usd(most)}.`;
+}
+
 const changeReal: RealVariant = {
   parts: ["Change ", slot("amt"), " of ", slot("from"), " into ", slot("to"), "."],
   slots: {
@@ -247,8 +258,7 @@ const changeReal: RealVariant = {
     if (tooSmall(raw)) blocked = MIN_AMOUNT;
     else if (!c.holdings) blocked = "Reading your account…";
     else if (src?.kind === "empty") blocked = `You don’t hold any ${heldWord(from)} yet.`;
-    else if (src?.kind === "short")
-      blocked = `Your ${heldWord(from)} is spread across networks. The most one sentence can use is ${usd(src.most)}.`;
+    else if (src?.kind === "short") blocked = shortReason(c.holdings, from, src.most);
     else if (!m && c.quote.status === "no-offer") blocked = NO_OFFER;
     else if (!m && c.quote.status !== "live") blocked = "Getting a price…";
     return {

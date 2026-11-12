@@ -90,7 +90,7 @@ export function parseAsk(body: unknown): QuoteAsk | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
   const amount = b.usd;
-  if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 1 || amount > 5000) return null;
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 1 || amount > 1_000_000) return null;
   // An account may name the exact token it holds. Anything else about it is refused.
   const named = b.fromAssetId === undefined ? {} : typeof b.fromAssetId === "string" && b.fromAssetId.length <= 120 ? { fromAssetId: b.fromAssetId } : null;
   if (named === null) return null;

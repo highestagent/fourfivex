@@ -77,7 +77,8 @@ export function Composer({
     return variant.ask(vals, c);
   }, [verb, variant, vals, prices, pricesLive, holdings, people, accountId]);
   const quote = useQuote(ask, phase !== "idle");
-  const ctx: Ctx = { prices, pricesLive, quote, holdings, people, accountId, moved: engine.moved };
+  // Once something has been signed, the numbers shown are the ones that were signed.
+  const ctx: Ctx = { prices, pricesLive, quote, holdings, people, accountId, moved: engine.receipt?.prepared ?? engine.moved };
   const current = (variant ?? verb).out(vals, ctx);
   const o = variant && engine.phase === "idle" ? current : (frozen ?? current);
 

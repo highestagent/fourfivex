@@ -72,8 +72,14 @@ describe("change, for a real account", () => {
     expect(real.out(vals({ amt: NaN }), ctx()).blocked).toBe("Type an amount of at least $1.");
     expect(real.out(vals(), ctx({ holdings: null })).blocked).toBe("Reading your account…");
     expect(real.out(vals({ from: "eth", to: "usd" }), ctx()).blocked).toBe("You don’t hold any ether yet.");
+    // Held in one place: the person simply has less than they typed.
     expect(real.out(vals({ amt: 100 }), ctx()).blocked).toBe(
-      "Your bitcoin is spread across networks. The most one sentence can use is $80.00.",
+      "You hold $80.00 of bitcoin. That is the most this sentence can use.",
+    );
+    // Held in two places that would cover it together: the one-source limit is the real reason.
+    const split = hold(part("usd", 30, "nep141:usdc-a"), part("usd", 25, "nep141:usdc-b"));
+    expect(real.out(vals({ amt: 50, from: "usd", to: "btc" }), ctx({ holdings: split })).blocked).toBe(
+      "Your dollars are spread across networks. The most one sentence can use is $30.00.",
     );
     expect(real.out(vals(), ctx({ quote: { status: "no-offer" } })).blocked).toMatch(/No one is offering/);
     expect(real.out(vals(), ctx({ quote: { status: "loading" } })).blocked).toBe("Getting a price…");
