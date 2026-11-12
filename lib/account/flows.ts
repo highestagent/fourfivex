@@ -7,7 +7,7 @@
 import { verifyAssertion } from "./assertion";
 import { fetchKeys, fetchSalt, hasKey, intentStatus, NetworkError, publishIntent } from "./api";
 import { founderHandle, memberHandle } from "./handle";
-import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent } from "./intents";
+import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent, type SignedIntent } from "./intents";
 import { accountIdOf, decodePublicKey, encodePublicKey } from "./keys";
 import { createPasskey, askPasskey } from "./passkey";
 import { openWithPasskey } from "./session";
@@ -56,10 +56,29 @@ export function signOut(): void {
   memory.open(null);
 }
 
-/** Has a passkey of this account sign one key-management intent, sends it, and waits for it to land. */
-async function signAndSend(accountId: string, intent: Intent, onStep: (step: string) => void): Promise<void> {
+const signersOf = (accountId: string) => {
   const signers = memory.get().passkeys.filter((p) => p.accountId === accountId && !p.pending);
   if (signers.length === 0) throw new NetworkError("This device has no passkey for the account. Sign in again first.");
+  return signers;
+};
+
+/** Asks this device's passkeys for the account to sign a payload, and checks the answer. */
+export async function signPayload(accountId: string, payload: string): Promise<SignedIntent> {
+  const signers = signersOf(accountId);
+  const challenge = challengeFor(payload);
+  const assertion = await askPasskey(
+    challenge,
+    signers.map((p) => p.credentialId),
+  );
+  const signer = signers.find((p) => p.credentialId === assertion.credentialId);
+  if (!signer || !verifyAssertion(decodePublicKey(signer.publicKey), challenge, assertion))
+    throw new NetworkError("That passkey's signature did not check out. Nothing was sent.");
+  return signedIntent(payload, decodePublicKey(signer.publicKey), assertion);
+}
+
+/** Has a passkey of this account sign one key-management intent, sends it, and waits for it to land. */
+async function signAndSend(accountId: string, intent: Intent, onStep: (step: string) => void): Promise<void> {
+  signersOf(accountId);
 
   onStep("Preparing");
   const deadline = new Date(Date.now() + 5 * 60_000);
@@ -69,19 +88,12 @@ async function signAndSend(accountId: string, intent: Intent, onStep: (step: str
     nonce: makeNonce(await fetchSalt(), deadline, random(15)),
     intents: [intent],
   });
-  const challenge = challengeFor(payload);
 
   onStep("Waiting for your passkey");
-  const assertion = await askPasskey(
-    challenge,
-    signers.map((p) => p.credentialId),
-  );
-  const signer = signers.find((p) => p.credentialId === assertion.credentialId);
-  if (!signer || !verifyAssertion(decodePublicKey(signer.publicKey), challenge, assertion))
-    throw new NetworkError("That passkey's signature did not check out. Nothing was sent.");
+  const signed = await signPayload(accountId, payload);
 
   onStep("Sending");
-  const intentHash = await publishIntent(signedIntent(payload, decodePublicKey(signer.publicKey), assertion));
+  const intentHash = await publishIntent(signed);
 
   onStep("Waiting for the network");
   for (let i = 0; i < 40; i++) {

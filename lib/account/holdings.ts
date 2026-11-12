@@ -8,7 +8,16 @@ import { balancesOf } from "./chain";
 
 export type Group = "usd" | "btc" | "eth" | "sol" | "other";
 
-export type Part = { symbol: string; network: string; amount: number; usd: number; group: Group };
+export type Part = {
+  assetId: string;
+  decimals: number;
+  /** The raw balance, in smallest units. */
+  units: string;
+  symbol: string; network: string;
+  amount: number;
+  usd: number;
+  group: Group;
+};
 
 export type Holdings = {
   total: number;
@@ -41,7 +50,7 @@ export async function holdingsOf(accountId: string): Promise<Holdings> {
     const group = GROUP_OF[t.symbol] ?? "other";
     groups[group].amount += group === "other" ? 0 : amount;
     groups[group].usd += usd;
-    parts.push({ symbol: t.symbol, network: t.blockchain, amount, usd, group });
+    parts.push({ assetId: t.assetId, decimals: t.decimals, units: raw[i], symbol: t.symbol, network: t.blockchain, amount, usd, group });
   });
   parts.sort((a, b) => b.usd - a.usd);
   return { total: parts.reduce((n, p) => n + p.usd, 0), groups, parts };
