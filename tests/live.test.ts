@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import { balancesOf, ContractError, currentSalt, hasPublicKey, publicKeysOf, simulate } from "../lib/account/chain";
 import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent } from "../lib/account/intents";
 import { accountIdOf, encodePublicKey } from "../lib/account/keys";
+import { payloadProblem } from "../lib/send/guard";
+import { prepare, status } from "../lib/send/server";
 import { makeAuthenticator } from "./virtual-authenticator";
 
 const random15 = () => crypto.getRandomValues(new Uint8Array(15));
@@ -55,5 +57,33 @@ describe.runIf(process.env.LIVE === "1")("the live verifier contract", () => {
     const owner = makeAuthenticator();
     const signed = await sign(owner, [{ intent: "remove_public_key", public_key: encodePublicKey(owner.publicKey) }], "00000000");
     await expect(simulate([signed])).rejects.toBeInstanceOf(ContractError);
+  });
+
+  it("prepares a real send, and the contract gets as far as the balance check", async () => {
+    const passkey = makeAuthenticator();
+    const accountId = accountIdOf(passkey.publicKey);
+    const assetId = "nep141:btc.omft.near";
+    const prepared = await prepare({ kind: "change", accountId, fromAssetId: assetId, to: "usd", usd: 50 });
+    const { payload, depositAddress } = prepared;
+    expect(payload).toBeDefined();
+    expect(payloadProblem(payload!, { accountId, depositAddress, assetId, maxUnits: prepared.leaves.units })).toBeNull();
+    const signed = signedIntent(payload!, passkey.publicKey, passkey.assert(challengeFor(payload!)));
+    // An empty throwaway account cannot cover the transfer, so a refusal here means the
+    // signature and payload were accepted up to the balance check. Nothing is submitted.
+    await expect(simulate([signed])).rejects.toBeInstanceOf(ContractError);
+    expect((await status(depositAddress)).state).toBe("waiting");
+  });
+
+  it("prepares a deposit for adding money, with nothing to sign", async () => {
+    const accountId = accountIdOf(makeAuthenticator().publicKey);
+    const prepared = await prepare({
+      kind: "add",
+      accountId,
+      payAssetId: "nep141:eth.omft.near",
+      usd: 120,
+      refundTo: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    });
+    expect(prepared.depositAddress).toBeTruthy();
+    expect(prepared.payload).toBeUndefined();
   });
 });
