@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { countPasskeys } from "@/lib/account/flows";
 import { useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
 import { ASSETS, HOLDINGS } from "@/lib/assets";
 import { coin, usd } from "@/lib/format";
 import { usePrices } from "@/lib/hooks";
 import { VERBS, VERB_ORDER, type Standing, type Vals, type VerbKey } from "@/lib/verbs";
-import { AccountSheet, short } from "./AccountSheet";
+import { AccountSheet } from "./AccountSheet";
 import { Card } from "./Card";
 import { Composer, type Signed } from "./Composer";
-import { Arrow, Chevron, Dot, Finger, Panel, Pill, Sep, StatusPill } from "./ui";
+import { Arrow, Chevron, Dot, Finger, Panel, StatusPill } from "./ui";
 
 type View = "now" | "standing" | "said";
 type SaidItem = { t: string; d: string };
@@ -20,15 +21,191 @@ const SEED: SaidItem[] = [
   { t: "You paid Dad $25.00.", d: "3 October" },
 ];
 
+const GROUPS = ["usd", "btc", "eth", "sol"] as const;
 const GROUP_NAME = { usd: "dollars", btc: "bitcoin", eth: "ether", sol: "sol" } as const;
 
-function Divider() {
+/** One column, one gutter. The bar, the header of each place and the cards all share it. */
+const WRAP = "mx-auto w-full max-w-[1000px] px-4 sm:px-6";
+
+/* ───────────────────────────── the bar ───────────────────────────── */
+
+/** A blank waiting to be filled in. */
+function Mark() {
   return (
-    <span className="hidden sm:block">
-      <Sep />
+    <span className="grid size-6 place-items-end rounded-[8px] bg-ink p-[5px]" aria-hidden="true">
+      <span className="h-[3px] w-full rounded-full bg-white" />
     </span>
   );
 }
+
+type Place = { key: View; label: string; count?: number };
+
+/** The three places. A segmented control in the bar on wide screens, a thumb-reach bar on phones. */
+function Places({
+  places,
+  view,
+  onView,
+  layout,
+}: {
+  places: Place[];
+  view: View;
+  onView: (v: View) => void;
+  layout: "segment" | "bar";
+}) {
+  if (layout === "segment")
+    return (
+      <div className="inline-flex rounded-full bg-card p-1">
+        {places.map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => onView(p.key)}
+            aria-current={view === p.key ? "page" : undefined}
+            className={`mono cursor-pointer rounded-full px-4 py-2 transition-colors ${
+              view === p.key ? "bg-white text-ink shadow-chip" : "text-ink-3 hover:text-ink-2"
+            }`}
+          >
+            {p.label}
+            {p.count ? <span className="ml-1.5 text-blue">{p.count}</span> : null}
+          </button>
+        ))}
+      </div>
+    );
+  return (
+    <div className="mx-auto grid max-w-[520px] grid-cols-3 px-2">
+      {places.map((p) => (
+        <button
+          key={p.key}
+          type="button"
+          onClick={() => onView(p.key)}
+          aria-current={view === p.key ? "page" : undefined}
+          className="grid h-14 cursor-pointer place-items-center"
+        >
+          <span
+            className={`mono rounded-full px-4 py-2 transition-colors ${
+              view === p.key ? "bg-card text-ink" : "text-ink-3"
+            }`}
+          >
+            {p.label}
+            {p.count ? <span className="ml-1.5 text-blue">{p.count}</span> : null}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────── the top of each place ─────────────────────── */
+
+function Holding({ color, amount, name }: { color: string; amount: string; name: string }) {
+  return (
+    <span className="inline-flex h-8 items-center gap-2 rounded-full bg-card px-3 text-[13.5px] tabular-nums">
+      <Dot color={color} />
+      <span className="font-medium">{amount}</span>
+      <span className="text-ink-2">{name}</span>
+    </span>
+  );
+}
+
+/** What you have, as the one large figure on the page. */
+function Balance({
+  label,
+  status,
+  total,
+  children,
+}: {
+  label: string;
+  status: ReactNode;
+  total: number | null;
+  children: ReactNode;
+}) {
+  const text = total === null ? null : usd(total);
+  const [whole, cents] = text ? text.split(".") : ["", ""];
+  return (
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <h1 className="mono text-ink-3">{label}</h1>
+        {status}
+      </div>
+      <p
+        className="mt-3 text-[clamp(44px,9vw,68px)] font-medium leading-none tracking-[-0.045em] tabular-nums"
+        aria-label={text ?? "Reading your balance"}
+      >
+        {text ? (
+          <>
+            {whole}
+            <span className="text-ink-3">.{cents}</span>
+          </>
+        ) : (
+          <span className="text-ink-3">$ —</span>
+        )}
+      </p>
+      <div className="mt-5 flex min-h-8 flex-wrap items-center gap-2">{children}</div>
+    </div>
+  );
+}
+
+/** The one thing worth doing right now, already written out. */
+function Moment({
+  tone,
+  text,
+  action,
+  onAction,
+}: {
+  tone: "info" | "warn";
+  text: string;
+  action: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="@container flex h-full items-center rounded-[22px] bg-card p-5">
+      {/* Side by side only when this card itself is wide enough, whatever the screen. */}
+      <div className="flex w-full flex-col gap-4 @[26rem]:flex-row @[26rem]:items-center @[26rem]:justify-between @[26rem]:gap-6">
+      <div className="min-w-0">
+        <p className="mono flex items-center gap-2 text-ink-3">
+          <span
+            className={`size-1.5 rounded-full animate-pulse-dot ${
+              tone === "warn" ? "bg-amber-2 text-amber-2" : "bg-blue text-blue"
+            }`}
+          />
+          Right now
+        </p>
+        <p className="mt-2 text-[16px] font-medium leading-snug tracking-[-0.01em] text-pretty">{text}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onAction}
+        className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 self-start whitespace-nowrap rounded-full bg-ink px-4 text-[14px] font-medium text-white shadow-pill @[26rem]:self-center"
+      >
+        {action}
+        <Arrow size={13} />
+      </button>
+      </div>
+    </div>
+  );
+}
+
+function PlaceHead({ label, title, note }: { label: string; title: string; note: string }) {
+  return (
+    <header className="pb-7 pt-8 md:pb-9 md:pt-12">
+      <p className="mono text-ink-3">{label}</p>
+      <h1 className="mt-3 text-[clamp(30px,5.5vw,44px)] font-medium leading-[1.05] tracking-[-0.035em]">{title}</h1>
+      <p className="mt-3 max-w-[54ch] text-[15px] leading-[1.55] text-ink-2 text-pretty">{note}</p>
+    </header>
+  );
+}
+
+function Empty({ title, note, children }: { title: string; note: string; children?: ReactNode }) {
+  return (
+    <div className="rounded-[28px] bg-card px-6 py-14 text-center">
+      <h2 className="text-[19px] font-medium tracking-[-0.015em]">{title}</h2>
+      <p className="mx-auto mt-2.5 max-w-[46ch] text-[14.5px] leading-[1.55] text-ink-2 text-pretty">{note}</p>
+      {children}
+    </div>
+  );
+}
+
+/* ───────────────────────────── the page ───────────────────────────── */
 
 /**
  * The whole product is three places, and each is a tense.
@@ -47,13 +224,26 @@ export default function Surface() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [standing, setStanding] = useState<Standing[]>([]);
   const [said, setSaid] = useState<SaidItem[]>(SEED);
+  const [keys, setKeys] = useState<{ id: string; count: number } | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const counter = useRef(0);
 
   const real = accountId !== null;
   const name = accountId ? (device.names[accountId] ?? "My account") : null;
-  const demoTotal = HOLDINGS.usd + HOLDINGS.btc * prices.btc;
   const h = holdings.holdings;
+
+  // How many passkeys open the account, re-read whenever the account sheet closes.
+  useEffect(() => {
+    if (!accountId || accountOpen) return;
+    let alive = true;
+    countPasskeys(accountId)
+      .then((c) => alive && setKeys({ id: accountId, count: c.added.length + (c.founderAttached === false ? 0 : 1) }))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [accountId, accountOpen]);
+  const onePasskey = real && keys?.id === accountId && keys.count === 1;
 
   const say = (verb: VerbKey, vals?: Vals) => {
     opener.current = document.activeElement as HTMLElement | null;
@@ -76,216 +266,219 @@ export default function Surface() {
     setAccountOpen(false);
     opener.current?.focus?.();
   }, []);
+  const go = (v: View) => {
+    setView(v);
+    window.scrollTo({ top: 0 });
+  };
 
-  const tabs: { key: View; label: string; count?: number }[] = [
+  const places: Place[] = [
     { key: "now", label: "Now" },
     { key: "standing", label: "Standing", count: real ? 0 : standing.length },
     { key: "said", label: "Said" },
   ];
-  const pill = "flex-wrap justify-center !gap-x-3 !gap-y-1 !px-4 !py-2 text-[13px]";
 
   return (
-    <div className="mx-auto w-full max-w-[1000px] px-4 pb-16 sm:px-6">
-      <header className="flex flex-col items-center gap-5 pb-8 pt-10">
-        <p className="mono rounded-full bg-card px-3.5 py-2 text-ink-2">Intuite · say it, see it, sign it</p>
-
-        {real ? (
-          <button type="button" onClick={showAccount} className="cursor-pointer rounded-full" aria-label={`${name}’s account. Open account details.`}>
-            <Pill className={pill}>
-              <span className="flex items-center gap-2">
-                <span className="grid size-5 place-items-center rounded-full bg-ink text-[10px] font-semibold uppercase text-white">
-                  {(name ?? "?").slice(0, 1)}
-                </span>
-                <span className="font-medium">{name}</span>
-              </span>
-              <Divider />
-              <span>
-                <span className="text-ink-2">You have</span>{" "}
-                <span className="font-medium tabular-nums">{h ? usd(h.total) : "…"}</span>
-              </span>
-              {h &&
-                (Object.keys(GROUP_NAME) as (keyof typeof GROUP_NAME)[])
-                  .filter((g) => h.groups[g].usd > 0)
-                  .map((g) => (
-                    <span key={g} className="flex items-center gap-1.5 tabular-nums">
-                      <Dot color={ASSETS[g].color} />
-                      {g === "usd" ? usd(h.groups[g].amount) : coin(h.groups[g].amount)}{" "}
-                      <span className="text-ink-2">{GROUP_NAME[g]}</span>
-                    </span>
-                  ))}
-              <StatusPill tone={holdings.status === "ready" ? "live" : holdings.status === "error" ? "warn" : "muted"}>
-                {holdings.status === "ready" ? "Your account" : holdings.status === "error" ? "Unreachable" : "Reading"}
-              </StatusPill>
-              <Chevron size={14} className="text-ink-3" />
-            </Pill>
+    <div className="min-h-dvh pb-24 md:pb-16">
+      <header className="sticky top-0 z-40 border-b border-line/70 bg-white/85 backdrop-blur-md">
+        <div className={`${WRAP} relative flex h-14 items-center justify-between gap-3 md:h-16`}>
+          <button
+            type="button"
+            onClick={() => go("now")}
+            className="flex cursor-pointer items-center gap-2.5 rounded-[10px]"
+            aria-label="Intuite, go to Now"
+          >
+            <Mark />
+            <span className="text-[16px] font-semibold tracking-[-0.02em]">Intuite</span>
           </button>
-        ) : (
-          <div className="flex flex-col items-center gap-3">
-            <Pill className={pill}>
-              <span className="mono text-ink-3">Demo</span>
-              <Divider />
-              <span>
-                <span className="text-ink-2">You have</span>{" "}
-                <span className="font-medium tabular-nums">{usd(demoTotal)}</span>
-              </span>
-              <Divider />
-              <span className="flex items-center gap-1.5 tabular-nums">
-                <Dot color={ASSETS.usd.color} />
-                {usd(HOLDINGS.usd)} <span className="text-ink-2">dollars</span>
-              </span>
-              <Divider />
-              <span className="flex items-center gap-1.5 tabular-nums">
-                <Dot color={ASSETS.btc.color} />
-                {HOLDINGS.btc} <span className="text-ink-2">bitcoin</span>
-              </span>
-              <StatusPill tone={live ? "live" : "muted"}>{live ? "Live prices" : "Example prices"}</StatusPill>
-            </Pill>
+
+          <nav aria-label="Places" className="absolute left-1/2 hidden -translate-x-1/2 md:block">
+            <Places places={places} view={view} onView={go} layout="segment" />
+          </nav>
+
+          {real ? (
             <button
               type="button"
               onClick={showAccount}
-              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 text-[14px] font-medium text-white shadow-pill"
+              className="flex h-10 min-w-0 cursor-pointer items-center gap-2 rounded-full bg-white pl-1.5 pr-2.5 shadow-chip"
+              aria-label={`${name}’s account. Open account details.`}
+            >
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-ink text-[11px] font-semibold uppercase text-white">
+                {(name ?? "?").slice(0, 1)}
+              </span>
+              <span className="max-w-[12ch] truncate text-[14px] font-medium">{name}</span>
+              <Chevron size={14} className="shrink-0 text-ink-3" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={showAccount}
+              className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-ink px-4 text-[14px] font-medium text-white shadow-pill"
             >
               <Finger size={16} />
-              {device.passkeys.length ? "Open your account" : "Open a real account"}
+              {device.passkeys.length ? "Sign in" : "Open account"}
             </button>
-          </div>
-        )}
-
-        <nav aria-label="Places" className="inline-flex rounded-full bg-card p-1">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setView(t.key)}
-              aria-current={view === t.key ? "page" : undefined}
-              className={`mono cursor-pointer rounded-full px-4 py-2 transition-colors ${
-                view === t.key ? "bg-white text-ink shadow-chip" : "text-ink-3 hover:text-ink-2"
-              }`}
-            >
-              {t.label}
-              {t.count ? <span className="ml-1.5 text-blue">{t.count}</span> : null}
-            </button>
-          ))}
-        </nav>
+          )}
+        </div>
       </header>
 
-      {view === "now" && (
-        <main>
-          <div className="mb-6 flex justify-center">
-            {real ? (
-              <button
-                type="button"
-                onClick={showAccount}
-                className="group flex cursor-pointer items-center gap-3 rounded-full bg-white py-1.5 pl-4 pr-1.5 text-[14px] shadow-chip"
-              >
-                <span className="size-2 rounded-full bg-green-2 text-green-2 animate-pulse-dot" />
-                <span>
-                  Your account is open
-                  <span className="hidden text-ink-2 sm:inline">{accountId ? ` at ${short(accountId)}` : ""}</span>
-                </span>
-                <span className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-3.5 text-[13px] font-medium text-white transition-transform group-hover:translate-x-0.5">
-                  Add a backup <Arrow size={13} />
-                </span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => say("pay", { who: "maya", amt: 40 })}
-                className="group flex cursor-pointer items-center gap-3 rounded-full bg-white py-1.5 pl-4 pr-1.5 text-[14px] shadow-chip"
-              >
-                <span className="size-2 rounded-full bg-blue text-blue animate-pulse-dot" />
-                Maya asked you for $40
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-ink px-3.5 text-[13px] font-medium text-white transition-transform group-hover:translate-x-0.5">
-                  Pay Maya <Arrow size={13} />
-                </span>
-              </button>
-            )}
-          </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            {VERB_ORDER.map((k) => (
-              <Card key={k} verb={VERBS[k]} prices={prices} paused={open !== null || accountOpen} onOpen={() => say(k)} />
-            ))}
-          </div>
-        </main>
-      )}
-
-      {view === "standing" && (
-        <main className="rounded-[28px] bg-card p-5 sm:p-8">
-          <p className="mono mb-3 text-ink-3">Still in force</p>
-          {real || standing.length === 0 ? (
-            <div className="py-10 text-center">
-              <h2 className="text-[20px] font-medium tracking-[-0.015em]">Nothing is standing yet.</h2>
-              <p className="mx-auto mt-3 max-w-[44ch] text-[14.5px] leading-[1.55] text-ink-2">
-                Anything you sign that keeps going lives here until you stop it: money at work, a loan, a request
-                waiting to be paid, or a sentence with “every” or “when”.
-              </p>
-              {!real && (
-                <button
-                  type="button"
-                  onClick={() => say("change", { from: "usd", to: "btc", when: "fri" })}
-                  className="mt-6 inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 text-[14px] font-medium text-white shadow-pill"
+      <div className={WRAP}>
+        {view === "now" && (
+          <main>
+            <section className="grid items-stretch gap-x-5 gap-y-7 pb-8 pt-8 md:grid-cols-2 md:pb-10 md:pt-12">
+              {real ? (
+                <Balance
+                  label="You have"
+                  total={h ? h.total : null}
+                  status={
+                    <StatusPill tone={holdings.status === "ready" ? "live" : holdings.status === "error" ? "warn" : "muted"}>
+                      {holdings.status === "ready" ? "Live" : holdings.status === "error" ? "Unreachable" : "Reading"}
+                    </StatusPill>
+                  }
                 >
-                  Try “every Friday” <Arrow size={13} />
-                </button>
+                  {h && h.parts.length === 0 && <p className="text-[14.5px] text-ink-2">Nothing here yet.</p>}
+                  {holdings.status === "error" && (
+                    <p className="text-[14.5px] text-ink-2">The network could not be reached. Trying again.</p>
+                  )}
+                  {h &&
+                    GROUPS.filter((g) => h.groups[g].usd > 0).map((g) => (
+                      <Holding
+                        key={g}
+                        color={ASSETS[g].color}
+                        amount={g === "usd" ? usd(h.groups[g].amount) : coin(h.groups[g].amount)}
+                        name={GROUP_NAME[g]}
+                      />
+                    ))}
+                  {h && h.groups.other.usd > 0 && <Holding color="#9a9aa4" amount={usd(h.groups.other.usd)} name="other" />}
+                </Balance>
+              ) : (
+                <Balance
+                  label="Demo account · you have"
+                  total={HOLDINGS.usd + HOLDINGS.btc * prices.btc}
+                  status={<StatusPill tone={live ? "live" : "muted"}>{live ? "Live prices" : "Example prices"}</StatusPill>}
+                >
+                  <Holding color={ASSETS.usd.color} amount={usd(HOLDINGS.usd)} name="dollars" />
+                  <Holding color={ASSETS.btc.color} amount={String(HOLDINGS.btc)} name="bitcoin" />
+                </Balance>
               )}
+
+              {!real && (
+                <Moment
+                  tone="info"
+                  text="Maya asked you for $40."
+                  action="Pay Maya"
+                  onAction={() => say("pay", { who: "maya", amt: 40 })}
+                />
+              )}
+              {onePasskey && (
+                <Moment
+                  tone="warn"
+                  text="One passkey opens this account. Add a backup so a lost device doesn’t lose it."
+                  action="Add a backup"
+                  onAction={showAccount}
+                />
+              )}
+            </section>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              {VERB_ORDER.map((k) => (
+                <Card key={k} verb={VERBS[k]} prices={prices} paused={open !== null || accountOpen} onOpen={() => say(k)} />
+              ))}
             </div>
-          ) : (
-            <Panel className="divide-y divide-line/70 px-5">
-              {standing.map((s, i) => (
-                <div key={`${s.t}-${i}`} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
-                  <div className="min-w-0">
-                    <p className="text-[16px] font-medium leading-snug tracking-[-0.01em]">{s.t}</p>
-                    <p className="mono mt-1.5 text-ink-3">{s.m}</p>
-                  </div>
+          </main>
+        )}
+
+        {view === "standing" && (
+          <main>
+            <PlaceHead
+              label="Standing"
+              title="Still in force"
+              note="Anything you sign that keeps going lives here until you stop it: money at work, a loan, a request waiting to be paid, or a sentence with “every” or “when”."
+            />
+            {real || standing.length === 0 ? (
+              <Empty
+                title="Nothing is standing yet."
+                note={
+                  real
+                    ? "Sentences are not connected to real accounts yet, so nothing can be left standing."
+                    : "Sign a sentence that keeps going and it will wait here."
+                }
+              >
+                {!real && (
                   <button
                     type="button"
-                    className="mono h-8 cursor-pointer rounded-full bg-card px-3.5 hover:bg-ink hover:text-white"
-                    onClick={() => {
-                      setStanding((prev) => prev.filter((_, j) => j !== i));
-                      setSaid((prev) => [{ t: s.ended, d: "Just now" }, ...prev]);
-                    }}
+                    onClick={() => say("change", { from: "usd", to: "btc", when: "fri" })}
+                    className="mt-6 inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 text-[14px] font-medium text-white shadow-pill"
                   >
-                    {s.stop}
+                    Try “every Friday” <Arrow size={13} />
                   </button>
-                </div>
-              ))}
-            </Panel>
-          )}
-          {!real && standing.length > 0 && (
-            <p className="mt-4 text-[13px] text-ink-3">In the product, stopping is itself a sentence you see and sign.</p>
-          )}
-        </main>
-      )}
+                )}
+              </Empty>
+            ) : (
+              <div className="rounded-[28px] bg-card p-3 sm:p-5">
+                <Panel className="divide-y divide-line/70 px-5">
+                  {standing.map((s, i) => (
+                    <div key={`${s.t}-${i}`} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-4">
+                      <div className="min-w-0">
+                        <p className="text-[16px] font-medium leading-snug tracking-[-0.01em]">{s.t}</p>
+                        <p className="mono mt-1.5 text-ink-3">{s.m}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="mono h-8 cursor-pointer rounded-full bg-card px-3.5 hover:bg-ink hover:text-white"
+                        onClick={() => {
+                          setStanding((prev) => prev.filter((_, j) => j !== i));
+                          setSaid((prev) => [{ t: s.ended, d: "Just now" }, ...prev]);
+                        }}
+                      >
+                        {s.stop}
+                      </button>
+                    </div>
+                  ))}
+                </Panel>
+                <p className="px-2 pb-1 pt-4 text-[13px] text-ink-3">
+                  In the product, stopping is itself a sentence you see and sign.
+                </p>
+              </div>
+            )}
+          </main>
+        )}
 
-      {view === "said" && (
-        <main className="rounded-[28px] bg-card p-5 sm:p-8">
-          <p className="mono mb-3 text-ink-3">What you signed</p>
-          {real ? (
-            <div className="py-10 text-center">
-              <h2 className="text-[20px] font-medium tracking-[-0.015em]">Nothing signed yet.</h2>
-              <p className="mx-auto mt-3 max-w-[44ch] text-[14.5px] leading-[1.55] text-ink-2">
-                Everything this account signs will be listed here in the past tense. Sentences are not connected to
-                real accounts yet.
-              </p>
-            </div>
-          ) : (
-            <Panel className="divide-y divide-line/70 px-5">
-              {said.map((s, i) => (
-                <div key={`${s.t}-${i}`} className="py-4">
-                  <p className="text-[16px] font-medium leading-snug tracking-[-0.01em]">{s.t}</p>
-                  <p className="mono mt-1.5 text-ink-3">{s.d}</p>
-                </div>
-              ))}
-            </Panel>
-          )}
-        </main>
-      )}
+        {view === "said" && (
+          <main>
+            <PlaceHead label="Said" title="What you signed" note="Every sentence you sign is kept here in the past tense, as its own receipt." />
+            {real ? (
+              <Empty
+                title="Nothing signed yet."
+                note="Sentences are not connected to real accounts yet. Everything this account signs will be listed here."
+              />
+            ) : (
+              <div className="rounded-[28px] bg-card p-3 sm:p-5">
+                <Panel className="divide-y divide-line/70 px-5">
+                  {said.map((s, i) => (
+                    <div key={`${s.t}-${i}`} className="py-4">
+                      <p className="text-[16px] font-medium leading-snug tracking-[-0.01em]">{s.t}</p>
+                      <p className="mono mt-1.5 text-ink-3">{s.d}</p>
+                    </div>
+                  ))}
+                </Panel>
+              </div>
+            )}
+          </main>
+        )}
 
-      <footer className="mono mx-auto mt-10 max-w-[70ch] text-center leading-[1.7] text-ink-3">
-        {real
-          ? "Your account and its balance are real and read from NEAR Intents. Sentences are not connected to it yet, so nothing can be sent."
-          : "A demo account with example balances. Prices and quotes are live dry runs from NEAR Intents. Signing is simulated and nothing is ever sent."}
-      </footer>
+        <footer className="mono mt-12 max-w-[72ch] border-t border-line pt-6 leading-[1.7] text-ink-3">
+          {real
+            ? "Your account and its balance are real and read from NEAR Intents. Sentences are not connected to it yet, so nothing can be sent."
+            : "A demo account with example balances. Prices and quotes are live dry runs from NEAR Intents. Signing is simulated and nothing is ever sent."}
+        </footer>
+      </div>
+
+      <nav
+        aria-label="Places"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      >
+        <Places places={places} view={view} onView={go} layout="bar" />
+      </nav>
 
       {open && (
         <Composer

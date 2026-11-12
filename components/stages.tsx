@@ -27,7 +27,17 @@ export type StageProps = {
 const BLUE = ASSETS.usd.color;
 
 function Frame({ children }: { children: ReactNode }) {
-  return <div className="flex h-full flex-col items-center justify-between gap-3">{children}</div>;
+  return <div className="@container flex h-full flex-col items-center justify-between gap-3">{children}</div>;
+}
+
+/** What one dot stands for. Dropped when the stage is too narrow to hold it beside the legend. */
+function Unit({ amount }: { amount: number }) {
+  return (
+    <span className="hidden items-center gap-3 @[21rem]:flex">
+      <Sep />
+      <span className="mono text-ink-3">1 dot = ${amount}</span>
+    </span>
+  );
 }
 
 type NoteTone = "muted" | "ok" | "stop" | "blue";
@@ -131,8 +141,7 @@ function PayStage({ state, vals, live }: StageProps) {
           <Dot color={BLUE} />
           dollars
         </span>
-        <Sep />
-        <span className="mono text-ink-3">1 dot = ${unit}</span>
+        <Unit amount={unit} />
       </Pill>
       <div className="w-full max-w-[360px]">
         <Dots w={360} h={166} groups={groups} ghosts={ghosts} />
@@ -375,8 +384,7 @@ function ChangeStage(props: StageProps) {
           <Dot color={to.color} />
           {to.name}
         </span>
-        <Sep />
-        <span className="mono text-ink-3">1 dot = ${unit}</span>
+        <Unit amount={unit} />
       </Pill>
       <div className="w-full max-w-[360px]">
         <Dots
@@ -505,8 +513,7 @@ function BorrowStage({ state, vals, prices, live }: StageProps) {
           <Dot color={BLUE} />
           dollars
         </span>
-        <Sep />
-        <span className="mono text-ink-3">1 dot = ${unit}</span>
+        <Unit amount={unit} />
       </Pill>
       <div className="w-full max-w-[360px]">
         <Dots

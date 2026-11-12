@@ -31,7 +31,7 @@ function reason(err: unknown): string {
   return "Something went wrong. Nothing was changed.";
 }
 
-export function short(accountId: string): string {
+function short(accountId: string): string {
   return `${accountId.slice(0, 6)}…${accountId.slice(-4)}`;
 }
 
