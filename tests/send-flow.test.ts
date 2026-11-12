@@ -117,6 +117,16 @@ describe("send", () => {
     expect(d.submit).toHaveBeenCalledOnce();
   });
 
+  it("reports the send once it is accepted, before following it", async () => {
+    const d = deps(prepared());
+    const seen: string[] = [];
+    const onSubmitted = vi.fn(() => seen.push(`submitted after ${d.status.mock.calls.length} polls`));
+    await send(change, { shown: 50, source: source(), onStep: () => {}, onSubmitted }, d);
+    expect(onSubmitted).toHaveBeenCalledOnce();
+    expect(onSubmitted).toHaveBeenCalledWith({ depositAddress: DEPOSIT, intentHash: "hash123", prepared: expect.anything() });
+    expect(seen).toEqual(["submitted after 0 polls"]);
+  });
+
   it("stops when a change arrives 1% lower than shown", async () => {
     const d = deps(prepared({ arrives: leg(USD, "49500000", 49.5, 49.5) }));
     await expect(run(change, d).result).rejects.toBeInstanceOf(PriceMoved);

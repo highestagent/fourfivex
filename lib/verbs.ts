@@ -3,11 +3,13 @@
  * questions before anything is signed: what arrives, what leaves, when, who can see it,
  * what happens if it fails, and whether it can be undone.
  */
-import type { Holdings } from "./account/holdings";
+import type { Holdings, Part as Held } from "./account/holdings";
 import { ASSETS, HOLDINGS, type AssetKey, type Prices } from "./assets";
 import { coin, cost, pct, usd, usd0, wait } from "./format";
 import type { QuoteAsk, QuoteOk } from "./oneclick";
+import { pickSource } from "./send/source";
 import type { Person } from "./send/people";
+import type { Prepared, SendAsk } from "./send/types";
 
 export type VerbKey = "pay" | "getpaid" | "change" | "grow" | "borrow" | "ask";
 export type Vals = Record<string, string | number>;
@@ -22,7 +24,16 @@ export type QuoteState =
   | { status: "no-offer" }
   | { status: "unavailable" };
 
-export type Ctx = { prices: Prices; pricesLive: boolean; quote: QuoteState };
+export type Ctx = {
+  prices: Prices;
+  pricesLive: boolean;
+  quote: QuoteState;
+  holdings: Holdings | null;
+  people: Person[];
+  accountId: string | null;
+  /** The final price, when it came out worse than the one on screen and the person must look again. */
+  moved: Prepared | null;
+};
 export type Standing = { t: string; m: string; stop: string; ended: string };
 
 export type Outcome = {
@@ -34,6 +45,8 @@ export type Outcome = {
   steps: string[];
   doneLabel: string;
   past: string;
+  /** Shown in place of `past` while a real send is still in progress. */
+  waiting?: string;
   after?: string;
   fail: string;
   why: string;
@@ -50,6 +63,22 @@ export type SlotCtx = { prices: Prices; holdings: Holdings | null; people: Perso
 export type Slot = { cap: string; kind?: "choice" | "amount"; opts: (c: SlotCtx) => Opt[] };
 export type Part = string | { slot: string };
 
+/** What a real send needs: who is asking, what they saw, and the one token it draws from. */
+export type SendPlan = { ask: Extract<SendAsk, { kind: "change" | "pay" }>; shown: number; source: Held };
+
+/** The same sentence for a real account: choices come from what it holds, and it can be sent. */
+export type RealVariant = {
+  parts: Part[];
+  slots: Record<string, Slot>;
+  def: (c: SlotCtx) => Vals;
+  fix?: (v: Vals, changed: string) => Vals;
+  /** The dry quote to show while editing. */
+  ask: (v: Vals, c: Ctx) => QuoteAsk | null;
+  out: (v: Vals, c: Ctx) => Outcome;
+  /** Null when it cannot be sent right now. */
+  plan: (v: Vals, c: Ctx) => SendPlan | null;
+};
+
 export type Verb = {
   key: VerbKey;
   title: string;
@@ -64,6 +93,7 @@ export type Verb = {
   fix?: (v: Vals, changed: string) => Vals;
   ask?: (v: Vals) => QuoteAsk | null;
   out: (v: Vals, c: Ctx) => Outcome;
+  real?: RealVariant;
 };
 
 export const NAMES: Record<string, string> = { maya: "Maya", dad: "Dad", new: "0x71…9c4e" };
@@ -99,6 +129,149 @@ function quoteStatus(q: QuoteState): Outcome["status"] {
 }
 
 const slot = (s: string): Part => ({ slot: s });
+
+/** The outcome of changing money inside the account right now, from a quote or from today's prices. */
+function changeNow(amt: number, from: AssetKey, to: AssetKey, prices: Prices, q: QuoteOk | null): Outcome {
+  const F = ASSETS[from];
+  const T = ASSETS[to];
+  const src = `${usd(amt)} of your ${F.name}`;
+  const inUsd = q ? q.amountInUsd : amt;
+  const outUsd = q ? q.amountOutUsd : amt * 0.996;
+  const gets = q ? q.amountOut : outUsd / prices[to];
+  const fee = Math.max(0, inUsd - outUsd);
+  const about = q ? "" : "about ";
+  return {
+    rows: [
+      {
+        k: "You get",
+        v: to === "usd" ? `${about}${usd(gets)}` : `${about}${coin(gets)} ${T.name}`,
+        sub: to === "usd" ? "as dollars, in your account" : `about ${usd(outUsd)}`,
+        tone: "ok",
+      },
+      {
+        k: "Leaves you",
+        v: from === "usd" ? src : `${coin(q ? q.amountIn : amt / prices[from])} ${F.name}`,
+        sub: `${from === "usd" ? "" : `about ${usd(inUsd)} · `}cost ${cost(fee)} (${pct(inUsd > 0 ? fee / inUsd : 0)})`,
+      },
+      { k: "Takes", v: wait(q ? q.seconds : 12) },
+      { k: "If the price moves", v: "you are asked again first" },
+      { k: "Afterwards", v: "you can change it back", sub: "at that day’s price" },
+    ],
+    status: { label: "Live quote", tone: "live" },
+    cta: "Hold to sign",
+    hold: 900,
+    steps: [`Changing ${F.name} into ${T.name}`, "Arrived in your account"],
+    doneLabel: `Changed into ${T.name}`,
+    past: `You changed ${src} into ${T.name}.`,
+    waiting: `Changing ${src} into ${T.name}.`,
+    fail: `Nothing was changed. Your ${F.name} is where it was.`,
+    why: "The price moved before it could be delivered.",
+  };
+}
+
+const MONEY = ["usd", "btc", "eth", "sol"] as const;
+type Money = (typeof MONEY)[number];
+
+const changeFix: NonNullable<Verb["fix"]> = (v, changed) => {
+  if (v.from !== v.to) return v;
+  if (changed === "from") return { ...v, to: v.from === "usd" ? "btc" : "usd" };
+  return { ...v, from: v.to === "usd" ? "btc" : "usd" };
+};
+
+const heldWord = (g: Money) => ASSETS[g].name;
+
+/** The group holding the most dollars' worth, or dollars if none. */
+function biggestGroup(h: Holdings | null): Money {
+  let best: Money = "usd";
+  let most = 0;
+  if (h)
+    for (const g of MONEY)
+      if (h.groups[g].usd > most) {
+        best = g;
+        most = h.groups[g].usd;
+      }
+  return best;
+}
+
+const changeReal: RealVariant = {
+  parts: ["Change ", slot("amt"), " of ", slot("from"), " into ", slot("to"), "."],
+  slots: {
+    amt: { cap: "Amount", kind: "amount", opts: () => [] },
+    from: {
+      cap: "From",
+      opts: (c) => {
+        const held = c.holdings ? MONEY.filter((g) => c.holdings!.groups[g].usd > 0) : [];
+        return (held.length ? held : (["usd"] as Money[])).map((g) => ({ v: g, label: `my ${heldWord(g)}`, asset: g }));
+      },
+    },
+    to: {
+      cap: "Into",
+      opts: () => MONEY.map((g) => ({ v: g, label: heldWord(g), asset: g })),
+    },
+  },
+  def: (c) => {
+    const from = biggestGroup(c.holdings);
+    return { amt: 10, from, to: from === "usd" ? "btc" : "usd" };
+  },
+  fix: changeFix,
+  ask(v, c) {
+    const amt = Number(v.amt);
+    if (tooSmall(amt) || !c.holdings) return null;
+    const src = pickSource(c.holdings, v.from as Money, amt);
+    if (src.kind !== "ok") return null;
+    return { kind: "change", from: v.from as AssetKey, to: v.to as AssetKey, usd: amt, fromAssetId: src.part.assetId };
+  },
+  out(v, c) {
+    const raw = Number(v.amt);
+    const from = v.from as Money;
+    const to = v.to as Money;
+    const amt = tooSmall(raw) ? 1 : raw;
+    const m = c.moved;
+    const q = m
+      ? {
+          ok: true as const,
+          amountIn: m.leaves.amount,
+          amountInUsd: m.leaves.usd,
+          amountOut: m.arrives.amount,
+          amountOutUsd: m.arrives.usd,
+          seconds: m.seconds,
+        }
+      : c.quote.status === "live"
+        ? c.quote.data
+        : null;
+    const base = changeNow(amt, from, to, c.prices, q);
+    base.status = m ? { label: "Final price", tone: "live" } : quoteStatus(c.quote);
+
+    let blocked: string | undefined;
+    const src = c.holdings && !tooSmall(raw) ? pickSource(c.holdings, from, raw) : null;
+    if (tooSmall(raw)) blocked = MIN_AMOUNT;
+    else if (!c.holdings) blocked = "Reading your account…";
+    else if (src?.kind === "empty") blocked = `You don’t hold any ${heldWord(from)} yet.`;
+    else if (src?.kind === "short")
+      blocked = `Your ${heldWord(from)} is spread across networks. The most one sentence can use is ${usd(src.most)}.`;
+    else if (!m && c.quote.status === "no-offer") blocked = NO_OFFER;
+    else if (!m && c.quote.status !== "live") blocked = "Getting a price…";
+    return {
+      ...base,
+      past: `You changed ${usd(amt)} of your ${heldWord(from)} into ${heldWord(to)}.`,
+      waiting: `Changing ${usd(amt)} of your ${heldWord(from)} into ${heldWord(to)}.`,
+      blocked,
+    };
+  },
+  plan(v, c): SendPlan | null {
+    const amt = Number(v.amt);
+    if (changeReal.out(v, c).blocked || !c.holdings || !c.accountId) return null;
+    const src = pickSource(c.holdings, v.from as Money, amt);
+    if (src.kind !== "ok") return null;
+    const shown = c.moved ? c.moved.arrives.amount : c.quote.status === "live" ? c.quote.data.amountOut : null;
+    if (shown === null) return null;
+    return {
+      ask: { kind: "change", accountId: c.accountId, fromAssetId: src.part.assetId, to: v.to as AssetKey, usd: amt },
+      shown,
+      source: src.part,
+    };
+  },
+};
 
 export const VERBS: Record<VerbKey, Verb> = {
   pay: {
@@ -288,11 +461,8 @@ export const VERBS: Record<VerbKey, Verb> = {
     def: { amt: 50, from: "btc", to: "usd", when: "now" },
     demo: { amt: 50, from: "usd", to: "btc", when: "dip" },
     loop: [2000, 1300, 2400],
-    fix(v, changed) {
-      if (v.from !== v.to) return v;
-      if (changed === "from") return { ...v, to: v.from === "usd" ? "btc" : "usd" };
-      return { ...v, from: v.to === "usd" ? "btc" : "usd" };
-    },
+    fix: changeFix,
+    real: changeReal,
     ask: (v) =>
       v.when === "now" && !tooSmall(Number(v.amt))
         ? { kind: "change", from: v.from as AssetKey, to: v.to as AssetKey, usd: Number(v.amt) }
@@ -363,36 +533,9 @@ export const VERBS: Record<VerbKey, Verb> = {
       }
 
       const q = c.quote.status === "live" ? c.quote.data : null;
-      const inUsd = q ? q.amountInUsd : amt;
-      const outUsd = q ? q.amountOutUsd : amt * 0.996;
-      const gets = q ? q.amountOut : outUsd / c.prices[to];
-      const fee = Math.max(0, inUsd - outUsd);
-      const about = q ? "" : "about ";
       return {
-        rows: [
-          {
-            k: "You get",
-            v: to === "usd" ? `${about}${usd(gets)}` : `${about}${coin(gets)} ${T.name}`,
-            sub: to === "usd" ? "as dollars, in your account" : `about ${usd(outUsd)}`,
-            tone: "ok",
-          },
-          {
-            k: "Leaves you",
-            v: from === "usd" ? src : `${coin(q ? q.amountIn : amt / c.prices[from])} ${F.name}`,
-            sub: `${from === "usd" ? "" : `about ${usd(inUsd)} · `}cost ${cost(fee)} (${pct(fee / inUsd)})`,
-          },
-          { k: "Takes", v: wait(q ? q.seconds : 12) },
-          { k: "If the price moves", v: "you are asked again first" },
-          { k: "Afterwards", v: "you can change it back", sub: "at that day’s price" },
-        ],
+        ...changeNow(amt, from, to, c.prices, q),
         status: quoteStatus(c.quote),
-        cta: "Hold to sign",
-        hold: 900,
-        steps: [`Changing ${F.name} into ${T.name}`, "Arrived in your account"],
-        doneLabel: `Changed into ${T.name}`,
-        past: `You changed ${src} into ${T.name}.`,
-        fail: `Nothing was changed. Your ${F.name} is where it was.`,
-        why: "The price moved before it could be delivered.",
         blocked: tooSmall(raw) ? MIN_AMOUNT : c.quote.status === "no-offer" ? NO_OFFER : undefined,
       };
     },

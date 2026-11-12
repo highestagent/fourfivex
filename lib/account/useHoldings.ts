@@ -7,7 +7,7 @@ import type { Holdings } from "./holdings";
 export type HoldingsState = { holdings: Holdings | null; status: "none" | "loading" | "ready" | "error" };
 
 /** The open account's real balances, read from the network and refreshed while the page is open. */
-export function useHoldings(accountId: string | null): HoldingsState {
+export function useHoldings(accountId: string | null, refreshKey?: unknown): HoldingsState {
   const [state, setState] = useState<{ id: string; holdings: Holdings | null; failed: boolean } | null>(null);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export function useHoldings(accountId: string | null): HoldingsState {
       alive = false;
       clearInterval(t);
     };
-  }, [accountId]);
+  }, [accountId, refreshKey]);
 
   if (!accountId) return { holdings: null, status: "none" };
   if (!state || state.id !== accountId) return { holdings: null, status: "loading" };

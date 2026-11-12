@@ -7,6 +7,9 @@ import { useHoldings } from "@/lib/account/useHoldings";
 import { ASSETS, HOLDINGS } from "@/lib/assets";
 import { coin, usd } from "@/lib/format";
 import { usePrices } from "@/lib/hooks";
+import { sendStatus } from "@/lib/send/api";
+import { sent, useSent, type SentEntry } from "@/lib/send/history";
+import { usePeople } from "@/lib/send/people";
 import { VERBS, VERB_ORDER, type Standing, type Vals, type VerbKey } from "@/lib/verbs";
 import { AccountSheet } from "./AccountSheet";
 import { Card } from "./Card";
@@ -20,6 +23,21 @@ const SEED: SaidItem[] = [
   { t: "You received 0.0089 bitcoin from Leo.", d: "12 October" },
   { t: "You paid Dad $25.00.", d: "3 October" },
 ];
+
+const STATE_WORD: Record<SentEntry["state"], string> = {
+  done: "Delivered",
+  waiting: "On its way",
+  seen: "On its way",
+  working: "On its way",
+  refunded: "Returned to you",
+  failed: "Didn’t go through",
+  short: "Short",
+};
+
+/** "12 Nov, 14:05". */
+function when(at: number): string {
+  return new Date(at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 const GROUPS = ["usd", "btc", "eth", "sol"] as const;
 const GROUP_NAME = { usd: "dollars", btc: "bitcoin", eth: "ether", sol: "sol" } as const;
@@ -218,7 +236,10 @@ export default function Surface() {
   const { prices, live } = usePrices();
   const device = useDeviceMemory();
   const accountId = device.current;
-  const holdings = useHoldings(accountId);
+  const mine = useSent(accountId);
+  const landed = mine.filter((e) => e.state === "done" || e.state === "refunded").length;
+  const holdings = useHoldings(accountId, landed);
+  const people = usePeople();
   const [view, setView] = useState<View>("now");
   const [open, setOpen] = useState<{ verb: VerbKey; vals?: Vals; id: number } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -227,6 +248,21 @@ export default function Surface() {
   const [keys, setKeys] = useState<{ id: string; count: number } | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const counter = useRef(0);
+
+  // Keep unfinished sends fresh, even when they were started in another visit.
+  const unfinished = mine.filter((e) => e.state === "waiting" || e.state === "seen" || e.state === "working");
+  const watching = unfinished.map((e) => e.id).join(",");
+  useEffect(() => {
+    if (!watching) return;
+    const check = () =>
+      watching.split(",").forEach((id) => {
+        sendStatus(id)
+          .then((s) => sent.update(id, { state: s.state, links: s.links }))
+          .catch(() => {});
+      });
+    const t = setInterval(check, 5000);
+    return () => clearInterval(t);
+  }, [watching]);
 
   const real = accountId !== null;
   const name = accountId ? (device.names[accountId] ?? "My account") : null;
@@ -446,11 +482,31 @@ export default function Surface() {
         {view === "said" && (
           <main>
             <PlaceHead label="Said" title="What you signed" note="Every sentence you sign is kept here in the past tense, as its own receipt." />
-            {real ? (
-              <Empty
-                title="Nothing signed yet."
-                note="Sentences are not connected to real accounts yet. Everything this account signs will be listed here."
-              />
+            {real && mine.length === 0 ? (
+              <Empty title="Nothing signed yet." note="Everything this account signs is listed here." />
+            ) : real ? (
+              <div className="rounded-[28px] bg-card p-3 sm:p-5">
+                <Panel className="divide-y divide-line/70 px-5">
+                  {mine.map((e) => (
+                    <div key={e.id} className="py-4">
+                      <p className="text-[16px] font-medium leading-snug tracking-[-0.01em]">
+                        {e.state === "done" ? e.text : (e.waitingText ?? e.text)}
+                      </p>
+                      <p className="mono mt-1.5 text-ink-3">
+                        {when(e.at)} · {STATE_WORD[e.state]}
+                        {e.links[0] && (
+                          <>
+                            {" · "}
+                            <a href={e.links[0].url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                              See the transaction
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  ))}
+                </Panel>
+              </div>
             ) : (
               <div className="rounded-[28px] bg-card p-3 sm:p-5">
                 <Panel className="divide-y divide-line/70 px-5">
@@ -468,7 +524,7 @@ export default function Surface() {
 
         <footer className="mono mt-12 max-w-[72ch] border-t border-line pt-6 leading-[1.7] text-ink-3">
           {real
-            ? "Your account and its balance are real and read from NEAR Intents. Sentences are not connected to it yet, so nothing can be sent."
+            ? "Your account and its balance are real. Change really sends. Pay and add are not connected yet."
             : "A demo account with example balances. Prices and quotes are live dry runs from NEAR Intents. Signing is simulated and nothing is ever sent."}
         </footer>
       </div>
@@ -488,6 +544,9 @@ export default function Surface() {
           prices={prices}
           pricesLive={live}
           real={real}
+          holdings={h}
+          people={people}
+          accountId={accountId}
           onClose={close}
           onSigned={signed}
         />

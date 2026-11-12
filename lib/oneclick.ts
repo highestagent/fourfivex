@@ -29,9 +29,9 @@ const HOME_ADDRESS: Record<AssetKey, string> = {
 };
 
 export type QuoteAsk =
-  | { kind: "pay"; from: AssetKey; usd: number }
+  | { kind: "pay"; from: AssetKey; usd: number; fromAssetId?: string }
   | { kind: "getpaid"; payer: AssetKey; usd: number }
-  | { kind: "change"; from: AssetKey; to: AssetKey; usd: number };
+  | { kind: "change"; from: AssetKey; to: AssetKey; usd: number; fromAssetId?: string };
 
 export type QuoteOk = {
   ok: true;
@@ -91,11 +91,14 @@ export function parseAsk(body: unknown): QuoteAsk | null {
   const b = body as Record<string, unknown>;
   const amount = b.usd;
   if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 1 || amount > 5000) return null;
-  if (b.kind === "pay" && isAsset(b.from)) return { kind: "pay", from: b.from, usd: amount };
+  // An account may name the exact token it holds. Anything else about it is refused.
+  const named = b.fromAssetId === undefined ? {} : typeof b.fromAssetId === "string" && b.fromAssetId.length <= 120 ? { fromAssetId: b.fromAssetId } : null;
+  if (named === null) return null;
+  if (b.kind === "pay" && isAsset(b.from)) return { kind: "pay", from: b.from, usd: amount, ...named };
   if (b.kind === "getpaid" && isAsset(b.payer) && b.payer !== "usd")
     return { kind: "getpaid", payer: b.payer, usd: amount };
   if (b.kind === "change" && isAsset(b.from) && isAsset(b.to) && b.from !== b.to)
-    return { kind: "change", from: b.from, to: b.to, usd: amount };
+    return { kind: "change", from: b.from, to: b.to, usd: amount, ...named };
   return null;
 }
 
@@ -119,7 +122,7 @@ async function buildRequest(ask: QuoteAsk): Promise<Record<string, unknown>> {
     return {
       ...common,
       swapType: "EXACT_OUTPUT",
-      originAsset: ASSETS[ask.from].id,
+      originAsset: ask.fromAssetId ?? ASSETS[ask.from].id,
       depositType: "INTENTS",
       refundTo: EXAMPLE.account,
       refundType: "INTENTS",
@@ -146,15 +149,19 @@ async function buildRequest(ask: QuoteAsk): Promise<Record<string, unknown>> {
   }
   // change: both sides stay in the account
   const prices = await getPrices();
+  const named = ask.fromAssetId ? await findToken(ask.fromAssetId) : undefined;
+  if (ask.fromAssetId && !(named && named.price > 0)) throw new OneClickError("Unknown asset", 400);
   return {
     ...common,
     swapType: "EXACT_INPUT",
-    originAsset: ASSETS[ask.from].id,
+    originAsset: ask.fromAssetId ?? ASSETS[ask.from].id,
     depositType: "INTENTS",
     refundTo: EXAMPLE.account,
     refundType: "INTENTS",
     destinationAsset: ASSETS[ask.to].id,
-    amount: toUnits(ask.usd / prices[ask.from], ASSETS[ask.from].decimals),
+    amount: named
+      ? toUnits(ask.usd / named.price, named.decimals)
+      : toUnits(ask.usd / prices[ask.from], ASSETS[ask.from].decimals),
     recipient: EXAMPLE.account,
     recipientType: "INTENTS",
   };
@@ -162,6 +169,8 @@ async function buildRequest(ask: QuoteAsk): Promise<Record<string, unknown>> {
 
 export async function quote(ask: QuoteAsk): Promise<QuoteResult> {
   try {
+    if ("fromAssetId" in ask && ask.fromAssetId && !(await findToken(ask.fromAssetId)))
+      return { ok: false, reason: "bad-request" };
     const res = await fetch(`${BASE}/quote`, {
       method: "POST",
       headers: headers(true),

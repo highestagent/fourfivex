@@ -48,7 +48,15 @@ const TOLERANCE = 0.005;
  */
 export async function send(
   ask: Extract<SendAsk, { kind: "change" | "pay" }>,
-  opts: { shown: number; source: Part; onStep: (step: string) => void; pollMs?: number; maxPolls?: number },
+  opts: {
+    shown: number;
+    source: Part;
+    onStep: (step: string) => void;
+    /** Called once, right after the send is accepted and before following it. */
+    onSubmitted?: (r: { depositAddress: string; intentHash: string; prepared: Prepared }) => void;
+    pollMs?: number;
+    maxPolls?: number;
+  },
   overrides: Partial<SendDeps> = {},
 ): Promise<Receipt> {
   const d = { ...defaults, ...overrides };
@@ -81,6 +89,8 @@ export async function send(
 
   onStep("Sending");
   const intentHash = await d.submit(prepared.depositAddress, signed);
+
+  opts.onSubmitted?.({ depositAddress: prepared.depositAddress, intentHash, prepared });
 
   const pollMs = opts.pollMs ?? 2000;
   const maxPolls = opts.maxPolls ?? 90;

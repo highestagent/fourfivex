@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { Holdings } from "@/lib/account/holdings";
 import type { Prices } from "@/lib/assets";
 import { useQuote, type StageState } from "@/lib/hooks";
-import { VERBS, type Outcome, type Standing, type Tone, type Vals, type VerbKey } from "@/lib/verbs";
+import type { Person } from "@/lib/send/people";
+import { useSend } from "@/lib/send/useSend";
+import { VERBS, type Ctx, type Outcome, type SlotCtx, type Standing, type Tone, type Vals, type VerbKey } from "@/lib/verbs";
 import { Sentence } from "./Sentence";
 import { SignButton, type Phase } from "./SignButton";
 import { STAGES } from "./stages";
@@ -20,7 +23,8 @@ const TONE: Record<Tone, { text: string; dot: string }> = {
 
 /**
  * Say, see, sign. The sentence at the top, the outcome in words and in dots beneath it,
- * and one pill to sign with. Nothing is sent: quotes are dry runs and signing is simulated.
+ * and one pill to sign with. With no account open nothing is sent: quotes are dry runs and
+ * signing is simulated. With a real account, a sentence that has a real variant really sends.
  */
 export function Composer({
   verbKey,
@@ -28,6 +32,9 @@ export function Composer({
   prices,
   pricesLive,
   real,
+  holdings,
+  people,
+  accountId,
   onClose,
   onSigned,
 }: {
@@ -35,25 +42,44 @@ export function Composer({
   initial?: Vals;
   prices: Prices;
   pricesLive: boolean;
-  /** True when a real account is open. Sentences are not connected to real accounts yet. */
+  /** True when a real account is open. */
   real: boolean;
+  holdings: Holdings | null;
+  people: Person[];
+  accountId: string | null;
   onClose: () => void;
   onSigned: (s: Signed) => void;
 }) {
   const verb = VERBS[verbKey];
   const Stage = STAGES[verbKey];
-  const [vals, setVals] = useState<Vals>(() => ({ ...verb.def, ...initial }));
-  const [phase, setPhase] = useState<Phase>("idle");
+  const variant = real ? (verb.real ?? null) : null;
+  const slotCtx = useMemo<SlotCtx>(() => ({ prices, holdings, people }), [prices, holdings, people]);
+  const engine = useSend();
+  const [vals, setVals] = useState<Vals>(() => (variant ? variant.def(slotCtx) : { ...verb.def, ...initial }));
+  // The account may still be loading when this opens. Start over once it arrives, if nothing was touched.
+  const [seeded, setSeeded] = useState(!variant || holdings !== null);
+  const [touched, setTouched] = useState(false);
+  if (!seeded && holdings) {
+    setSeeded(true);
+    if (variant && !touched) setVals(variant.def(slotCtx));
+  }
+  const [localPhase, setPhase] = useState<Phase>("idle");
+  const phase: Phase = variant ? engine.phase : localPhase;
   const [step, setStep] = useState(0);
   const [failNext, setFailNext] = useState(false);
   const [ack, setAck] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [frozen, setFrozen] = useState<Outcome | null>(null);
 
-  const ask = useMemo(() => verb.ask?.(vals) ?? null, [verb, vals]);
+  const ask = useMemo(() => {
+    if (!variant) return verb.ask?.(vals) ?? null;
+    const c: Ctx = { prices, pricesLive, quote: { status: "none" }, holdings, people, accountId, moved: null };
+    return variant.ask(vals, c);
+  }, [verb, variant, vals, prices, pricesLive, holdings, people, accountId]);
   const quote = useQuote(ask, phase !== "idle");
-  const current = verb.out(vals, { prices, pricesLive, quote });
-  const o = frozen ?? current;
+  const ctx: Ctx = { prices, pricesLive, quote, holdings, people, accountId, moved: engine.moved };
+  const current = (variant ?? verb).out(vals, ctx);
+  const o = variant && engine.phase === "idle" ? current : (frozen ?? current);
 
   const signedRef = useRef(onSigned);
   useEffect(() => {
@@ -85,16 +111,20 @@ export function Composer({
   }, [phase, step, failNext, frozen]);
 
   const setVal = (key: string, value: string | number) => {
+    const fix = (variant ?? verb).fix;
     setVals((prev) => {
       const next = { ...prev, [key]: value };
-      return verb.fix ? verb.fix(next, key) : next;
+      return fix ? fix(next, key) : next;
     });
+    setTouched(true);
+    engine.clearMoved();
     setAck(false);
     setHint(null);
   };
 
   const again = () => {
     setFrozen(null);
+    engine.reset();
     setPhase("idle");
     setStep(0);
     setAck(false);
@@ -104,9 +134,29 @@ export function Composer({
   const stageState: StageState =
     phase === "working" ? "run" : phase === "done" ? "done" : phase === "failed" ? "fail" : "idle";
   const pricing = quote.status === "loading" && phase === "idle";
-  const blocked = real
-    ? "This sentence is not connected to your real account yet. You can read what it would do."
-    : (o.blocked ?? (o.ack && !ack ? "Tick the box above first." : undefined));
+  const blocked = variant
+    ? current.blocked
+    : real
+      ? "This sentence is not connected to your real account yet. You can read what it would do."
+      : (o.blocked ?? (o.ack && !ack ? "Tick the box above first." : undefined));
+
+  // What happened, plus a link to each transaction once there are any.
+  const links = engine.receipt?.links ?? [];
+  const rows: { k: string; v: ReactNode; sub?: string; tone?: Tone }[] = [...o.rows];
+  if (variant && phase === "done" && links.length)
+    rows.push({
+      k: "On the network",
+      v: (
+        <span className="flex flex-wrap gap-x-3">
+          {links.map((l, i) => (
+            <a key={l.hash} href={l.url} target="_blank" rel="noreferrer" className="text-blue underline underline-offset-2">
+              {links.length > 1 ? `See the transaction ${i + 1}` : "See the transaction"}
+            </a>
+          ))}
+        </span>
+      ),
+    });
+  const delivered = engine.receipt?.state === "done";
 
   return (
     <Sheet title={verb.title} onClose={onClose}>
@@ -114,10 +164,10 @@ export function Composer({
             <SheetLabel>{phase === "done" ? "Said" : "Say"}</SheetLabel>
             {phase === "done" ? (
               <p className="animate-rise text-[clamp(22px,3.3vw,30px)] font-medium leading-[1.35] tracking-[-0.022em]">
-                {o.past}
+                {variant && !delivered ? (o.waiting ?? o.past) : o.past}
               </p>
             ) : (
-              <Sentence verb={verb} vals={vals} ctx={{ prices, holdings: null, people: [] }} disabled={phase !== "idle"} onChange={setVal} />
+              <Sentence verb={variant ? { ...verb, parts: variant.parts, slots: variant.slots } : verb} vals={vals} ctx={slotCtx} disabled={phase !== "idle"} onChange={setVal} />
             )}
           </div>
 
@@ -130,7 +180,7 @@ export function Composer({
                   <StatusPill tone={o.status.tone}>{o.status.label}</StatusPill>
                 </div>
                 <dl className="mt-2">
-                  {o.rows.map((row, i) => {
+                  {rows.map((row, i) => {
                     const tone = row.tone ? TONE[row.tone] : null;
                     return (
                       <div
@@ -189,32 +239,69 @@ export function Composer({
                 <span>{o.ack}</span>
               </label>
             )}
+            {variant && engine.moved && phase === "idle" && (
+              <p className="mb-4 max-w-[520px] rounded-[16px] bg-amber-3 px-4 py-3 text-[14px] leading-snug text-amber">
+                The price moved before you signed. The numbers above are the new ones. Hold again if you still want it.
+              </p>
+            )}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <SignButton
                 phase={phase}
                 label={o.cta}
                 hold={o.hold}
                 blocked={blocked}
-                working={o.steps[Math.min(step, o.steps.length - 1)]}
-                done={o.doneLabel}
+                working={variant ? (engine.step ?? "Working") : o.steps[Math.min(step, o.steps.length - 1)]}
+                done={variant ? (delivered ? o.doneLabel : "Sent. Still being delivered.") : o.doneLabel}
                 onSigned={() => {
-                  setFrozen(current);
                   setHint(null);
+                  if (variant) {
+                    const plan = variant.plan(vals, ctx);
+                    if (!plan) {
+                      setHint(blocked ?? "This can't be sent right now.");
+                      return;
+                    }
+                    setFrozen(current);
+                    engine.start(plan, { kind: "change", text: current.past, waitingText: current.waiting ?? current.past });
+                    return;
+                  }
+                  setFrozen(current);
                   setPhase("auth");
                 }}
                 onHint={setHint}
               />
               <p className="min-h-5 text-[13.5px] leading-snug text-ink-2" aria-live="polite">
                 {phase === "idle" &&
-                  (hint ??
+                  (variant ? (
+                    (hint ??
+                      (engine.error ? (
+                        <span className="text-rose">{engine.error}</span>
+                      ) : (
+                        (blocked ?? "Hold, then confirm with your fingerprint.")
+                      )))
+                  ) : (
+                    (hint ??
                     (real || o.blocked
                       ? blocked
                       : o.hold
                         ? "Hold, then confirm with your fingerprint."
-                        : "Nothing leaves your account, so a tap is enough."))}
-                {(phase === "auth" || phase === "working") && "You can leave this screen. It finishes without you."}
-                {phase === "done" && (o.after ?? "It is recorded under Said.")}
-                {phase === "failed" && (
+                        : "Nothing leaves your account, so a tap is enough."))
+                  ))}
+                {phase === "auth" && "You can leave this screen. It finishes without you."}
+                {phase === "working" &&
+                  (variant ? "Keep this open if you like. It finishes without you." : "You can leave this screen. It finishes without you.")}
+                {phase === "done" &&
+                  (variant
+                    ? delivered
+                      ? (o.after ?? "It is recorded under Said.")
+                      : "It is on its way. Said will show when it lands."
+                    : (o.after ?? "It is recorded under Said."))}
+                {phase === "failed" && variant &&
+                  (engine.receipt?.state === "refunded" ? (
+                    "It didn't go through. Your money is back in your account."
+                  ) : (
+                    <>It didn&apos;t go through. {o.why}</>
+                  ))}
+                {phase === "failed" && !variant && (
                   <>
                     <span className="text-ink">{o.fail}</span> {o.why} You were not charged.
                   </>
@@ -241,7 +328,11 @@ export function Composer({
                 )}
                 {(phase === "idle" || phase === "auth" || phase === "working") && (
                   <span className="mono text-ink-3">
-                    {real ? "Your account · sending is not connected yet" : "Demo account · nothing is sent"}
+                    {variant
+                      ? "Your account · this really sends"
+                      : real
+                        ? "Your account · sending is not connected yet"
+                        : "Demo account · nothing is sent"}
                   </span>
                 )}
               </div>
