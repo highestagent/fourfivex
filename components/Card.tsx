@@ -37,7 +37,7 @@ export function Card({
         type="button"
         onClick={onOpen}
         className="absolute inset-0 z-10 cursor-pointer rounded-[28px]"
-        aria-label={`${verb.title}. Open the sentence: ${plain(verb, verb.def, prices)}`}
+        aria-label={`${verb.title}. Open the sentence: ${plain(verb, verb.def, { prices, holdings: null, people: [] })}`}
       />
       <span
         className="absolute right-4 top-4 z-0 grid size-8 place-items-center rounded-full bg-white text-ink-3 shadow-chip transition-all duration-300 group-hover:bg-ink group-hover:text-white"

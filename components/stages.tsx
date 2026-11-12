@@ -2,7 +2,7 @@
 
 import { useId, type ComponentType, type ReactNode } from "react";
 import { ASSETS, HOLDINGS, type AssetKey, type Prices } from "@/lib/assets";
-import { coin, usd, usd0 } from "@/lib/format";
+import { coin, dotUnit, usd, usd0 } from "@/lib/format";
 import { useTyped, type StageState } from "@/lib/hooks";
 import { NAMES, dipPrice, salePrice, type QuoteState, type Vals, type VerbKey } from "@/lib/verbs";
 import { DotMatrix } from "./DotMatrix";
@@ -35,7 +35,7 @@ function Unit({ amount }: { amount: number }) {
   return (
     <span className="hidden items-center gap-3 @[21rem]:flex">
       <Sep />
-      <span className="mono text-ink-3">1 dot = ${amount}</span>
+      <span className="mono text-ink-3">1 dot = ${amount.toLocaleString("en-US")}</span>
     </span>
   );
 }
@@ -101,10 +101,6 @@ function Labels({ left, right, mid }: { left: string; right: string; mid?: React
 }
 
 /* ───────────────────────────── pay ───────────────────────────── */
-
-function dotUnit(amount: number): number {
-  return amount <= 60 ? 1 : amount <= 150 ? 2 : amount <= 320 ? 5 : 10;
-}
 
 function PayStage({ state, vals, live }: StageProps) {
   const amt = Number(vals.amt);

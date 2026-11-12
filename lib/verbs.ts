@@ -3,9 +3,11 @@
  * questions before anything is signed: what arrives, what leaves, when, who can see it,
  * what happens if it fails, and whether it can be undone.
  */
+import type { Holdings } from "./account/holdings";
 import { ASSETS, HOLDINGS, type AssetKey, type Prices } from "./assets";
 import { coin, cost, pct, usd, usd0, wait } from "./format";
 import type { QuoteAsk, QuoteOk } from "./oneclick";
+import type { Person } from "./send/people";
 
 export type VerbKey = "pay" | "getpaid" | "change" | "grow" | "borrow" | "ask";
 export type Vals = Record<string, string | number>;
@@ -42,7 +44,10 @@ export type Outcome = {
 };
 
 export type Opt = { v: string | number; label: string; asset?: AssetKey };
-export type Slot = { cap: string; opts: (p: Prices) => Opt[] };
+/** What a blank may need to know to offer its choices. */
+export type SlotCtx = { prices: Prices; holdings: Holdings | null; people: Person[] };
+/** A blank is a chip to choose from, or a number to type. */
+export type Slot = { cap: string; kind?: "choice" | "amount"; opts: (c: SlotCtx) => Opt[] };
 export type Part = string | { slot: string };
 
 export type Verb = {
@@ -72,6 +77,9 @@ export function dipPrice(p: Prices): number {
 export function salePrice(p: Prices): number {
   return Math.round((p.btc * 0.6) / 100) * 100;
 }
+
+const MIN_AMOUNT = "Type an amount of at least $1.";
+const tooSmall = (n: number) => !Number.isFinite(n) || n < 1;
 
 const NO_OFFER = "No one is offering this right now. Try another amount or currency.";
 
@@ -108,14 +116,7 @@ export const VERBS: Record<VerbKey, Verb> = {
           { v: "new", label: "0x71…9c4e" },
         ],
       },
-      amt: {
-        cap: "Amount",
-        opts: () => [
-          { v: 10, label: "$10" },
-          { v: 40, label: "$40" },
-          { v: 120, label: "$120" },
-        ],
-      },
+      amt: { cap: "Amount", kind: "amount", opts: () => [] },
       from: {
         cap: "From",
         opts: () => [
@@ -133,10 +134,11 @@ export const VERBS: Record<VerbKey, Verb> = {
     },
     def: { who: "maya", amt: 40, from: "btc", how: "open" },
     loop: [1500, 2400, 2200],
-    ask: (v) => ({ kind: "pay", from: v.from as AssetKey, usd: Number(v.amt) }),
+    ask: (v) => (tooSmall(Number(v.amt)) ? null : { kind: "pay", from: v.from as AssetKey, usd: Number(v.amt) }),
     out(v, c) {
       const who = String(v.who);
-      const amt = Number(v.amt);
+      const raw = Number(v.amt);
+      const amt = tooSmall(raw) ? 1 : raw;
       const from = v.from as AssetKey;
       const priv = v.how === "priv";
       const isNew = who === "new";
@@ -186,7 +188,7 @@ export const VERBS: Record<VerbKey, Verb> = {
         past: `You paid ${n} ${usd(amt)}.`,
         fail: `${isNew ? "The address" : n} was not paid. Nothing left your account.`,
         why: "No one would deliver at the price you were shown.",
-        blocked: c.quote.status === "no-offer" ? NO_OFFER : undefined,
+        blocked: tooSmall(raw) ? MIN_AMOUNT : c.quote.status === "no-offer" ? NO_OFFER : undefined,
       };
     },
   },
@@ -205,20 +207,14 @@ export const VERBS: Record<VerbKey, Verb> = {
           { v: "maya", label: "Maya" },
         ],
       },
-      amt: {
-        cap: "Amount",
-        opts: () => [
-          { v: 40, label: "$40" },
-          { v: 120, label: "$120" },
-          { v: 600, label: "$600" },
-        ],
-      },
+      amt: { cap: "Amount", kind: "amount", opts: () => [] },
     },
     def: { who: "any", amt: 120, payer: "eth" },
     loop: [1300, 1900, 2200],
-    ask: (v) => ({ kind: "getpaid", payer: v.payer as AssetKey, usd: Number(v.amt) }),
+    ask: (v) => (tooSmall(Number(v.amt)) ? null : { kind: "getpaid", payer: v.payer as AssetKey, usd: Number(v.amt) }),
     out(v, c) {
-      const amt = Number(v.amt);
+      const raw = Number(v.amt);
+      const amt = tooSmall(raw) ? 1 : raw;
       const payer = v.payer as AssetKey;
       const P = ASSETS[payer];
       const who = v.who === "any" ? "anyone with the link" : "Maya";
@@ -246,6 +242,7 @@ export const VERBS: Record<VerbKey, Verb> = {
         after: "The request waits under Standing until it is paid.",
         fail: "The request was not created. Nothing was sent or received.",
         why: "The service that issues request links did not answer.",
+        blocked: tooSmall(raw) ? MIN_AMOUNT : undefined,
         standing: {
           t: `Waiting for ${usd(amt)} from ${who}.`,
           m: "Expires in 24 hours",
@@ -263,14 +260,7 @@ export const VERBS: Record<VerbKey, Verb> = {
       "Change one kind of money into another now, or leave an instruction that waits for the price you want.",
     parts: ["Change ", slot("amt"), " of ", slot("from"), " into ", slot("to"), ", ", slot("when"), "."],
     slots: {
-      amt: {
-        cap: "Amount",
-        opts: () => [
-          { v: 25, label: "$25" },
-          { v: 50, label: "$50" },
-          { v: 200, label: "$200" },
-        ],
-      },
+      amt: { cap: "Amount", kind: "amount", opts: () => [] },
       from: {
         cap: "From",
         opts: () => [
@@ -288,9 +278,9 @@ export const VERBS: Record<VerbKey, Verb> = {
       },
       when: {
         cap: "When",
-        opts: (p) => [
+        opts: (c) => [
           { v: "now", label: "now" },
-          { v: "dip", label: `when bitcoin is under ${usd0(dipPrice(p))}` },
+          { v: "dip", label: `when bitcoin is under ${usd0(dipPrice(c.prices))}` },
           { v: "fri", label: "every Friday" },
         ],
       },
@@ -304,11 +294,12 @@ export const VERBS: Record<VerbKey, Verb> = {
       return { ...v, from: v.to === "usd" ? "btc" : "usd" };
     },
     ask: (v) =>
-      v.when === "now"
+      v.when === "now" && !tooSmall(Number(v.amt))
         ? { kind: "change", from: v.from as AssetKey, to: v.to as AssetKey, usd: Number(v.amt) }
         : null,
     out(v, c) {
-      const amt = Number(v.amt);
+      const raw = Number(v.amt);
+      const amt = tooSmall(raw) ? 1 : raw;
       const from = v.from as AssetKey;
       const to = v.to as AssetKey;
       const F = ASSETS[from];
@@ -333,6 +324,7 @@ export const VERBS: Record<VerbKey, Verb> = {
           after: "It lives under Standing, where you can stop it.",
           fail: "The standing order was not set. Nothing will run.",
           why: "The ceiling could not be written, so no permission was given.",
+          blocked: tooSmall(raw) ? MIN_AMOUNT : undefined,
           standing: {
             t: `Every Friday, ${src} becomes ${T.name}.`,
             m: `$0 of ${usd0(amt * 4)} this month`,
@@ -360,6 +352,7 @@ export const VERBS: Record<VerbKey, Verb> = {
           after: "It waits under Standing until the price is met or you cancel.",
           fail: "The instruction was not recorded. Nothing is waiting.",
           why: "The order service did not accept it.",
+          blocked: tooSmall(raw) ? MIN_AMOUNT : undefined,
           standing: {
             t: `When bitcoin is under ${dip}, ${src} becomes ${T.name}.`,
             m: "Waiting",
@@ -400,7 +393,7 @@ export const VERBS: Record<VerbKey, Verb> = {
         past: `You changed ${src} into ${T.name}.`,
         fail: `Nothing was changed. Your ${F.name} is where it was.`,
         why: "The price moved before it could be delivered.",
-        blocked: c.quote.status === "no-offer" ? NO_OFFER : undefined,
+        blocked: tooSmall(raw) ? MIN_AMOUNT : c.quote.status === "no-offer" ? NO_OFFER : undefined,
       };
     },
   },
@@ -553,12 +546,19 @@ export const VERBS: Record<VerbKey, Verb> = {
 
 export const VERB_ORDER: VerbKey[] = ["pay", "getpaid", "change", "grow", "borrow", "ask"];
 
-export function label(verb: Verb, key: string, vals: Vals, prices: Prices): string {
-  const o = verb.slots[key].opts(prices).find((x) => x.v === vals[key]);
+/** An amount as typed: whole dollars plain, cents only when there are some. */
+function amountText(n: number): string {
+  return Number.isInteger(n) ? usd0(n) : usd(n);
+}
+
+export function label(verb: Verb, key: string, vals: Vals, c: SlotCtx): string {
+  const slot = verb.slots[key];
+  if (slot.kind === "amount") return amountText(Number(vals[key]) || 0);
+  const o = slot.opts(c).find((x) => x.v === vals[key]);
   return o ? o.label : "";
 }
 
 /** The sentence as plain text, for labels and receipts. */
-export function plain(verb: Verb, vals: Vals, prices: Prices): string {
-  return verb.parts.map((p) => (typeof p === "string" ? p : label(verb, p.slot, vals, prices))).join("");
+export function plain(verb: Verb, vals: Vals, c: SlotCtx): string {
+  return verb.parts.map((p) => (typeof p === "string" ? p : label(verb, p.slot, vals, c))).join("");
 }

@@ -29,3 +29,13 @@ export function wait(seconds: number): string {
   if (seconds < 90) return `about ${Math.max(5, Math.round(seconds / 5) * 5)} seconds`;
   return `about ${Math.round(seconds / 60)} minutes`;
 }
+
+/** What one dot stands for: the smallest 1, 2, 5, 10, 20, 50... that keeps the picture to 60 dots or fewer. */
+export function dotUnit(amount: number): number {
+  if (!Number.isFinite(amount) || amount <= 60) return 1;
+  let unit = 1;
+  for (;;) {
+    for (const m of [1, 2, 5]) if (amount / (unit * m) <= 60) return unit * m;
+    unit *= 10;
+  }
+}

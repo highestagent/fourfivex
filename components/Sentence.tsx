@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ASSETS, type AssetKey, type Prices } from "@/lib/assets";
-import type { Vals, Verb } from "@/lib/verbs";
+import { ASSETS, type AssetKey } from "@/lib/assets";
+import type { SlotCtx, Vals, Verb } from "@/lib/verbs";
 import { Check, Chevron, Dot } from "./ui";
 
 /** The dot hangs beside the word so the chip keeps the sentence's baseline. */
@@ -16,6 +16,55 @@ function ChipLabel({ asset, label }: { asset?: AssetKey; label: string }) {
   );
 }
 
+const TYPED = /^\d{0,7}(\.\d{0,2})?$/;
+
+/** A number the person types. The text is kept as typed, so "12." and "" can be reached. */
+function AmountBlank({
+  id,
+  cap,
+  value,
+  disabled,
+  chip,
+  onChange,
+}: {
+  id: string;
+  cap: string;
+  value: number;
+  disabled?: boolean;
+  chip: string;
+  onChange: (n: number) => void;
+}) {
+  const [text, setText] = useState(value ? String(value) : "");
+  // Follow a change from outside, but never fight what is being typed.
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    if (value !== (Number(text) || 0)) setText(value ? String(value) : "");
+  }
+  return (
+    <span className={`${chip} gap-[0.12em] pr-[0.62em] focus-within:ring-2 focus-within:ring-blue`}>
+      <span className="text-ink-3">$</span>
+      <input
+        id={id}
+        inputMode="decimal"
+        autoComplete="off"
+        aria-label={cap}
+        disabled={disabled}
+        value={text}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (!TYPED.test(next)) return;
+          setText(next);
+          setSeen(Number(next) || 0);
+          onChange(Number(next) || 0);
+        }}
+        style={{ width: `${Math.max(1, text.length)}ch` }}
+        className="min-w-0 bg-transparent tabular-nums outline-none disabled:text-ink"
+      />
+    </span>
+  );
+}
+
 /**
  * The sentence. Fixed words are print. Each word the person can choose is a white chip,
  * and a chip only ever offers what is possible.
@@ -23,13 +72,13 @@ function ChipLabel({ asset, label }: { asset?: AssetKey; label: string }) {
 export function Sentence({
   verb,
   vals,
-  prices,
+  ctx,
   disabled,
   onChange,
 }: {
   verb: Verb;
   vals: Vals;
-  prices: Prices;
+  ctx: SlotCtx;
   disabled?: boolean;
   onChange: (key: string, value: string | number) => void;
 }) {
@@ -60,12 +109,25 @@ export function Sentence({
         if (typeof part === "string") return <span key={i}>{part}</span>;
         const key = part.slot;
         const slot = verb.slots[key];
-        const opts = slot.opts(prices);
+        const chip =
+          "inline-flex items-baseline gap-2 rounded-full bg-white py-[0.12em] pl-[0.62em] align-baseline text-[0.84em] leading-[1.45] tracking-[-0.015em] shadow-chip transition-shadow";
+        if (slot.kind === "amount")
+          return (
+            <span key={i} className="relative inline-block">
+              <AmountBlank
+                id={`blank-${key}`}
+                cap={slot.cap}
+                value={Number(vals[key]) || 0}
+                disabled={disabled}
+                chip={chip}
+                onChange={(n) => onChange(key, n)}
+              />
+            </span>
+          );
+        const opts = slot.opts(ctx);
         const current = opts.find((o) => o.v === vals[key]) ?? opts[0];
         const fixed = opts.length < 2 || disabled;
         const isOpen = open?.key === key;
-        const chip =
-          "inline-flex items-baseline gap-2 rounded-full bg-white py-[0.12em] pl-[0.62em] align-baseline text-[0.84em] leading-[1.45] tracking-[-0.015em] shadow-chip transition-shadow";
         return (
           <span key={i} className="relative inline-block">
             {fixed ? (

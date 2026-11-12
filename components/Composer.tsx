@@ -117,7 +117,7 @@ export function Composer({
                 {o.past}
               </p>
             ) : (
-              <Sentence verb={verb} vals={vals} prices={prices} disabled={phase !== "idle"} onChange={setVal} />
+              <Sentence verb={verb} vals={vals} ctx={{ prices, holdings: null, people: [] }} disabled={phase !== "idle"} onChange={setVal} />
             )}
           </div>
 
