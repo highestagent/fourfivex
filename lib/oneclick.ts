@@ -45,22 +45,29 @@ export type QuoteOk = {
 export type QuoteFail = { ok: false; reason: "no-offer" | "unavailable" | "bad-request" };
 export type QuoteResult = QuoteOk | QuoteFail;
 
-let priceMemo: { at: number; prices: Prices } | null = null;
+export type Token = { assetId: string; symbol: string; blockchain: string; decimals: number; price: number };
 
-export async function getPrices(): Promise<Prices> {
+let tokenMemo: { at: number; tokens: Token[] } | null = null;
+
+/** Every asset NEAR Intents can hold, with its current price. */
+export async function getTokens(): Promise<Token[]> {
   const now = Date.now();
-  if (priceMemo && now - priceMemo.at < 30_000) return priceMemo.prices;
+  if (tokenMemo && now - tokenMemo.at < 30_000) return tokenMemo.tokens;
   const res = await fetch(`${BASE}/tokens`, { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`tokens ${res.status}`);
-  const tokens = (await res.json()) as { assetId: string; price: number }[];
-  const byId = new Map(tokens.map((t) => [t.assetId, t.price]));
+  const tokens = (await res.json()) as Token[];
+  tokenMemo = { at: now, tokens };
+  return tokens;
+}
+
+export async function getPrices(): Promise<Prices> {
+  const byId = new Map((await getTokens()).map((t) => [t.assetId, t.price]));
   const prices = {} as Prices;
   for (const key of Object.keys(ASSETS) as AssetKey[]) {
     const p = byId.get(ASSETS[key].id);
     if (typeof p !== "number" || !(p > 0)) throw new Error(`no price for ${key}`);
     prices[key] = p;
   }
-  priceMemo = { at: now, prices };
   return prices;
 }
 
