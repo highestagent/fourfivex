@@ -68,14 +68,35 @@ describe("public keys", () => {
 });
 
 describe("signatures", () => {
+  const N = p256.Point.Fn.ORDER;
+  const sOf = (raw: Uint8Array) => p256.Signature.fromBytes(raw, "compact").s;
+
   it("turns an authenticator's DER signature into the 64 bytes the contract wants", () => {
     const key = p256.utils.randomSecretKey();
     const msg = new Uint8Array([1, 2, 3]);
-    const der = p256.sign(msg, key, { format: "der", lowS: false });
-    const compact = p256.sign(msg, key, { format: "compact", lowS: false });
+    const der = p256.sign(msg, key, { format: "der", lowS: true });
+    const compact = p256.sign(msg, key, { format: "compact", lowS: true });
     const raw = signatureFromDer(der);
     expect(raw.length).toBe(64);
     expect(equal(raw, compact)).toBe(true);
     expect(encodeSignature(raw).startsWith("p256:")).toBe(true);
+  });
+
+  // The contract refuses the higher of the two valid s values, and an authenticator picks either.
+  it("always hands on the lower-s twin, whichever one the authenticator produced", () => {
+    for (let i = 0; i < 40; i++) {
+      const key = p256.utils.randomSecretKey();
+      const publicKey = p256.getPublicKey(key, false);
+      const msg = crypto.getRandomValues(new Uint8Array(32));
+      const low = p256.Signature.fromBytes(p256.sign(msg, key, { format: "compact", lowS: true }), "compact");
+      const highTwin = new p256.Signature(low.r, N - low.s);
+      expect(highTwin.hasHighS()).toBe(true);
+      for (const der of [low.toBytes("der"), highTwin.toBytes("der")]) {
+        const raw = signatureFromDer(der);
+        expect(sOf(raw) <= N / BigInt(2)).toBe(true);
+        expect(sOf(raw)).toBe(low.s);
+        expect(p256.verify(raw, msg, publicKey, { lowS: true, format: "compact" })).toBe(true);
+      }
+    }
   });
 });

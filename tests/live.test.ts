@@ -3,6 +3,8 @@
  * runs the contract's actual signature and nonce checks and commits nothing.
  * Run with `pnpm test:live`.
  */
+import { p256 } from "@noble/curves/nist.js";
+import { base58 } from "@scure/base";
 import { describe, expect, it } from "vitest";
 import { balancesOf, ContractError, currentSalt, hasPublicKey, publicKeysOf, simulate } from "../lib/account/chain";
 import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent } from "../lib/account/intents";
@@ -51,6 +53,19 @@ describe.runIf(process.env.LIVE === "1")("the live verifier contract", () => {
     const signed = await sign(owner, [{ intent: "add_public_key", public_key: encodePublicKey(thief.publicKey) }]);
     const forged = { ...signed, signature: (await sign(thief, [])).signature };
     await expect(simulate([forged])).rejects.toBeInstanceOf(ContractError);
+  });
+
+  // Found the hard way: both twins of a signature are valid maths, the contract takes only one.
+  it("refuses the higher-s twin of a valid signature, and accepts it once lowered", async () => {
+    const owner = makeAuthenticator();
+    const backup = makeAuthenticator();
+    const signed = await sign(owner, [{ intent: "add_public_key", public_key: encodePublicKey(backup.publicKey) }]);
+    const N = p256.Point.Fn.ORDER;
+    const good = p256.Signature.fromBytes(base58.decode(signed.signature.split(":")[1]), "compact");
+    expect(good.hasHighS()).toBe(false);
+    const twin = `p256:${base58.encode(new p256.Signature(good.r, N - good.s).toBytes("compact"))}`;
+    await expect(simulate([{ ...signed, signature: twin }])).rejects.toBeInstanceOf(ContractError);
+    expect((await simulate([signed])).intents_executed).toHaveLength(1);
   });
 
   it("refuses a nonce minted under the wrong salt", async () => {

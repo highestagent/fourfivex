@@ -69,9 +69,18 @@ export function isAccountId(text: string): boolean {
   return /^0x[0-9a-f]{40}$/.test(text);
 }
 
-/** Authenticators sign in DER. The contract wants the bare 64 bytes, r then s. */
+/**
+ * Authenticators sign in DER. The contract wants the bare 64 bytes, r then s.
+ *
+ * Every ECDSA signature has a twin: (r, s) and (r, n - s) are both valid. An authenticator
+ * returns either one, about half the time each, but the verifier contract accepts only the
+ * twin with the lower s. So the signature is always moved to that form here, the one place
+ * an authenticator's signature enters the app.
+ */
 export function signatureFromDer(der: Uint8Array): Uint8Array {
-  return p256.Signature.fromBytes(der, "der").toBytes("compact");
+  const sig = p256.Signature.fromBytes(der, "der");
+  const s = sig.hasHighS() ? p256.Point.Fn.ORDER - sig.s : sig.s;
+  return new p256.Signature(sig.r, s).toBytes("compact");
 }
 
 export function encodeSignature(raw: Uint8Array): string {
