@@ -8,7 +8,7 @@ import { Select } from "./Select";
 
 const NETWORK_OPTIONS = NETWORKS.map((value) => ({ value, label: NETWORK_NAME[value] }));
 
-export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => void; onCancel: () => void }) {
+export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => void; onCancel?: () => void }) {
   const [name, setName] = useState("");
   const [network, setNetwork] = useState<Network>("base");
   const [address, setAddress] = useState("");
@@ -41,6 +41,7 @@ export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => vo
           id={networkId}
           name="recipient-network"
           labelledBy={`${networkId}-label`}
+          pickerTitle="Choose a network"
           value={network}
           options={NETWORK_OPTIONS}
           onValueChange={(value) => {
@@ -65,8 +66,8 @@ export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => vo
       </label>
       {error && <p role="alert" className="text-sm text-rose sm:col-span-2">{error}</p>}
       <div className="flex flex-wrap gap-2 sm:col-span-2">
-        <button className="action action-primary" type="submit">Use recipient</button>
-        <button className="action action-secondary" type="button" onClick={onCancel}>Cancel</button>
+        <button className="action action-primary max-sm:w-full" type="submit">Use recipient</button>
+        {onCancel && <button className="action action-secondary" type="button" onClick={onCancel}>Cancel</button>}
       </div>
     </form>
   );

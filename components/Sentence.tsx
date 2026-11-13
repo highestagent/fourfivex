@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ASSETS } from "@/lib/assets";
 import type { SlotCtx, Vals, Verb } from "@/lib/verbs";
 import { Select } from "./Select";
-import { Dot } from "./ui";
+import { Arrow, Dot } from "./ui";
 
 const CHIP = "inline-flex min-h-11 max-w-full items-center rounded-full border border-line bg-white px-3 align-middle text-[0.84em] leading-tight tracking-[-0.015em]";
 const FOCUS = "focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue";
@@ -61,11 +61,13 @@ export function Sentence({
   vals,
   ctx,
   disabled,
+  allowNewRecipient = false,
   onChange,
 }: Pick<Verb, "parts" | "slots"> & {
   vals: Vals;
   ctx: SlotCtx;
   disabled: boolean;
+  allowNewRecipient?: boolean;
   onChange: (key: string, value: string | number) => void;
 }) {
   return (
@@ -86,6 +88,14 @@ export function Sentence({
           (slot.kind === "person" ? { v: "", label: "someone" } : options[0]);
         if (!current) return null;
         const dot = current.asset && <Dot color={ASSETS[current.asset].color} className="mr-1.5" />;
+        if (!disabled && key === "who" && allowNewRecipient && options.length === 1 && options[0].v === "__new") {
+          return (
+            <button key={index} id={id} type="button" className={`${CHIP} cursor-pointer gap-2`} onClick={() => onChange(key, "__new")}>
+              {options[0].label}
+              <Arrow size={14} className="shrink-0 text-ink-2" />
+            </button>
+          );
+        }
         if (disabled || (options.length === 1 && current.v === options[0].v)) {
           return <span key={index} className={CHIP}>{dot}<span className="truncate">{current.label}</span></span>;
         }
@@ -95,6 +105,7 @@ export function Sentence({
             key={index}
             id={id}
             label={`${slot.cap}: ${current.label}`}
+            pickerTitle={key === "who" ? "Choose a recipient" : key === "from" ? "Choose what to spend" : key === "to" ? "Choose what to receive" : "Choose how to pay"}
             value={current.v}
             placeholder={current.label}
             options={options.map(({ v, label, asset }) => ({

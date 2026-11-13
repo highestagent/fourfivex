@@ -1,8 +1,9 @@
 "use client";
 
 import * as SelectPrimitive from "@radix-ui/react-select";
-import type { ReactNode } from "react";
-import { Check, Chevron } from "./ui";
+import { useContext, type ReactNode } from "react";
+import { MobilePicker } from "./Sheet";
+import { Arrow, Check, Chevron } from "./ui";
 
 type SelectOption<Value extends string | number> = {
   value: Value;
@@ -20,6 +21,7 @@ export function Select<Value extends string | number>({
   onValueChange,
   className,
   placeholder,
+  pickerTitle,
 }: {
   id?: string;
   name?: string;
@@ -30,23 +32,49 @@ export function Select<Value extends string | number>({
   onValueChange: (value: Value) => void;
   className: string;
   placeholder?: string;
+  pickerTitle: string;
 }) {
+  const openPicker = useContext(MobilePicker);
   const selected = options.find((option) => option.value === value);
+  const triggerClass = `inline-flex cursor-pointer items-center gap-2 text-left ${className}`;
+  const choose = (next: string) => {
+    const option = options.find((option) => String(option.value) === next);
+    if (option) onValueChange(option.value);
+  };
+
+  if (openPicker) {
+    return (
+      <button
+        type="button"
+        id={id}
+        aria-label={label}
+        aria-labelledby={labelledBy ? `${labelledBy} ${id}-value` : undefined}
+        className={triggerClass}
+        onClick={(event) => openPicker({
+          title: pickerTitle,
+          value: String(value),
+          options: options.map((option) => ({ ...option, value: String(option.value) })),
+          onSelect: choose,
+        }, event.currentTarget)}
+      >
+        {selected?.marker}
+        <span id={id ? `${id}-value` : undefined} className="min-w-0 truncate">{selected?.label ?? placeholder}</span>
+        <Arrow size={14} className="ml-auto shrink-0 text-ink-2" />
+      </button>
+    );
+  }
 
   return (
     <SelectPrimitive.Root
       name={name}
       value={String(value)}
-      onValueChange={(next) => {
-        const option = options.find((option) => String(option.value) === next);
-        if (option) onValueChange(option.value);
-      }}
+      onValueChange={choose}
     >
       <SelectPrimitive.Trigger
         id={id}
         aria-label={label}
         aria-labelledby={labelledBy}
-        className={`inline-flex cursor-pointer items-center gap-2 text-left ${className}`}
+        className={triggerClass}
       >
         {selected?.marker}
         <span className="min-w-0 truncate">

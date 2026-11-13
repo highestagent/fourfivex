@@ -1,9 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { FALLBACK_PRICES, type Prices } from "./assets";
 import type { QuoteAsk, QuoteResult } from "./oneclick";
 import type { QuoteState } from "./verbs";
+
+// Matches the desktop layout's Tailwind sm breakpoint.
+const MOBILE_SHEET = "(width < 40rem)";
+
+function subscribeToSheetWidth(listener: () => void) {
+  const query = window.matchMedia(MOBILE_SHEET);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+
+export function useMobileSheet() {
+  return useSyncExternalStore(
+    subscribeToSheetWidth,
+    () => window.matchMedia(MOBILE_SHEET).matches,
+    () => false,
+  );
+}
 
 /** Live prices, refreshed while the page is open. Falls back to fixed figures if unreachable. */
 export function usePrices(): { prices: Prices; live: boolean } {

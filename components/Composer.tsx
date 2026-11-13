@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import type { Holdings } from "@/lib/account/holdings";
 import type { Prices } from "@/lib/assets";
 import { exact, when } from "@/lib/format";
-import { useQuote } from "@/lib/hooks";
+import { useMobileSheet, useQuote } from "@/lib/hooks";
 import { prepareSend } from "@/lib/send/api";
 import { sent, useSent } from "@/lib/send/history";
 import { payInOf } from "@/lib/send/payin";
@@ -80,8 +80,10 @@ export function Composer({
   const verb = VERBS[action];
   const variant = verb.real!;
   const demo = accountId === null;
+  const mobile = useMobileSheet();
   const form = demo && action !== "getpaid" ? verb : variant;
   const [edits, setEdits] = useState<Vals>({});
+  const previousRecipient = useRef<string | number>("");
   const [initialHoldings, setInitialHoldings] = useState(holdings);
   if (!initialHoldings && holdings) setInitialHoldings(holdings);
   const slots = useMemo<SlotCtx>(() => ({
@@ -90,6 +92,7 @@ export function Composer({
     people,
   }), [prices, holdings, initialHoldings, people]);
   const defaults = demo && action !== "getpaid" ? verb.def : variant.def(slots);
+  if (mobile && !demo && action === "pay" && defaults.who === "__new") defaults.who = "";
   const vals = { ...defaults, ...edits };
   const [frozen, setFrozen] = useState<Outcome | null>(null);
   const [deposit, setDeposit] = useState<Deposit | null>(null);
@@ -107,6 +110,7 @@ export function Composer({
   const links = depositEntry?.links ?? activity?.links ?? receipt?.links ?? [];
   const complete = receipt !== null || deposit !== null;
   const addingPerson = !demo && action === "pay" && vals.who === "__new";
+  const recipientStep = mobile && addingPerson;
   const recipient = action === "pay" && !demo ? people.find((person) => person.id === vals.who) : undefined;
   const payIn = action === "getpaid" ? payInOf(vals.with) : null;
 
@@ -132,12 +136,16 @@ export function Composer({
     ));
 
   const change = (key: string, value: string | number) => {
+    if (key === "who" && value === "__new" && vals.who !== "__new") {
+      previousRecipient.current = vals.who ?? "";
+    }
     const next = variant.fix?.({ ...vals, [key]: value }, key) ?? { ...vals, [key]: value };
     const changes = Object.fromEntries(Object.entries(next).filter(([name, val]) => val !== vals[name]));
     setEdits((previous) => ({ ...previous, ...changes }));
     setDepositError(null);
     engine.clearPreview();
   };
+  const cancelRecipient = () => change("who", mobile ? previousRecipient.current : people[0]?.id ?? "");
 
   const approve = async () => {
     if (busy || blocked || demo || complete) return;
@@ -195,15 +203,18 @@ export function Composer({
   const needsDeposit = deposit !== null && depositState === "waiting" && !depositExpired;
 
   return (
-    <Sheet label={LABELS[action]} onClose={onClose} busy={busy && !engine.submitted}>
-      <div className="grid gap-6">
+    <Sheet
+      label={LABELS[action]}
+      onClose={onClose}
+      busy={busy && !engine.submitted}
+      step={recipientStep ? { title: "New recipient", onBack: cancelRecipient, returnFocusId: "blank-who" } : undefined}
+    >
+      <div className={recipientStep ? "hidden" : "grid gap-6"}>
         {summary ? <p className="sentence" role="status">{summary}</p> : (
-          <Sentence parts={variant.parts} slots={form.slots} vals={vals} ctx={slots} disabled={busy} onChange={change} />
+          <Sentence parts={variant.parts} slots={form.slots} vals={vals} ctx={slots} disabled={busy} allowNewRecipient={mobile && !demo} onChange={change} />
         )}
 
-        {addingPerson && (
-          <NewPerson onSave={(person) => change("who", person.id)} onCancel={() => change("who", people[0]?.id ?? "")} />
-        )}
+        {addingPerson && !mobile && <NewPerson onSave={(person) => change("who", person.id)} onCancel={cancelRecipient} />}
 
         {payIn && !demo && !deposit && (
           <label className="grid gap-2 text-sm font-medium">
@@ -273,6 +284,7 @@ export function Composer({
           </div>
         )}
       </div>
+      {recipientStep && <NewPerson onSave={(person) => change("who", person.id)} />}
     </Sheet>
   );
 }
