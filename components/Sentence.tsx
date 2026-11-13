@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { ASSETS } from "@/lib/assets";
 import type { SlotCtx, Vals, Verb } from "@/lib/verbs";
-import { Chevron, Dot } from "./ui";
+import { Select } from "./Select";
+import { Dot } from "./ui";
 
 const CHIP = "inline-flex min-h-11 max-w-full items-center rounded-full border border-line bg-white px-3 align-middle text-[0.84em] leading-tight tracking-[-0.015em]";
 const FOCUS = "focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue";
@@ -90,24 +91,20 @@ export function Sentence({
         }
 
         return (
-          <span key={index} className={`${CHIP} ${FOCUS} relative`}>
-            {dot}
-            <span aria-hidden="true" className="truncate">{current.label}</span>
-            <Chevron size={14} className="ml-1.5 shrink-0 text-ink-2" />
-            <select
-              id={id}
-              aria-label={slot.cap}
-              value={String(current.v)}
-              onChange={(event) => {
-                const option = options.find(({ v }) => String(v) === event.target.value);
-                if (option) onChange(key, option.v);
-              }}
-              className="absolute inset-0 size-full cursor-pointer appearance-none rounded-full text-base opacity-0"
-            >
-              {current.v === "" && <option value="" disabled>{current.label}</option>}
-              {options.map((option) => <option key={option.v} value={String(option.v)}>{option.label}</option>)}
-            </select>
-          </span>
+          <Select
+            key={index}
+            id={id}
+            label={`${slot.cap}: ${current.label}`}
+            value={current.v}
+            placeholder={current.label}
+            options={options.map(({ v, label, asset }) => ({
+              value: v,
+              label,
+              marker: asset && <Dot color={ASSETS[asset].color} />,
+            }))}
+            onValueChange={(value) => onChange(key, value)}
+            className={CHIP}
+          />
         );
       })}
     </p>

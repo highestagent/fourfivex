@@ -55,6 +55,11 @@ export const Arrow = (p: IconProps) => (
     <path d="M3 8h10M9 4l4 4-4 4" />
   </Svg>
 );
+export const Check = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m3.5 8.5 3 3 6-7" />
+  </Svg>
+);
 export const Close = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 4l8 8M12 4l-8 8" />

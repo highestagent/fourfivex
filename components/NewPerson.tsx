@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { addressProblem, familyOf } from "@/lib/send/address";
 import { people, type Person } from "@/lib/send/people";
 import { NETWORKS, NETWORK_NAME, type Network } from "@/lib/send/types";
+import { Select } from "./Select";
+
+const NETWORK_OPTIONS = NETWORKS.map((value) => ({ value, label: NETWORK_NAME[value] }));
 
 export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => void; onCancel: () => void }) {
   const [name, setName] = useState("");
   const [network, setNetwork] = useState<Network>("base");
   const [address, setAddress] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const networkId = useId();
 
   const save = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,17 +33,27 @@ export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => vo
     <form onSubmit={save} className="grid gap-4 rounded-[18px] border border-line bg-white p-4 sm:grid-cols-2 sm:p-5">
       <label className="grid gap-2 text-sm font-medium">
         Recipient name
-        <input className="field" autoComplete="off" maxLength={24} value={name} onChange={(event) => setName(event.target.value)} required />
+        <input name="recipient-name" className="field" autoComplete="off" maxLength={24} value={name} onChange={(event) => setName(event.target.value)} required />
       </label>
-      <label className="grid gap-2 text-sm font-medium">
-        Network
-        <select className="field" value={network} onChange={(event) => setNetwork(event.target.value as Network)}>
-          {NETWORKS.map((value) => <option key={value} value={value}>{NETWORK_NAME[value]}</option>)}
-        </select>
-      </label>
+      <div className="grid gap-2 text-sm font-medium">
+        <label htmlFor={networkId} id={`${networkId}-label`}>Network</label>
+        <Select
+          id={networkId}
+          name="recipient-network"
+          labelledBy={`${networkId}-label`}
+          value={network}
+          options={NETWORK_OPTIONS}
+          onValueChange={(value) => {
+            setNetwork(value);
+            setError(null);
+          }}
+          className="field w-full"
+        />
+      </div>
       <label className="grid gap-2 text-sm font-medium sm:col-span-2">
         Address on {NETWORK_NAME[network]}
         <input
+          name="recipient-address"
           className="field font-mono"
           autoComplete="off"
           spellCheck={false}
