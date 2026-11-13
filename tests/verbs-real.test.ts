@@ -98,6 +98,13 @@ describe("change, for a real account", () => {
     expect(real.plan!(vals(), ctx({ accountId: null }))).toBeNull();
   });
 
+  it("does not quote or approve a swap when both assets match", () => {
+    const sameAsset = vals({ to: "btc" });
+    expect(real.ask(sameAsset, ctx())).toBeNull();
+    expect(real.out(sameAsset, ctx()).blocked).toBe("Choose a different asset to receive.");
+    expect(real.plan!(sameAsset, ctx())).toBeNull();
+  });
+
   it("plans from the source token and the quote on screen", () => {
     const plan = real.plan!(vals(), ctx())!;
     expect(plan.ask).toEqual({ kind: "change", accountId: "0xabc", fromAssetId: BTC.assetId, to: "usd", usd: 10 });

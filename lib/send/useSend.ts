@@ -15,6 +15,7 @@ export function useSend() {
   const [moved, setMoved] = useState<Prepared | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -29,6 +30,7 @@ export function useSend() {
       setStep(null);
       setError(null);
       setReceipt(null);
+      setSubmitted(false);
       send(plan.ask, {
         shown: plan.shown,
         source: plan.source,
@@ -45,6 +47,7 @@ export function useSend() {
             intentHash,
             links: [],
           });
+          if (alive.current) setSubmitted(true);
         },
       }).then(
         (r) => {
@@ -70,14 +73,10 @@ export function useSend() {
     [],
   );
 
-  const clearMoved = useCallback(() => setMoved(null), []);
-  const reset = useCallback(() => {
-    setPhase("idle");
-    setStep(null);
+  const clearPreview = useCallback(() => {
     setMoved(null);
-    setReceipt(null);
     setError(null);
   }, []);
 
-  return { phase, step, moved, receipt, error, start, clearMoved, reset };
+  return { phase, step, moved, receipt, error, submitted, start, clearPreview };
 }

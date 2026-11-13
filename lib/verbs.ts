@@ -92,10 +92,6 @@ export type Verb = {
   parts: Part[];
   slots: Record<string, Slot>;
   def: Vals;
-  /** What the card's self-playing demo shows, when that differs from the default sentence. */
-  demo?: Vals;
-  /** How long the card's self-playing demo rests, runs and holds its result. */
-  loop: [number, number, number];
   fix?: (v: Vals, changed: string) => Vals;
   ask?: (v: Vals) => QuoteAsk | null;
   out: (v: Vals, c: Ctx) => Outcome;
@@ -237,10 +233,9 @@ const changeReal: RealVariant = {
     const from = biggestGroup(c.holdings);
     return { amt: 10, from, to: from === "usd" ? "btc" : "usd" };
   },
-  fix: changeFix,
   ask(v, c) {
     const amt = Number(v.amt);
-    if (tooSmall(amt) || !c.holdings) return null;
+    if (tooSmall(amt) || !c.holdings || v.from === v.to) return null;
     const src = pickSource(c.holdings, v.from as Money, amt);
     if (src.kind !== "ok") return null;
     return { kind: "change", from: v.from as AssetKey, to: v.to as AssetKey, usd: amt, fromAssetId: src.part.assetId };
@@ -270,6 +265,7 @@ const changeReal: RealVariant = {
     const src = c.holdings && !tooSmall(raw) ? pickSource(c.holdings, from, raw) : null;
     if (tooSmall(raw)) blocked = MIN_AMOUNT;
     else if (!c.holdings) blocked = "Reading your account…";
+    else if (from === to) blocked = "Choose a different asset to receive.";
     else if (src?.kind === "empty") blocked = `You don’t hold any ${heldWord(from)} yet.`;
     else if (src?.kind === "short") blocked = shortReason(c.holdings, from, src.most);
     else if (!m && c.quote.status === "no-offer") blocked = NO_OFFER;
@@ -458,7 +454,6 @@ const addReal: RealVariant = {
         },
         { k: "Reaches you", v: `${wait(q ? q.seconds : 45)} after you send it` },
         { k: "Sent back if", v: "it is too little or too late", sub: "to the address you gave above", tone: "warn" },
-        { k: "Signing", v: "not needed", sub: "nothing leaves your account" },
       ],
       status: quoteStatus(c.quote),
       cta: "Get my address",
@@ -517,7 +512,6 @@ export const VERBS: Record<VerbKey, Verb> = {
       },
     },
     def: { who: "maya", amt: 40, from: "btc", how: "open" },
-    loop: [1500, 2400, 2200],
     real: payReal,
     ask: (v) => (tooSmall(Number(v.amt)) ? null : { kind: "pay", from: v.from as AssetKey, usd: Number(v.amt) }),
     out(v, c) {
@@ -595,7 +589,6 @@ export const VERBS: Record<VerbKey, Verb> = {
       amt: { cap: "Amount", kind: "amount", opts: () => [] },
     },
     def: { who: "any", amt: 120, payer: "eth" },
-    loop: [1300, 1900, 2200],
     real: addReal,
     ask: (v) => (tooSmall(Number(v.amt)) ? null : { kind: "getpaid", payer: v.payer as AssetKey, usd: Number(v.amt) }),
     out(v, c) {
@@ -672,8 +665,6 @@ export const VERBS: Record<VerbKey, Verb> = {
       },
     },
     def: { amt: 50, from: "btc", to: "usd", when: "now" },
-    demo: { amt: 50, from: "usd", to: "btc", when: "dip" },
-    loop: [2000, 1300, 2400],
     fix: changeFix,
     real: changeReal,
     ask: (v) =>
@@ -771,7 +762,6 @@ export const VERBS: Record<VerbKey, Verb> = {
       },
     },
     def: { amt: 400 },
-    loop: [1300, 2300, 2200],
     out(v) {
       const amt = Number(v.amt);
       return {
@@ -819,7 +809,6 @@ export const VERBS: Record<VerbKey, Verb> = {
       against: { cap: "Set aside", opts: () => [{ v: "btc", label: "my bitcoin", asset: "btc" }] },
     },
     def: { amt: 200, against: "btc" },
-    loop: [1500, 2600, 2400],
     out(v, c) {
       const amt = Number(v.amt);
       const aside = (2 * amt) / c.prices.btc;
@@ -876,7 +865,6 @@ export const VERBS: Record<VerbKey, Verb> = {
       },
     },
     def: { topic: "med" },
-    loop: [2600, 1500, 2600],
     out() {
       return {
         rows: [
@@ -899,8 +887,6 @@ export const VERBS: Record<VerbKey, Verb> = {
     },
   },
 };
-
-export const VERB_ORDER: VerbKey[] = ["pay", "getpaid", "change", "grow", "borrow", "ask"];
 
 /** An amount as typed: whole dollars plain, cents only when there are some. */
 function amountText(n: number): string {

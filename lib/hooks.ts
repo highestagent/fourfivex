@@ -1,25 +1,9 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type RefObject } from "react";
+import { useEffect, useState } from "react";
 import { FALLBACK_PRICES, type Prices } from "./assets";
 import type { QuoteAsk, QuoteResult } from "./oneclick";
 import type { QuoteState } from "./verbs";
-
-export type StageState = "idle" | "run" | "done" | "fail";
-
-function subscribeMotion(cb: () => void) {
-  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-}
-
-export function useReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeMotion,
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    () => false,
-  );
-}
 
 /** Live prices, refreshed while the page is open. Falls back to fixed figures if unreachable. */
 export function usePrices(): { prices: Prices; live: boolean } {
@@ -86,52 +70,4 @@ export function useQuote(ask: QuoteAsk | null, paused: boolean): QuoteState {
 
   if (!key) return { status: "none" };
   return state.key === key ? state.q : { status: "loading" };
-}
-
-export function useInView(ref: RefObject<Element | null>): boolean {
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.3 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [ref]);
-  return inView;
-}
-
-const ORDER: StageState[] = ["idle", "run", "done"];
-
-/** Drives a card's self-playing demo: rest, run, hold the result, start over. */
-export function useAutoLoop(
-  enabled: boolean,
-  ms: readonly [number, number, number],
-): { state: StageState; cycle: number } {
-  const reduced = useReducedMotion();
-  const [s, setS] = useState<{ state: StageState; cycle: number }>({ state: "idle", cycle: 0 });
-  useEffect(() => {
-    if (!enabled || reduced) return;
-    const i = ORDER.indexOf(s.state);
-    const t = setTimeout(
-      () =>
-        setS((prev) =>
-          i >= 2 ? { state: "idle", cycle: prev.cycle + 1 } : { state: ORDER[i + 1], cycle: prev.cycle },
-        ),
-      ms[Math.max(0, i)],
-    );
-    return () => clearTimeout(t);
-  }, [enabled, reduced, s, ms]);
-  // With motion reduced, show the finished state and leave it still.
-  return reduced ? { state: "done", cycle: 0 } : s;
-}
-
-/** Text that types itself in. Remount with a new key to restart. */
-export function useTyped(text: string, active: boolean, perChar = 46): string {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    if (!active || n >= text.length) return;
-    const t = setTimeout(() => setN((x) => x + 1), perChar);
-    return () => clearTimeout(t);
-  }, [active, n, text, perChar]);
-  return active ? text.slice(0, n) : text;
 }
