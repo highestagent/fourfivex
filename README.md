@@ -9,6 +9,42 @@ pnpm dev
 
 Then open http://localhost:3000.
 
+## Markets
+
+Open **Markets** from Now to browse live Hyperliquid spot and perpetual charts. The
+default chart is BTC perpetual.
+Private rooms use a browser session and support editor and viewer invites, shared chart
+views, drawings, pinned comments, and trade ideas.
+
+For local development, create the Worker secret once:
+
+```bash
+pnpm install
+printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)" > services/markets/.dev.vars
+```
+
+Run `pnpm dev:markets` and `pnpm dev` in separate terminals. Use
+`http://localhost:3000` for both browser sessions when testing invitations. Next.js
+forwards `/api/markets/*` to the local Worker on port 8787. To test collaboration, create a
+room in one browser profile and open its invite link in another.
+
+The Worker in `services/markets` owns room sessions, SQLite Durable Objects, WebSockets,
+and candle requests. `packages/markets-protocol` contains the market types and room
+message schemas shared with Next.js. The Intuite Worker starts with new room storage.
+Room access is tied to a 30-day browser session. The wallet passkey does not restore
+room access if that session expires or the browser's cookies are cleared.
+Rooms with a saved Kraken chart open on Hyperliquid BTC perpetual. Their old
+chart annotations stay in storage and are hidden from the workspace.
+
+For deployment, set `SESSION_SECRET` as a Worker secret and `APP_ORIGIN` to the exact
+HTTPS origin of the Intuite site, without a trailing slash. Keep the session secret
+stable across deploys so existing room members can reconnect. Deploy the Worker using
+its Wrangler configuration.
+Route `/api/markets/*` from the app's origin to the Worker, including WebSocket upgrades.
+Set `MARKETS_WORKER_ORIGIN` before building Next.js when using its rewrite for this
+route. The hosting proxy must forward WebSocket upgrades and preserve the browser's
+`Origin` header.
+
 ## Accounts
 
 An account is a passkey. There is no password, no seed phrase and no private key to copy
@@ -112,6 +148,9 @@ Three places talk to the network:
 ```bash
 pnpm test        # unit tests, including vectors from the verifier contract's own source
 pnpm test:live   # read-only checks against the live contract on mainnet
+pnpm test:markets
+pnpm --filter @intuite/markets-worker typecheck
+pnpm --filter @intuite/markets-worker build
 ```
 
 The tests use a software stand-in for a passkey (`tests/virtual-authenticator.ts`) so the

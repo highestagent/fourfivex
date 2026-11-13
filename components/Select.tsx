@@ -23,6 +23,8 @@ export function Select<Value extends string | number>({
   placeholder,
   pickerTitle,
   triggerLabel,
+  triggerIcon,
+  title,
 }: {
   id?: string;
   name?: string;
@@ -35,6 +37,8 @@ export function Select<Value extends string | number>({
   placeholder?: string;
   pickerTitle: string;
   triggerLabel?: string;
+  triggerIcon?: ReactNode;
+  title?: string;
 }) {
   const openPicker = useContext(MobilePicker);
   const selected = options.find((option) => option.value === value);
@@ -51,6 +55,7 @@ export function Select<Value extends string | number>({
         id={id}
         aria-label={label}
         aria-labelledby={labelledBy ? `${labelledBy} ${id}-value` : undefined}
+        title={title}
         className={triggerClass}
         onClick={(event) => openPicker({
           title: pickerTitle,
@@ -59,9 +64,11 @@ export function Select<Value extends string | number>({
           onSelect: choose,
         }, event.currentTarget)}
       >
-        {selected?.marker}
-        <span id={id ? `${id}-value` : undefined} className="min-w-0 truncate">{triggerLabel ?? selected?.label ?? placeholder}</span>
-        <Arrow size={14} className="ml-auto shrink-0 text-ink-2" />
+        {triggerIcon ?? <>
+          {selected?.marker}
+          <span id={id ? `${id}-value` : undefined} className="min-w-0 truncate">{triggerLabel ?? selected?.label ?? placeholder}</span>
+          <Arrow size={14} className="ml-auto shrink-0 text-ink-2" />
+        </>}
       </button>
     );
   }
@@ -76,15 +83,18 @@ export function Select<Value extends string | number>({
         id={id}
         aria-label={label}
         aria-labelledby={labelledBy}
+        title={title}
         className={triggerClass}
       >
-        {selected?.marker}
-        <span className="min-w-0 truncate">
-          <SelectPrimitive.Value placeholder={placeholder}>{triggerLabel ?? selected?.label}</SelectPrimitive.Value>
-        </span>
-        <SelectPrimitive.Icon asChild>
-          <Chevron size={14} className="ml-auto shrink-0 text-ink-2" />
-        </SelectPrimitive.Icon>
+        {triggerIcon ?? <>
+          {selected?.marker}
+          <span className="min-w-0 truncate">
+            <SelectPrimitive.Value placeholder={placeholder}>{triggerLabel ?? selected?.label}</SelectPrimitive.Value>
+          </span>
+          <SelectPrimitive.Icon asChild>
+            <Chevron size={14} className="ml-auto shrink-0 text-ink-2" />
+          </SelectPrimitive.Icon>
+        </>}
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content

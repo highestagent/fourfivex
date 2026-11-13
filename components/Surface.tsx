@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
@@ -12,7 +13,7 @@ import { usePeople } from "@/lib/send/people";
 import { AccountSheet } from "./AccountSheet";
 import { Composer, type ActionKey } from "./Composer";
 import { ThemeSwitcher } from "./ThemeSwitcher";
-import { Arrow, Chevron, CopyButton, Dot, Finger, Plus } from "./ui";
+import { Arrow, Chevron, CopyButton, Dot, Finger, IntuiteBrand, Plus } from "./ui";
 
 const VIEWS = [
   { key: "now", label: "Now" },
@@ -149,10 +150,7 @@ export default function Surface() {
       <header className="border-b border-line">
         <div className="shell flex h-16 items-center justify-between gap-4 sm:h-[72px]">
           <button type="button" onClick={() => setView("now")} className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg" aria-label="Intuite home">
-            <span aria-hidden="true" className="grid size-7 place-items-end rounded-[8px] bg-ink p-[6px]">
-              <span className="h-[3px] w-full rounded-full bg-inverse" />
-            </span>
-            <span className="text-[17px] font-semibold tracking-[-0.035em]">Intuite</span>
+            <IntuiteBrand />
           </button>
           <button
             type="button"
@@ -220,6 +218,11 @@ export default function Surface() {
                   <Arrow size={16} className="text-ink-2 group-hover:text-blue sm:col-start-2 sm:row-start-1 sm:self-center" />
                 </button>
               ))}
+              <Link href="/markets" className={`group ${CARD} hover:bg-card`}>
+                <span aria-hidden="true" className={`${CARD_MARK} bg-blue-4 text-blue`}>⌁</span>
+                <CardCopy label="Markets" description="Explore live charts and share ideas in private rooms." />
+                <Arrow size={16} className="text-ink-2 group-hover:text-blue sm:col-start-2 sm:row-start-1 sm:self-center" />
+              </Link>
               {PREVIEWS.map(({ label, description, mark }) => (
                 <article key={label} className={CARD} aria-label={label}>
                   <span aria-hidden="true" className={`${CARD_MARK} bg-card text-ink-2`}>{mark}</span>

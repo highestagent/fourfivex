@@ -1,0 +1,10 @@
+{
+  "name": "@intuite/markets-protocol",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./markets": "./markets.ts",
+    "./protocol": "./protocol.ts"
+  },
+  "dependencies": { "zod": "^4.6.7" }
+}

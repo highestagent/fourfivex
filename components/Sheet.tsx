@@ -19,12 +19,14 @@ export function Sheet({
   label,
   onClose,
   busy = false,
+  showTitle = false,
   step,
   children,
 }: {
   label: string;
   onClose: () => void;
   busy?: boolean;
+  showTitle?: boolean;
   step?: { title: string; onBack: () => void; returnFocusId: string };
   children: ReactNode;
 }) {
@@ -95,7 +97,7 @@ export function Sheet({
                 Back
               </button>
             )}
-            <Dialog.Title className={canGoBack ? "min-w-0 text-base font-semibold" : "sr-only"}>{title}</Dialog.Title>
+            <Dialog.Title className={canGoBack ? "min-w-0 text-base font-semibold" : showTitle ? "mr-auto min-w-0 text-xl font-semibold tracking-tight" : "sr-only"}>{title}</Dialog.Title>
             {!canGoBack && (
               <Dialog.Close
                 aria-label="Close"
