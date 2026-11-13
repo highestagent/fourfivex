@@ -22,6 +22,7 @@ export function Select<Value extends string | number>({
   className,
   placeholder,
   pickerTitle,
+  triggerLabel,
 }: {
   id?: string;
   name?: string;
@@ -33,6 +34,7 @@ export function Select<Value extends string | number>({
   className: string;
   placeholder?: string;
   pickerTitle: string;
+  triggerLabel?: string;
 }) {
   const openPicker = useContext(MobilePicker);
   const selected = options.find((option) => option.value === value);
@@ -58,7 +60,7 @@ export function Select<Value extends string | number>({
         }, event.currentTarget)}
       >
         {selected?.marker}
-        <span id={id ? `${id}-value` : undefined} className="min-w-0 truncate">{selected?.label ?? placeholder}</span>
+        <span id={id ? `${id}-value` : undefined} className="min-w-0 truncate">{triggerLabel ?? selected?.label ?? placeholder}</span>
         <Arrow size={14} className="ml-auto shrink-0 text-ink-2" />
       </button>
     );
@@ -78,7 +80,7 @@ export function Select<Value extends string | number>({
       >
         {selected?.marker}
         <span className="min-w-0 truncate">
-          <SelectPrimitive.Value placeholder={placeholder}>{selected?.label}</SelectPrimitive.Value>
+          <SelectPrimitive.Value placeholder={placeholder}>{triggerLabel ?? selected?.label}</SelectPrimitive.Value>
         </span>
         <SelectPrimitive.Icon asChild>
           <Chevron size={14} className="ml-auto shrink-0 text-ink-2" />
@@ -90,7 +92,7 @@ export function Select<Value extends string | number>({
           align="start"
           sideOffset={6}
           collisionPadding={12}
-          className="z-[60] max-h-[var(--radix-select-content-available-height)] min-w-[min(9rem,var(--radix-select-content-available-width))] max-w-[var(--radix-select-content-available-width)] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[14px] border border-line bg-page text-ink shadow-sheet"
+          className="z-[60] max-h-[var(--radix-select-content-available-height)] min-w-[min(9rem,var(--radix-select-content-available-width))] max-w-[var(--radix-select-content-available-width)] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[14px] border border-line bg-surface text-ink shadow-sheet"
         >
           <SelectPrimitive.ScrollUpButton className="grid h-6 place-items-center text-ink-2">
             <Chevron size={14} className="rotate-180" />

@@ -6,7 +6,8 @@ import type { SlotCtx, Vals, Verb } from "@/lib/verbs";
 import { Select } from "./Select";
 import { Arrow, Dot } from "./ui";
 
-const CHIP = "inline-flex min-h-11 max-w-full items-center rounded-full border border-line bg-white px-3 align-middle text-[0.84em] leading-tight tracking-[-0.015em]";
+const CHIP = "inline-flex min-h-11 max-w-full items-center rounded-full border bg-surface px-3 align-middle text-[0.84em] leading-tight tracking-[-0.015em]";
+const EDITABLE_CHIP = `${CHIP} border-field-line`;
 const FOCUS = "focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue";
 const TYPED = /^\d{0,7}([.,]\d{0,2})?$/;
 
@@ -31,7 +32,7 @@ function AmountBlank({
   }
 
   return (
-    <span className={`${CHIP} ${FOCUS} gap-0.5`}>
+    <span className={`${EDITABLE_CHIP} ${FOCUS} gap-0.5`}>
       <span aria-hidden="true" className="text-ink-2">$</span>
       <input
         id={id}
@@ -90,14 +91,14 @@ export function Sentence({
         const dot = current.asset && <Dot color={ASSETS[current.asset].color} className="mr-1.5" />;
         if (!disabled && key === "who" && allowNewRecipient && options.length === 1 && options[0].v === "__new") {
           return (
-            <button key={index} id={id} type="button" className={`${CHIP} cursor-pointer gap-2`} onClick={() => onChange(key, "__new")}>
+            <button key={index} id={id} type="button" className={`${EDITABLE_CHIP} cursor-pointer gap-2`} onClick={() => onChange(key, "__new")}>
               {options[0].label}
               <Arrow size={14} className="shrink-0 text-ink-2" />
             </button>
           );
         }
         if (disabled || (options.length === 1 && current.v === options[0].v)) {
-          return <span key={index} className={CHIP}>{dot}<span className="truncate">{current.label}</span></span>;
+          return <span key={index} className={`${CHIP} border-line`}>{dot}<span className="truncate">{current.label}</span></span>;
         }
 
         return (
@@ -114,7 +115,7 @@ export function Sentence({
               marker: asset && <Dot color={ASSETS[asset].color} />,
             }))}
             onValueChange={(value) => onChange(key, value)}
-            className={CHIP}
+            className={EDITABLE_CHIP}
           />
         );
       })}

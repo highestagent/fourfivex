@@ -65,7 +65,7 @@ function Welcome({ step, setStep }: Progress) {
       <p className="sentence">
         Open an account for{" "}
         <input
-          className="field inline-block max-w-full rounded-full bg-white align-middle text-[max(16px,0.8em)] font-medium sm:w-[10em]"
+          className="field inline-block max-w-full rounded-full bg-surface align-middle text-[max(16px,0.8em)] font-medium sm:w-[10em]"
           placeholder="your name"
           aria-label="Account name"
           value={name}
@@ -75,7 +75,7 @@ function Welcome({ step, setStep }: Progress) {
           onChange={(event) => setName(event.target.value)}
         />.
       </p>
-      <div className="rounded-[18px] border border-line bg-white px-4 sm:px-5">
+      <div className="rounded-[18px] border border-line bg-surface px-4 sm:px-5">
         <dl>
           <div className="detail-row">
             <dt>Access</dt>
@@ -160,11 +160,11 @@ function Settings({ accountId, holdings, step, setStep, onClose }: Progress & {
       <form onSubmit={(event) => { event.preventDefault(); saveName(); }}>
         <label className="grid gap-2 text-sm font-medium">
           Account name
-          <input className="field bg-white" value={draft} maxLength={24} onChange={(event) => setDraft(event.target.value)} onBlur={saveName} />
+          <input className="field bg-surface" value={draft} maxLength={24} onChange={(event) => setDraft(event.target.value)} onBlur={saveName} />
         </label>
       </form>
 
-      <dl className="rounded-[18px] border border-line bg-white px-4 sm:px-5">
+      <dl className="rounded-[18px] border border-line bg-surface px-4 sm:px-5">
         <div className="detail-row">
           <dt>Account ID</dt>
           <dd className="flex min-w-0 flex-wrap items-center gap-2">
@@ -191,7 +191,7 @@ function Settings({ accountId, holdings, step, setStep, onClose }: Progress & {
 
       <section aria-labelledby="passkey-heading">
         <h2 id="passkey-heading" className="mb-3 text-base font-semibold">Passkeys</h2>
-        <ul className="divide-y divide-line rounded-[18px] border border-line bg-white px-4 sm:px-5">
+        <ul className="divide-y divide-line rounded-[18px] border border-line bg-surface px-4 sm:px-5">
           {mine.map((passkey) => {
             const attached = !passkey.pending && (passkey.founder ? keys?.founderAttached !== false : !keys || keys.added.includes(passkey.publicKey));
             return (

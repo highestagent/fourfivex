@@ -221,7 +221,7 @@ export function Composer({
             Refund address on {payIn.networkName}
             <input
               id="add-refund"
-              className="field bg-white font-mono"
+              className="field bg-surface font-mono"
               placeholder={REFUND_HINT[payIn.family]}
               autoComplete="off"
               spellCheck={false}
@@ -236,7 +236,7 @@ export function Composer({
         )}
 
         {showDetails && (!deposit || needsDeposit) && (
-          <dl className="rounded-[18px] border border-line bg-white px-4 sm:px-5">
+          <dl className="rounded-[18px] border border-line bg-surface px-4 sm:px-5">
             {rows.map(({ k, v, sub, tone }) => (
               <div key={k} className="detail-row">
                 <dt>{k}</dt>

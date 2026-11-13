@@ -13,7 +13,7 @@ export function CopyButton({ text, label }: { text: string; label?: string }) {
     <button
       type="button"
       aria-label={copied ? "Copied" : label}
-      className="mono cursor-pointer min-h-9 rounded-full border border-line bg-card px-3 hover:bg-ink hover:text-white"
+      className="mono cursor-pointer min-h-9 rounded-full border border-line bg-card px-3 hover:bg-ink hover:text-inverse"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);

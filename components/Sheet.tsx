@@ -76,7 +76,7 @@ export function Sheet({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 hidden bg-ink/25 sm:block" />
+        <Dialog.Overlay className="fixed inset-0 z-40 hidden bg-scrim sm:block" />
         <Dialog.Content
           aria-describedby={undefined}
           onPointerDownOutside={(event) => event.preventDefault()}
@@ -100,7 +100,7 @@ export function Sheet({
               <Dialog.Close
                 aria-label="Close"
                 disabled={busy}
-                className="ml-auto inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-white px-3 text-sm font-medium text-ink-2 enabled:cursor-pointer enabled:hover:text-ink disabled:opacity-50 sm:size-11 sm:px-0"
+                className="ml-auto inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-medium text-ink-2 enabled:cursor-pointer enabled:hover:text-ink disabled:opacity-50 sm:size-11 sm:px-0"
               >
                 <Close size={17} />
                 <span className="sm:hidden">Close</span>
@@ -112,7 +112,7 @@ export function Sheet({
               <MobilePicker value={mobile ? openPicker : null}>{children}</MobilePicker>
             </div>
             {choices && (
-              <ul aria-label={choices.title} className="divide-y divide-line rounded-[18px] border border-line bg-white px-2">
+              <ul aria-label={choices.title} className="divide-y divide-line rounded-[18px] border border-line bg-surface px-2">
                 {choices.options.map((option) => (
                   <li key={option.value}>
                     <button

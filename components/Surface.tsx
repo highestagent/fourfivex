@@ -11,6 +11,7 @@ import { sent, useSent, type SentEntry } from "@/lib/send/history";
 import { usePeople } from "@/lib/send/people";
 import { AccountSheet } from "./AccountSheet";
 import { Composer, type ActionKey } from "./Composer";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import { Arrow, Chevron, CopyButton, Dot, Finger, Plus } from "./ui";
 
 const VIEWS = [
@@ -149,7 +150,7 @@ export default function Surface() {
         <div className="shell flex h-16 items-center justify-between gap-4 sm:h-[72px]">
           <button type="button" onClick={() => setView("now")} className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg" aria-label="Intuite home">
             <span aria-hidden="true" className="grid size-7 place-items-end rounded-[8px] bg-ink p-[6px]">
-              <span className="h-[3px] w-full rounded-full bg-white" />
+              <span className="h-[3px] w-full rounded-full bg-inverse" />
             </span>
             <span className="text-[17px] font-semibold tracking-[-0.035em]">Intuite</span>
           </button>
@@ -158,7 +159,7 @@ export default function Surface() {
             onClick={(event) => open("account", event)}
             className={`action ${demo ? "action-primary" : "action-secondary"} min-w-0`}
           >
-            {demo ? <Finger size={16} className="shrink-0" /> : <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-ink text-[10px] font-semibold uppercase text-white">{name?.slice(0, 1)}</span>}
+            {demo ? <Finger size={16} className="shrink-0" /> : <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-ink text-[10px] font-semibold uppercase text-inverse">{name?.slice(0, 1)}</span>}
             <span className="truncate">{name ?? (device.passkeys.length ? "Sign in" : "Open account")}</span>
             {!demo && <Chevron size={14} className="shrink-0 text-ink-2" />}
           </button>
@@ -173,7 +174,7 @@ export default function Surface() {
               type="button"
               aria-current={view === key ? "page" : undefined}
               onClick={() => setView(key)}
-              className={`mono min-h-11 cursor-pointer rounded-full px-4 sm:px-6 ${view === key ? "bg-white font-semibold text-ink shadow-chip" : "text-ink-2 hover:text-ink"}`}
+              className={`mono min-h-11 cursor-pointer rounded-full px-4 sm:px-6 ${view === key ? "bg-surface font-semibold text-ink shadow-chip" : "text-ink-2 hover:text-ink"}`}
             >
               {label}{key === "standing" && deposits.length > 0 && <span className="ml-1.5 text-blue">{deposits.length}</span>}
             </button>
@@ -267,6 +268,10 @@ export default function Surface() {
         )}
       </main>
 
+      <footer className="shell mt-4 flex justify-end sm:mt-5">
+        <ThemeSwitcher />
+      </footer>
+
       {overlay === "account" && <AccountSheet holdings={holdings.holdings} onClose={close} />}
       {overlay && overlay !== "account" && (
         <Composer
@@ -297,7 +302,7 @@ function CardCopy({ label, description }: { label: string; description: string }
 
 function Holding({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-[13px] tabular-nums">
+    <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-[13px] tabular-nums">
       <Dot color={color} />
       {children}
     </span>

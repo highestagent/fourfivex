@@ -30,7 +30,7 @@ export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => vo
   };
 
   return (
-    <form onSubmit={save} className="grid gap-4 rounded-[18px] border border-line bg-white p-4 sm:grid-cols-2 sm:p-5">
+    <form onSubmit={save} className="grid gap-4 rounded-[18px] border border-line bg-surface p-4 sm:grid-cols-2 sm:p-5">
       <label className="grid gap-2 text-sm font-medium">
         Recipient name
         <input name="recipient-name" className="field" autoComplete="off" maxLength={24} value={name} onChange={(event) => setName(event.target.value)} required />
