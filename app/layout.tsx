@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { PasskeyTap } from "@/components/PasskeyTap";
 import { DARK_SCHEME, THEME_COLORS, THEME_KEY } from "@/lib/theme";
 import "./globals.css";
 
@@ -40,7 +41,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* The inline script applies the stored theme before hydration and the first paint. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full select-none [&_input]:select-text [&_textarea]:select-text">{children}</body>
+      <body className="min-h-full select-none [&_input]:select-text [&_textarea]:select-text">
+        {children}
+        <PasskeyTap />
+      </body>
     </html>
   );
 }

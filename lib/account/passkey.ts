@@ -5,6 +5,7 @@
 import type { Assertion } from "./assertion";
 import { b64u, fromBuffer } from "./encoding";
 import { publicKeyFromSpki, signatureFromDer, type RawPublicKey } from "./keys";
+import { afterTap } from "./tap";
 
 export type PasskeyErrorCode = "unsupported" | "cancelled" | "exists" | "failed";
 
@@ -46,6 +47,24 @@ function explain(err: unknown): PasskeyError {
   return new PasskeyError("failed", "The passkey could not be used. Please try again.");
 }
 
+/** Faster than anyone can close a prompt: the browser refused before showing one. */
+const REFUSED_UNSHOWN_MS = 800;
+
+/**
+ * Makes a passkey request, and if the browser refuses it at once because no tap led to it (Safari),
+ * asks for a tap and makes it again from there. Anything else, including a real cancel, is passed on.
+ */
+async function withTap<T>(request: () => Promise<T>): Promise<T> {
+  const started = performance.now();
+  try {
+    return await request();
+  } catch (err) {
+    const unshown = err instanceof DOMException && err.name === "NotAllowedError" && performance.now() - started < REFUSED_UNSHOWN_MS;
+    if (!unshown) throw err;
+    return afterTap(request, () => new DOMException("The passkey prompt was closed.", "NotAllowedError"));
+  }
+}
+
 function need(): void {
   if (!passkeysAvailable())
     throw new PasskeyError("unsupported", "This browser cannot use passkeys. Try a current Safari, Chrome, Edge or Firefox.");
@@ -63,7 +82,7 @@ export async function createPasskey(o: {
   need();
   let cred: PublicKeyCredential | null;
   try {
-    cred = (await navigator.credentials.create({
+    cred = (await withTap(() => navigator.credentials.create({
       publicKey: {
         rp: { name: RP_NAME, id: window.location.hostname },
         user: { id: buf(o.handle), name: o.label, displayName: o.label },
@@ -74,7 +93,7 @@ export async function createPasskey(o: {
         attestation: "none",
         timeout: TIMEOUT,
       },
-    })) as PublicKeyCredential | null;
+    }))) as PublicKeyCredential | null;
   } catch (err) {
     throw explain(err);
   }
@@ -99,7 +118,7 @@ export async function askPasskey(challenge: Uint8Array, allow?: string[]): Promi
   need();
   let cred: PublicKeyCredential | null;
   try {
-    cred = (await navigator.credentials.get({
+    cred = (await withTap(() => navigator.credentials.get({
       publicKey: {
         challenge: buf(challenge),
         rpId: window.location.hostname,
@@ -107,7 +126,7 @@ export async function askPasskey(challenge: Uint8Array, allow?: string[]): Promi
         allowCredentials: (allow ?? []).map((id) => ({ type: "public-key" as const, id: buf(b64u.decode(id)) })),
         timeout: TIMEOUT,
       },
-    })) as PublicKeyCredential | null;
+    }))) as PublicKeyCredential | null;
   } catch (err) {
     throw explain(err);
   }
