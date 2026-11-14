@@ -11,12 +11,15 @@ import { HOLDINGS } from "@/lib/assets";
 import { coin, pct } from "@/lib/format";
 import { networkName } from "@/lib/send/address";
 import { Arrow, Chevron, CopyButton, Plus } from "./ui";
+import styles from "./PortfolioBalance.module.css";
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-const card = "mt-7 rounded-[24px] border border-line bg-card px-5 py-6 sm:mt-9 sm:px-8 sm:py-8";
+const card = "mt-7 rounded-[24px] border border-line bg-card sm:mt-9";
+const inset = "px-5 sm:px-8";
 const heading = "mt-2 text-[clamp(2rem,7vw,3.65rem)] leading-none font-medium tracking-[-0.065em] tabular-nums";
-const row = "flex min-h-11 min-w-0 items-center justify-between gap-3 rounded-lg text-sm";
-const disclosure = `${row} w-full list-none cursor-pointer text-left hover:bg-card [&::-webkit-details-marker]:hidden`;
+const row = "flex min-w-0 items-center gap-3 rounded-lg text-sm";
+const disclosure = `${row} min-h-11 w-full list-none cursor-pointer text-left hover:text-blue focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden`;
+const balanceRow = `${disclosure} justify-between`;
 const expandable = "[&[open]>summary_.balance-chevron]:rotate-180";
 
 function summarize(assets: readonly WalletAsset[]) {
@@ -34,8 +37,8 @@ function groupByNetwork(holdings: Holdings | null) {
 }
 
 function AssetList({ assets }: { assets: readonly (WalletAsset & { id?: string })[] }) {
-  return <ul className="ml-1 border-l border-line pl-3 sm:pl-4">
-    {assets.map(asset => <li key={asset.id ?? asset.symbol} className={`${row} border-b border-line px-2 last:border-b-0`}>
+  return <ul className="mb-2 ml-1.5 border-l border-line pl-3 sm:pl-4">
+    {assets.map(asset => <li key={asset.id ?? asset.symbol} className={`${row} min-h-8 justify-between`}>
       <span className="wrap-anywhere"><span className="tabular-nums">{asset.amount > 0 && asset.amount < 1e-8 ? "<0.00000001" : coin(asset.amount)}</span> {asset.symbol}</span>
       <span className="shrink-0 text-ink-2 tabular-nums">{asset.usd === null ? "Unpriced" : money.format(asset.usd)}</span>
     </li>)}
@@ -58,10 +61,10 @@ function WatchedWalletForm({ accountId, wallets }: { accountId: string; wallets:
     setError("");
   }
 
-  return <details className={`${expandable} mt-2 border-t border-line`}>
-    <summary className={`${disclosure} justify-start px-2 font-medium text-blue`}><Plus size={15} /> Track a wallet <Chevron size={14} className="balance-chevron ml-auto" /></summary>
-    <form onSubmit={submit} className="grid gap-3 px-2 pb-3">
-      <p className="text-sm text-ink-2">Track ETH or SOL and USDC by public address. Saved on this device.</p>
+  return <details className={`${expandable} w-full`}>
+    <summary className={`${disclosure} gap-2 font-medium text-blue`}><Plus size={15} /> Track a wallet</summary>
+    <form onSubmit={submit} className="grid gap-3 pb-3">
+      <p className="text-sm text-ink-2">Tracks ETH, SOL, and USDC. Addresses stay on this device.</p>
       <div className="grid gap-2 sm:grid-cols-[minmax(7rem,auto)_minmax(0,1fr)_auto] sm:items-end">
         <label className="grid gap-1 text-sm font-medium">
           Network
@@ -97,7 +100,7 @@ function SourceAmount({ value, total, color }: { value: number | null; total: nu
 export function PortfolioBalance({ accountId, holdings, wallets }: {
   accountId: string; holdings: HoldingsState; wallets: readonly WatchedWallet[];
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const breakdownId = useId();
   const linkedSummary = useRef<HTMLElement>(null);
   const { trading, walletBalances, forgetWalletBalance } = usePortfolioBalances(accountId, wallets);
@@ -119,103 +122,105 @@ export function PortfolioBalance({ accountId, holdings, wallets }: {
     { label: "Linked wallets", value: linkedValue ?? 0, color: "bg-ink-2" },
     { label: "Hyperliquid", value: tradingValue ?? 0, color: "bg-ink" },
   ];
-  const showAllocation = expanded && !partial && holdings.status !== "stale" && total !== null && total > 0 &&
+  const showAllocation = !partial && holdings.status !== "stale" && total !== null && total > 0 &&
     sources.every(source => source.value >= 0) && sources.filter(source => source.value > 0).length > 1;
   const allocationTotal = showAllocation ? total : null;
+  const status = waiting ? "Checking balances…" : unavailable ? "Some balances are unavailable. Retrying…" :
+    holdings.status === "stale" ? "Showing the last known NEAR Intents balance. Retrying…" : unpriced ? "Some assets have no USD price." : "";
 
-  return <section aria-labelledby="balance-label" className={card}>
-    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-      <div className="min-w-0">
-        <h1 id="balance-label" className="mono text-ink-2">{total !== null && partial ? "Priced holdings" : "Portfolio value"}</h1>
-        <p className={`${heading} wrap-anywhere`}>{total === null ? "—" : money.format(total)}</p>
-      </div>
-      <button type="button" className="action action-secondary" aria-expanded={expanded} aria-controls={breakdownId}
+  return <section aria-labelledby="balance-label" className={`${card} ${styles.card}`}>
+    <h1>
+      <button type="button" aria-expanded={expanded} aria-controls={breakdownId}
+        className={`${inset} group flex w-full cursor-pointer items-center justify-between gap-3 rounded-[23px] py-6 text-left focus-visible:outline-offset-[-3px] sm:py-8`}
         onClick={() => setExpanded(open => !open)}>
-        {expanded ? "Hide breakdown" : "Show breakdown"}<Chevron className={expanded ? "rotate-180" : ""} />
+        <span className="min-w-0">
+          <span id="balance-label" className="mono block text-ink-2">{total !== null && partial ? "Priced holdings" : "Portfolio value"}</span>
+          <span className={`${heading} block wrap-anywhere`}>{total === null ? "—" : money.format(total)}</span>
+          {status && <span className="mt-3 block text-sm text-ink-2" aria-hidden="true">{status}</span>}
+        </span>
+        <Chevron size={22} className="balance-chevron shrink-0 text-ink-2 group-hover:text-blue group-aria-expanded:rotate-180" />
       </button>
-    </div>
-    {(partial || holdings.status === "stale") && <p role="status" className="mt-3 text-sm text-ink-2">
-      {waiting ? "Checking balances…" : unavailable ? "Some balances are unavailable. Retrying…" :
-        holdings.status === "stale" ? "Showing the last known NEAR Intents balance. Retrying…" : "Some assets have no USD price."}
-    </p>}
+    </h1>
+    <p role="status" className="sr-only">{status}</p>
 
-    <div id={breakdownId} hidden={!expanded} className="mt-5">
-      {allocationTotal !== null && <div className="mb-4 flex h-1.5 overflow-hidden rounded-full bg-surface" aria-hidden="true">
-        {sources.filter(source => source.value > 0).map(source => <span key={source.label} className={source.color}
-          style={{ flexGrow: source.value }} />)}
-      </div>}
-      <div className="divide-y divide-line rounded-2xl border border-line bg-surface px-3 sm:px-4">
-        <details open className={`${expandable} py-1.5`}>
-          <summary className={`${disclosure} px-2`}>
-            <span className="flex min-w-0 items-center gap-2 font-semibold"><Chevron className="balance-chevron shrink-0 text-ink-2" />NEAR Intents</span>
-            <SourceAmount value={intentsValue} total={allocationTotal} color="bg-blue" />
-          </summary>
-          <div className="px-2 pb-2">
-            <p className="mb-2 text-sm text-ink-2">Used for payments and swaps. Grouped by token network.</p>
-            {!networks.length && <p className="py-2 text-sm text-ink-2">{holdings.holdings ? "No holdings yet." : holdings.status === "error" ? "Balance unavailable." : "Loading holdings…"}</p>}
-            {networks.map(([network, assets]) => <details key={network} className={`${expandable} border-t border-line`}>
-              <summary className={`${disclosure} px-2`}>
-                <span className="flex min-w-0 items-center gap-2"><Chevron size={14} className="balance-chevron shrink-0 text-ink-2" />{networkName(network)}</span>
-                <span className="shrink-0 tabular-nums">{assets.some(asset => asset.usd !== null) ? money.format(summarize(assets)) : "Unpriced"}</span>
+    <div id={breakdownId} inert={!expanded} data-expanded={expanded} className={styles.panel}>
+      <div className="min-h-0 overflow-clip">
+        <div className={`${inset} border-t border-line pt-2 pb-4 sm:pb-6`}>
+          {allocationTotal !== null && <div className="mt-2 mb-1 flex h-1 overflow-hidden rounded-full" aria-hidden="true">
+            {sources.filter(source => source.value > 0).map(source => <span key={source.label} className={source.color}
+              style={{ flexGrow: source.value }} />)}
+          </div>}
+          <div className="divide-y divide-line">
+            <details open className={`${expandable} py-1.5`}>
+              <summary className={balanceRow}>
+                <span className="flex min-w-0 items-center gap-2 font-semibold"><Chevron className="balance-chevron shrink-0 text-ink-2" />NEAR Intents</span>
+                <SourceAmount value={intentsValue} total={allocationTotal} color="bg-blue" />
               </summary>
-              <AssetList assets={assets} />
-            </details>)}
-          </div>
-        </details>
+              <div className="pl-6">
+                {!networks.length && <p className="pb-2 text-sm text-ink-2">{holdings.holdings ? "No holdings yet." : holdings.status === "error" ? "Balance unavailable." : "Loading holdings…"}</p>}
+                {networks.map(([network, assets]) => <details key={network} className={expandable}>
+                  <summary className={`${balanceRow} text-ink-2`}>
+                    <span className="flex min-w-0 items-center gap-2"><Chevron size={14} className="balance-chevron shrink-0 text-ink-2" />{networkName(network)}</span>
+                    <span className="shrink-0 tabular-nums">{assets.some(asset => asset.usd !== null) ? money.format(summarize(assets)) : "Unpriced"}</span>
+                  </summary>
+                  <AssetList assets={assets} />
+                </details>)}
+              </div>
+            </details>
 
-        <details open className={`${expandable} py-1.5`}>
-          <summary ref={linkedSummary} className={`${disclosure} px-2`}>
-            <span className="flex min-w-0 items-center gap-2 font-semibold"><Chevron className="balance-chevron shrink-0 text-ink-2" />Linked wallets</span>
-            {wallets.length > 0 && <SourceAmount value={linkedValue} total={allocationTotal} color="bg-ink-2" />}
-          </summary>
-          <div className="px-2 pb-1">
-            {walletStatuses.map(({ wallet, result }) => {
-              const network = networkName(wallet.network);
-              const shortAddress = `${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}`;
-              return <details key={walletKey(wallet)} className={`${expandable} border-t border-line`}>
-                <summary className={`${disclosure} px-2`}>
-                  <span className="flex min-w-0 flex-wrap items-center gap-x-2"><Chevron size={14} className="balance-chevron shrink-0 text-ink-2" />
-                    <span>{network}</span><span className="font-mono text-xs text-ink-2">{shortAddress}</span>
-                  </span>
-                  <span className="shrink-0 tabular-nums">{result?.value ? result.value.length > 0 && result.value.every(asset => asset.usd === null)
-                    ? "Unpriced" : money.format(summarize(result.value)) : "—"}</span>
-                </summary>
-                {result?.value?.length ? <AssetList assets={result.value} /> : <p className="px-2 py-1 text-sm text-ink-2">
-                  {result?.failed ? "Balance unavailable." : result ? "No supported assets at this address." : "Loading wallet…"}
-                </p>}
-                <div className="flex flex-wrap gap-x-2 px-2 py-1">
-                  <CopyButton text={wallet.address} label={`Copy ${network} address ${shortAddress}`} />
-                  <button type="button" className="action action-secondary" aria-label={`Remove ${network} wallet ${shortAddress}`}
-                    onClick={() => {
-                      forgetWalletBalance(wallet);
-                      memory.unwatchWallet(accountId, wallet);
-                      linkedSummary.current?.focus();
-                    }}>Remove</button>
-                </div>
-              </details>;
-            })}
-            <WatchedWalletForm accountId={accountId} wallets={wallets} />
-          </div>
-        </details>
+            <details open className={`${expandable} py-1.5`}>
+              <summary ref={linkedSummary} className={balanceRow}>
+                <span className="flex min-w-0 items-center gap-2 font-semibold"><Chevron className="balance-chevron shrink-0 text-ink-2" />Linked wallets</span>
+                {wallets.length > 0 && <SourceAmount value={linkedValue} total={allocationTotal} color="bg-ink-2" />}
+              </summary>
+              <div className="pl-6">
+                {walletStatuses.map(({ wallet, result }) => {
+                  const network = networkName(wallet.network);
+                  const shortAddress = `${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}`;
+                  return <details key={walletKey(wallet)} className={expandable}>
+                    <summary className={`${balanceRow} text-ink-2`}>
+                      <span className="flex min-w-0 flex-wrap items-center gap-x-2"><Chevron size={14} className="balance-chevron shrink-0 text-ink-2" />
+                        <span>{network}</span><span className="font-mono text-xs text-ink-2">{shortAddress}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums">{result?.value ? result.value.length > 0 && result.value.every(asset => asset.usd === null)
+                        ? "Unpriced" : money.format(summarize(result.value)) : "—"}</span>
+                    </summary>
+                    {result?.value?.length ? <AssetList assets={result.value} /> : <p className="px-2 py-1 text-sm text-ink-2">
+                      {result?.failed ? "Balance unavailable." : result ? "No supported assets at this address." : "Loading wallet…"}
+                    </p>}
+                    <div className="flex flex-wrap gap-x-2 px-2 py-1">
+                      <CopyButton text={wallet.address} label={`Copy ${network} address ${shortAddress}`} />
+                      <button type="button" className="action action-secondary" aria-label={`Remove ${network} wallet ${shortAddress}`}
+                        onClick={() => {
+                          forgetWalletBalance(wallet);
+                          memory.unwatchWallet(accountId, wallet);
+                          linkedSummary.current?.focus();
+                        }}>Remove</button>
+                    </div>
+                  </details>;
+                })}
+                <WatchedWalletForm accountId={accountId} wallets={wallets} />
+              </div>
+            </details>
 
-        {(!trading || trading.failed || trading.value) && <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-2 py-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold">Hyperliquid</p>
-            <p className="mt-0.5 text-sm text-ink-2">{trading?.value ? `Perpetuals equity · ${money.format(trading.value.withdrawable)} withdrawable` :
-              trading?.failed ? "Trading balance unavailable." : "Checking trading balance…"}</p>
+            {(!trading || trading.failed || trading.value) && <Link href="/markets"
+              className="group flex min-h-11 min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg py-3 text-sm hover:text-blue">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 font-semibold"><Arrow size={16} className="text-ink-2 group-hover:text-blue" />Hyperliquid</p>
+                <p className="mt-1 pl-6 text-xs text-ink-2">{trading?.value ? `${money.format(trading.value.withdrawable)} withdrawable` :
+                  trading?.failed ? "Balance unavailable" : "Checking balance…"}</p>
+              </div>
+              <SourceAmount value={tradingValue} total={allocationTotal} color="bg-ink" />
+            </Link>}
           </div>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm">
-            <SourceAmount value={tradingValue} total={allocationTotal} color="bg-ink" />
-            <Link href="/markets" className="action action-secondary" aria-label="Open Hyperliquid trading in Markets">Markets <Arrow size={14} /></Link>
-          </div>
-        </div>}
+        </div>
       </div>
     </div>
   </section>;
 }
 
 export function DemoBalance({ bitcoinPrice }: { bitcoinPrice: number }) {
-  return <section aria-labelledby="balance-label" className={card}>
+  return <section aria-labelledby="balance-label" className={`${card} ${inset} py-6 sm:py-8`}>
     <h1 id="balance-label" className="mono text-ink-2">Demo balance</h1>
     <p className={heading}>{money.format(HOLDINGS.usd + HOLDINGS.btc * bitcoinPrice)}</p>
     <p className="mt-3 text-sm text-ink-2">{money.format(HOLDINGS.usd)} in dollars · {HOLDINGS.btc} bitcoin</p>

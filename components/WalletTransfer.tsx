@@ -160,12 +160,12 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
           <dd>{displayUnits(quote.arrives.units, quote.arrives.decimals)} {quote.arrives.symbol}{!deposit && ` · ${networkName(quote.arrives.network)}`}</dd></div>
         {!expiredDeposit && <div className="detail-row"><dt>{deposit ? "Deposit address" : "To address"}</dt>
           <dd className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-mono text-sm wrap-anywhere">{deposit ? quote.depositAddress : transfer.destination}</span>
+            <span className={`font-mono text-sm wrap-anywhere ${deposit ? "select-text" : ""}`}>{deposit ? quote.depositAddress : transfer.destination}</span>
             {deposit && <CopyButton text={quote.depositAddress} label="Copy deposit address" />}
           </dd></div>}
         {deposit && !expiredDeposit && quote.depositMemo && <div className="detail-row"><dt>Required memo</dt>
           <dd className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-mono text-sm wrap-anywhere">{quote.depositMemo}</span>
+            <span className="font-mono text-sm wrap-anywhere select-text">{quote.depositMemo}</span>
             <CopyButton text={quote.depositMemo} label="Copy deposit memo" />
           </dd></div>}
         <div className="detail-row"><dt>{deposit ? "Send by" : "Quote expires"}</dt><dd>{when(quote.deadline)}</dd></div>
@@ -217,11 +217,11 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
           <summary className="cursor-pointer">Deposit instructions</summary>
           <p>Send {entry.deposit.amount} {entry.deposit.symbol ?? entry.deposit.word} on {entry.deposit.networkName} by {when(entry.deadline)}.</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-mono wrap-anywhere">{entry.deposit.address}</span>
+            <span className="font-mono wrap-anywhere select-text">{entry.deposit.address}</span>
             <CopyButton text={entry.deposit.address} label="Copy deposit address" />
           </div>
           {entry.deposit.memo && <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="wrap-anywhere">Required memo {entry.deposit.memo}</span>
+            <span className="wrap-anywhere">Required memo <span className="select-text">{entry.deposit.memo}</span></span>
             <CopyButton text={entry.deposit.memo} label="Copy deposit memo" />
           </div>}
         </details>}

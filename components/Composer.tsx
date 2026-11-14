@@ -38,7 +38,7 @@ const DEPOSIT_STATUS: Record<SendState, string> = {
 function CopyValue({ value, label, children }: { value: string; label: string; children?: ReactNode }) {
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="min-w-0 wrap-anywhere">{children ?? value}</span>
+      <span className="min-w-0 wrap-anywhere select-text">{children ?? value}</span>
       <CopyButton text={value} label={label} />
     </span>
   );

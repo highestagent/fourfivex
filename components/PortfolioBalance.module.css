@@ -1,0 +1,40 @@
+.card {
+  --portfolio-motion: 240ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.panel {
+  display: grid;
+  grid-template-rows: 0fr;
+}
+
+.panel[data-expanded="true"] {
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    transition: grid-template-rows var(--portfolio-motion);
+  }
+
+  .card :global(.balance-chevron) {
+    transition: rotate var(--portfolio-motion);
+  }
+
+  @supports selector(details::details-content) and (interpolate-size: allow-keywords) and (transition-behavior: allow-discrete) {
+    .card details::details-content {
+      interpolate-size: allow-keywords;
+      block-size: 0;
+      overflow: clip;
+      contain: layout;
+      transition: block-size var(--portfolio-motion), content-visibility var(--portfolio-motion) allow-discrete;
+    }
+
+    .card details[open]::details-content {
+      block-size: auto;
+    }
+
+    .card details:not([open])::details-content {
+      interactivity: inert;
+    }
+  }
+}

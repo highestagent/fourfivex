@@ -40,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* The inline script applies the stored theme before hydration and the first paint. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full select-none [&_input]:select-text [&_textarea]:select-text">{children}</body>
     </html>
   );
 }

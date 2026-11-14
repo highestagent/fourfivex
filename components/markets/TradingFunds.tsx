@@ -327,7 +327,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
       <div className="funds-address">
         <span id={`${ids}-address`} className="funds-address-label">Your trading address</span>
         <div className="funds-address-row">
-          <code aria-labelledby={`${ids}-address`} className="funds-mono">{address}</code>
+          <code aria-labelledby={`${ids}-address`} className="funds-mono select-text">{address}</code>
           <CopyButton text={address} label="Copy trading address" />
         </div>
       </div>

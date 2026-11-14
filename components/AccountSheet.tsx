@@ -183,7 +183,7 @@ function Settings({ accountId, holdings, step, setStep, onClose, onTransfer }: P
         <div className="detail-row">
           <dt>Account ID</dt>
           <dd className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="min-w-0 font-mono text-[13px] wrap-anywhere">{accountId}</span>
+            <span className="min-w-0 font-mono text-[13px] wrap-anywhere select-text">{accountId}</span>
             <CopyButton text={accountId} label="Copy account ID" />
           </dd>
         </div>

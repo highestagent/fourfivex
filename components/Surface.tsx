@@ -79,7 +79,7 @@ function Deposit({ entry }: { entry: SentEntry }) {
           <div className="detail-row">
             <dt>Address</dt>
             <dd className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="min-w-0 font-mono text-[13px] wrap-anywhere">{deposit.address}</span>
+              <span className="min-w-0 font-mono text-[13px] wrap-anywhere select-text">{deposit.address}</span>
               <CopyButton text={deposit.address} label="Copy deposit address" />
             </dd>
           </div>
@@ -87,7 +87,7 @@ function Deposit({ entry }: { entry: SentEntry }) {
             <div className="detail-row">
               <dt>Required memo</dt>
               <dd className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="min-w-0 font-mono text-[13px] wrap-anywhere">{deposit.memo}</span>
+                <span className="min-w-0 font-mono text-[13px] wrap-anywhere select-text">{deposit.memo}</span>
                 <CopyButton text={deposit.memo} label="Copy memo" />
               </dd>
             </div>
