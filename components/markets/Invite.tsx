@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Check, Copy, Link2, Shield } from 'lucide-react';
+import { Check, Copy, Link2, Shield, Trash2 } from 'lucide-react';
 import type { Member } from '@fourfivex/markets-protocol/protocol';
 import { api } from './client';
+import { recentRoomKey } from './RoomEntry';
 import { Select } from '@/components/Select';
 
 const inviteRoles = [
@@ -9,7 +10,8 @@ const inviteRoles = [
   { value: 'viewer', label: 'Viewer' },
 ] as const;
 
-export function Invite({ roomId, members, me }: { roomId: string; members: Member[]; me: Member }) {
+export function Invite({ roomId, members, me, onDeleted }: { roomId: string; members: Member[]; me: Member; onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false);
   const [role, setRole] = useState<'editor' | 'viewer'>('editor');
   const [link, setLink] = useState('');
   const [copied, setCopied] = useState(false);
@@ -55,6 +57,18 @@ export function Invite({ roomId, members, me }: { roomId: string; members: Membe
         const { voicePending } = await api<{ voicePending?: boolean }>(roomPath + '/members/revoke', { member: member.id });
         if (voicePending) setMessage('Room access removed. Audio removal is retrying.');
       })}>Remove</button>}</div>)}</div>
+    <div className="invite-members room-delete">
+      {confirming
+        ? <div><span>Delete for everyone? Ideas, comments and drawings go too.</span><span className="room-delete-actions">
+          <button className="button small" type="button" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button>
+          <button className="button small danger" type="button" disabled={busy} onClick={() => void action(async () => {
+            await api(roomPath + '/delete', {});
+            if (sessionStorage.getItem(recentRoomKey) === roomId) sessionStorage.removeItem(recentRoomKey);
+            onDeleted();
+          })}>{busy ? 'Deleting…' : 'Delete'}</button></span></div>
+        : <div><span>Delete room</span><button className="button small danger" type="button" disabled={busy}
+          onClick={() => setConfirming(true)}><Trash2 size={14} aria-hidden="true"/> Delete</button></div>}
+    </div>
     {message && <p role="status" className="notice">{message}</p>}
   </div>;
 }

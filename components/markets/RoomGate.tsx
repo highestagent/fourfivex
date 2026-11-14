@@ -5,10 +5,13 @@ import { id } from "@fourfivex/markets-protocol/protocol";
 import { api, ApiError } from "./client";
 import { recentRoomKey, RoomEntry, roomJoinedEvent } from "./RoomEntry";
 import { Workspace } from "./Workspace";
-import { MarketsFooter, MarketsHeader, ShellMessage } from "./shell";
+import { MarketsFooter, MarketsHeader, RoomLoading, ShellMessage } from "./shell";
+
+/** Starts loading the chart while access is checked, so it is ready when the room opens. */
+const preloadChart = () => void import("./chart").catch(() => {});
 
 export function RoomGate({ roomId }: { roomId: string }) {
-  const [result, setResult] = useState<{ status: "joined" | "missing" | "error"; token?: string; error?: string }>();
+  const [result, setResult] = useState<{ status: "joined" | "missing" | "deleted" | "error"; token?: string; error?: string }>();
   const [attempt, setAttempt] = useState(0);
   const markJoined = () => {
     sessionStorage.setItem(recentRoomKey, roomId);
@@ -20,6 +23,7 @@ export function RoomGate({ roomId }: { roomId: string }) {
     const fragment = new URLSearchParams(location.hash.slice(1)).get("invite");
     const token = id.safeParse(fragment).data;
     let active = true;
+    preloadChart();
     void api(`/rooms/${roomId}/membership`).then(() => {
       if (!active) return;
       sessionStorage.setItem(recentRoomKey, roomId);
@@ -28,6 +32,11 @@ export function RoomGate({ roomId }: { roomId: string }) {
       setResult({ status: "joined" });
     }, (err: unknown) => {
       if (!active) return;
+      if (err instanceof ApiError && err.status === 410) {
+        if (sessionStorage.getItem(recentRoomKey) === roomId) sessionStorage.removeItem(recentRoomKey);
+        setResult({ status: "deleted" });
+        return;
+      }
       setResult(err instanceof ApiError && (err.status === 401 || err.status === 403)
         ? { status: "missing", token }
         : { status: "error", error: err instanceof Error ? err.message : "Could not open this room." });
@@ -35,7 +44,8 @@ export function RoomGate({ roomId }: { roomId: string }) {
     return () => { active = false; };
   }, [roomId, attempt]);
 
-  if (!result) return <ShellMessage title="Opening room…" />;
+  if (!result) return <RoomLoading />;
+  if (result.status === "deleted") return <ShellMessage title="This room was deleted" />;
   if (result.status === "joined") return <><Workspace roomId={roomId} /><MarketsFooter /></>;
   if (result.status === "error") return <ShellMessage title="Room unavailable" text={result.error}
     actions={<button className="action action-primary" type="button" onClick={() => { setResult(undefined); setAttempt(value => value + 1); }}>Retry</button>} />;

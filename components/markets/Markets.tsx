@@ -9,7 +9,7 @@ import { AccountButton } from "@/components/AccountButton";
 import { AccountSheet } from "@/components/AccountSheet";
 import { useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
-import { api } from "./client";
+import { api, ApiError } from "./client";
 import { Dialog } from "./controls";
 import { TradeComposer } from "./TradeComposer";
 import { useMarketCatalog } from "./market-picker";
@@ -29,6 +29,10 @@ export function Markets() {
   const createButton = useRef<HTMLButtonElement>(null);
   const catalog = useMarketCatalog();
 
+  // Opening a room keeps this form up until the room replaces the page. The page then stays mounted but
+  // hidden, which runs this cleanup, so the form is gone when someone comes back.
+  useEffect(() => () => setCreating(false), []);
+
   useEffect(() => {
     let active = true;
     let request = 0;
@@ -38,7 +42,8 @@ export function Markets() {
       if (!roomId || !id.safeParse(roomId).success) return;
       void api(`/rooms/${roomId}/membership`).then(() => {
         if (active && sequence === request) setRecent(roomId);
-      }, () => {
+      }, (err: unknown) => {
+        if (err instanceof ApiError && err.status === 410) sessionStorage.removeItem(recentRoomKey);
         if (active && sequence === request) setRecent(undefined);
       });
     }
@@ -79,7 +84,6 @@ export function Markets() {
           onJoined={room => {
             sessionStorage.setItem(recentRoomKey, room);
             setRecent(room);
-            setCreating(false);
             router.push(`/markets/${room}`);
           }} />
       </Dialog>}

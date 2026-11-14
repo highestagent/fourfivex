@@ -24,6 +24,8 @@ export function setupRatio(entry: string, stop: string, target: string) {
 
 const marketId = z.custom<Market>(isMarket);
 export const roomCreation = z.object({ name: displayName, market: marketId.optional() });
+/** The close code a room's sockets get when its owner deletes it, so every member sees why it ended. */
+export const roomDeletedCode = 4410;
 const key = { id, expected: z.number().int().nonnegative(), market: marketId };
 const trendline = z.object({ start: point, end: point });
 const setup = z.object({ entry: point, stop: price, target: price })

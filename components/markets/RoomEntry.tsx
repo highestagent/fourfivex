@@ -32,9 +32,9 @@ export function RoomEntry({ roomId, token, market, marketName, onJoined }: { roo
         rememberDisplayName(parsed.data);
         onJoined(room.roomId);
       }
+      // Stays "Opening room…" until the room replaces this form.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open the room.");
-    } finally {
       setBusy(false);
     }
   };

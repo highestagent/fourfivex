@@ -52,7 +52,7 @@ export function RoomHeader({ roomId, me, members, presenter, online, connected, 
             onValueChange={onPresenterChange} />
           : presenting && <span className="room-icon room-presenter" title={viewStatus} aria-hidden="true"><MonitorUp size={17} /></span>}
         <RoomAudio key={roomId} roomId={roomId} member={me} />
-        {owner && <button className="room-icon room-invite" type="button" aria-label="Invite traders" title="Invite traders" aria-haspopup="dialog" onClick={onInvite}>
+        {owner && <button className="room-icon room-invite" type="button" aria-label="Manage room" title="Invite traders or manage the room" aria-haspopup="dialog" onClick={onInvite}>
           <UserPlus size={17} aria-hidden="true" />
         </button>}
       </div>

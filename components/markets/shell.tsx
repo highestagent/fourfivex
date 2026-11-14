@@ -18,6 +18,29 @@ export function MarketsFooter() {
   return <footer className="markets-container mt-3 flex justify-end pb-6"><ThemeSwitcher /></footer>;
 }
 
+/**
+ * A room while it opens: its own frame and one line, from the moment the page starts until the chart arrives.
+ * Every stage of opening (the page, the access check, the live connection) shows this same frame, so the
+ * stages hand over without anything on screen changing.
+ */
+export function RoomLoading() {
+  return (
+    <div className="markets-ui room-page" aria-busy="true">
+      <header className="markets-container room-header">
+        <AppNavigation compact />
+        <span className="room-header-divider" aria-hidden="true" />
+        <h1 className="room-title"><span className="room-title-prefix">Trading </span>room</h1>
+      </header>
+      <main>
+        <div className="workspace-grid">
+          <div className="chart-panel chart-loading" role="status">Opening room…</div>
+          <section className="discussion" aria-hidden="true" />
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export function ShellMessage({ title, text, actions }: { title: string; text?: string; actions?: ReactNode }) {
   return <>
     <MarketsHeader />

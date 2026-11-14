@@ -3,7 +3,7 @@ import { env, exports } from 'cloudflare:workers';
 import { describe, expect, test, vi } from 'vitest';
 import { defaultMarket } from '@fourfivex/markets-protocol/markets';
 import type { Env } from '../src/env';
-import type { RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { roomDeletedCode, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
 
 const worker = (exports as unknown as { default: Fetcher }).default;
 
@@ -211,6 +211,38 @@ describe('trading rooms', () => {
     expect((await request(path + '/members/revoke', { member: id }, cookie)).status).toBe(200);
     expect(await closed).toBe(1008);
     expect((await request(path + '/membership', undefined, guestCookie)).status).toBe(403);
+  });
+
+  test('lets only the owner delete a room, ends every connection, and leaves nothing behind', async () => {
+    const { path, roomId, cookie } = await create();
+    const { token } = await (await request(path + '/invite', { role: 'editor' }, cookie)).json<{ token: string }>();
+    const joined = await request(path + '/join', { name: 'Editor', token });
+    const editorCookie = joined.headers.get('Set-Cookie')!.split(';')[0];
+    const owner = await connect(path, cookie);
+    owner.socket.send(JSON.stringify({ type: 'edit', op: crypto.randomUUID(),
+      change: { kind: 'level', id: crypto.randomUUID(), expected: 0, market: defaultMarket, data: { label: 'Support', price: '75000', time: 1794414000 } } }));
+    await owner.find(event => event.type === 'change');
+    const { token: spare } = await (await request(path + '/invite', { role: 'viewer' }, cookie)).json<{ token: string }>();
+
+    expect((await request(path + '/delete', {}, editorCookie)).status).toBe(403);
+    const closed = new Promise<number>(resolve => owner.socket.addEventListener('close', event => resolve(event.code)));
+    const deleted = await request(path + '/delete', {}, cookie);
+    expect(deleted.status).toBe(200);
+    expect(await closed).toBe(roomDeletedCode);
+
+    for (const session of [cookie, editorCookie]) {
+      const response = await request(path + '/membership', undefined, session);
+      expect(response.status).toBe(410);
+      expect(await response.json()).toMatchObject({ error: 'This room was deleted.' });
+    }
+    expect((await request(path + '/join', { name: 'Late', token: spare })).status).toBe(410);
+    expect((await request(path + '/socket-ticket', {}, cookie)).status).toBe(410);
+    await runInDurableObject((env as unknown as Env).ROOMS.getByName(roomId), (_, state) => {
+      for (const table of ['items', 'operations', 'invites', 'chart_view']) {
+        expect(state.storage.sql.exec(`SELECT COUNT(*) AS count FROM ${table}`).one().count).toBe(0);
+      }
+      expect(state.storage.sql.exec("SELECT COUNT(*) AS count FROM members WHERE name != '' OR revoked = 0").one().count).toBe(0);
+    });
   });
 
   test('orders edits, rejects stale writes, and deduplicates a retry after reconnect', async () => {

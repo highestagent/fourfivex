@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultMarket, type Market } from '@fourfivex/markets-protocol/markets';
-import type { Command, Interval, Item, Mutation, Point, Room, RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { roomDeletedCode, type Command, type Interval, type Item, type Mutation, type Point, type Room, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
@@ -32,6 +32,7 @@ export function useRoom(roomId: string) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
   const [revoked, setRevoked] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const transient = useRef(new Map<string, Transient>());
   const socket = useRef<WebSocket | null>(null);
   const queued = useRef(new Map<string, Command>());
@@ -70,7 +71,8 @@ export function useRoom(roomId: string) {
         connection = new WebSocket(url, ticket ? ['fourfivex', ticket] : undefined);
       } catch (failure) {
         if (disposed) return;
-        if (failure instanceof ApiError && [401, 403].includes(failure.status)) setRevoked(true);
+        if (failure instanceof ApiError && failure.status === 410) setDeleted(true);
+        else if (failure instanceof ApiError && [401, 403].includes(failure.status)) setRevoked(true);
         else retry();
         return;
       }
@@ -128,6 +130,10 @@ export function useRoom(roomId: string) {
         setConnected(false);
         setOnline([]);
         transient.current.clear();
+        if (code === roomDeletedCode) {
+          setDeleted(true);
+          return;
+        }
         if (code === 1008) {
           setRevoked(true);
           return;
@@ -138,5 +144,5 @@ export function useRoom(roomId: string) {
     void connect();
     return () => { disposed = true; clearTimeout(timer); socket.current?.close(); socket.current = null; };
   }, [roomId, send]);
-  return { room, online, connected, error, revoked, transient, edit, send };
+  return { room, online, connected, error, revoked, deleted, transient, edit, send };
 }

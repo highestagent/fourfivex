@@ -27,6 +27,7 @@ const roomActions = {
   invites: ['GET', null],
   'invite/revoke': ['POST', z.object({ inviteId: z.string().regex(/^[a-f0-9]{64}$/) })],
   'members/revoke': ['POST', z.object({ member: id })],
+  delete: ['POST', null],
 } as const;
 
 export async function roomsRoutes(request: Request, env: Env, url: URL) {

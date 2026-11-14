@@ -352,6 +352,8 @@
   .invite-members h3 { font-size: 13px; margin: 4px 0; }
   .invite-members > div { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding: 7px 0; font-size: 13px; gap: 7px; }
   .invite-members small { margin-left: 6px; color: var(--muted); font-size: 10px; }
+  .room-delete { margin-top: 6px; }
+  .room-delete-actions { display: flex; flex: none; gap: 6px; }
   .market-search { display: grid; position: relative; align-items: center; color: var(--muted); }
   .market-search svg { position: absolute; left: 10px; pointer-events: none; }
   .market-search input { padding-inline-start: 35px; }

@@ -13,9 +13,10 @@ import { MarketPicker, useMarketCatalog } from './market-picker';
 import { Invite } from './Invite';
 import { CommentForm, IdeaForm, LevelForm } from './room-forms';
 import { RoomHeader } from './RoomHeader';
-import { ShellMessage } from './shell';
+import { RoomLoading, ShellMessage } from './shell';
 
-const ChartLoading = () => <div className="chart-panel chart-loading" role="status">Loading chart…</div>;
+// Keeps the opening frame in place if the chart is still downloading; no second message.
+const ChartLoading = () => <div className="chart-panel chart-loading" role="status" aria-label="Loading chart" />;
 const TradingChart = dynamic(() => import('./chart').then(module => module.TradingChart), { ssr: false, loading: ChartLoading });
 type Level = Extract<Item, { kind: 'level' }>;
 type Idea = Extract<Item, { kind: 'idea' }>;
@@ -28,8 +29,9 @@ type Modal =
     | { type: 'idea'; idea?: Idea; initial?: Partial<Idea['data']> }) & { market: Market };
 
 export function Workspace({ roomId }: { roomId: string }) {
-  const { room, online, connected, revoked, error, edit, send, transient } = useRoom(roomId);
+  const { room, online, connected, revoked, deleted, error, edit, send, transient } = useRoom(roomId);
   const [modal, setModal] = useState<Modal>();
+  const [removed, setRemoved] = useState(false);
   const [pausedFor, setPausedFor] = useState<string>();
   const [localView, setLocalView] = useState<ChartPresentation['view']>(() => {
     const saved = sessionStorage.getItem('fourfivex:markets:view:' + roomId) ?? '';
@@ -68,8 +70,9 @@ export function Workspace({ roomId }: { roomId: string }) {
 
   const [tab, setTab] = useState<'ideas' | 'comments' | 'levels'>('ideas');
   const [highlight, setHighlight] = useState('');
+  if (deleted || removed) return <ShellMessage title="This room was deleted"/>;
   if (revoked) return <ShellMessage title="Room access ended" text="Ask the room owner if you need access again."/>;
-  if (!room) return <ShellMessage title="Connecting to the room…" text="Your shared chart will appear here."/>;
+  if (!room) return <RoomLoading/>;
   const { me, members } = room;
   const presenter = members.find(member => member.id === presentation?.presenter);
   const drawings = items.filter((item): item is DrawingItem => (item.kind === 'trendline' || item.kind === 'setup' || item.kind === 'overlay') && item.data !== null);
@@ -158,7 +161,7 @@ export function Workspace({ roomId }: { roomId: string }) {
       setHighlight('');
       close();
     }}/></Dialog>}
-    {modal?.type === 'share' && <Dialog title="Invite traders" close={close}><Invite roomId={roomId} members={members} me={me}/></Dialog>}
+    {modal?.type === 'share' && <Dialog title="Manage room" close={close}><Invite roomId={roomId} members={members} me={me} onDeleted={() => setRemoved(true)}/></Dialog>}
     {modal?.type === 'level' && <Dialog title={modal.level ? 'Edit price level' : 'Add a price level'} close={close}>{dialogContext}<LevelForm initial={modal.point.price} quote={dialogQuote.quote} label={modal.level?.data?.label} save={(label, price) => {
       edit({ market: modal.market, kind: 'level', id: modal.level?.id ?? crypto.randomUUID(), expected: modal.level?.revision ?? 0, data: { ...modal.point, price, label } }); setTab('levels'); close();
     }}/></Dialog>}

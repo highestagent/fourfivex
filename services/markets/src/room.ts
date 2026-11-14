@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
-import { command, defaultChartView, displayName, id, roomCreation, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { command, defaultChartView, displayName, id, roomCreation, roomDeletedCode, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
 import { isMarket } from '@fourfivex/markets-protocol/markets';
 import type { Env } from './env';
 import { body, digest, errorResponse, HttpError, json } from './http';
@@ -19,12 +19,18 @@ export class TradingRoom extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, payload TEXT);
       CREATE TABLE IF NOT EXISTS operations (member TEXT, op TEXT, PRIMARY KEY(member, op));
       CREATE TABLE IF NOT EXISTS chart_view (slot INTEGER PRIMARY KEY CHECK (slot = 1), payload TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS room_state (slot INTEGER PRIMARY KEY CHECK (slot = 1), deleted_at INTEGER NOT NULL);
     `);
     this.voice = new RoomVoice(ctx.storage, env);
   }
 
   async alarm() {
     await this.voice.retryRevocations();
+  }
+
+  /** A deleted room keeps only this mark, so its link says it was deleted rather than asking for an invite. */
+  private deleted() {
+    return this.sql.exec('SELECT 1 FROM room_state WHERE slot = 1').toArray().length > 0;
   }
 
   private member(identity: string) {
@@ -112,6 +118,7 @@ export class TradingRoom extends DurableObject<Env> {
     const path = new URL(request.url).pathname;
     const identity = request.headers.get('x-fourfivex-identity');
     if (!identity) throw new HttpError(401, 'Session required.');
+    if (this.deleted()) throw new HttpError(410, 'This room was deleted.');
     if (path === '/create') {
       const { name, market } = await body(request, roomCreation);
       if (this.sql.exec('SELECT 1 FROM members LIMIT 1').toArray().length) throw new HttpError(409, 'Room already exists.');
@@ -178,6 +185,19 @@ export class TradingRoom extends DurableObject<Env> {
       const { inviteId } = await body(request, z.object({ inviteId: z.string().regex(/^[a-f0-9]{64}$/) }));
       this.sql.exec('DELETE FROM invites WHERE hash = ?', inviteId);
       return json({ ok: true });
+    }
+    if (path === '/delete') {
+      const everyone = this.members().map(member => member.id);
+      // Everything people made goes. Member rows stay, nameless and revoked, only so a voice removal that
+      // fails can be retried by the alarm; nobody can use them, because every request now gets a 410.
+      this.ctx.storage.transactionSync(() => {
+        this.sql.exec('INSERT INTO room_state VALUES (1, ?)', Date.now());
+        for (const table of ['items', 'operations', 'invites', 'chart_view']) this.sql.exec(`DELETE FROM ${table}`);
+        this.sql.exec("UPDATE members SET revoked = 1, name = ''");
+      });
+      for (const socket of this.ctx.getWebSockets()) socket.close(roomDeletedCode, 'Room deleted');
+      const removed = await Promise.all(everyone.map(member => this.voice.revoke(member)));
+      return json({ ok: true, voicePending: removed.includes(false) });
     }
     if (path === '/members/revoke') {
       const { member } = await body(request, z.object({ member: id }));
