@@ -313,6 +313,15 @@ describe('trading rooms', () => {
     expect((await open(account)).status).toBe(201);
   });
 
+  test('lets an invite link last as long as the room, not longer', async () => {
+    const { path, roomId, cookie } = await create();
+    await request(path + '/invite', { role: 'viewer' }, cookie);
+    const [invite] = await (await request(path + '/invites', undefined, cookie)).json<{ expires: number }[]>();
+    await runInDurableObject((env as unknown as Env).ROOMS.getByName(roomId), (_, state) => {
+      expect(invite.expires).toBe(state.storage.sql.exec<{ ends_at: number }>('SELECT ends_at FROM room_meta').one().ends_at);
+    });
+  });
+
   test('ends a room after its hour, frees the account, and ends rooms made before the hour rule', async () => {
     const account = await passkeyAccount();
     const { path, roomId, cookie } = await create(account);

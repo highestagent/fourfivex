@@ -230,7 +230,8 @@ export class TradingRoom extends DurableObject<Env> {
       if (this.sql.exec('SELECT COUNT(*) AS count FROM invites').one().count as number >= 32) {
         throw new HttpError(429, 'Revoke an unused invite before creating another.');
       }
-      this.sql.exec('INSERT INTO invites VALUES (?, ?, ?)', hash, role, Date.now() + 24 * 3600_000);
+      // An invite is good until the room ends, and only once.
+      this.sql.exec('INSERT INTO invites VALUES (?, ?, ?)', hash, role, this.meta()!.ends_at);
       return json({ token });
     }
     if (path === '/invite/revoke') {

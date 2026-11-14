@@ -34,7 +34,7 @@ export function Invite({ roomId, members, me, onDeleted }: { roomId: string; mem
     finally { setBusy(false); }
   }
   return <div className="invite-content">
-    <p className="secondary">Each link works once and expires after 24 hours.</p>
+    <p className="secondary">Each link works once.</p>
     <form className="invite-form" onSubmit={event => { event.preventDefault(); void action(async () => {
       const { token } = await api<{ token: string }>(roomPath + '/invite', { role });
       setLink(location.origin + '/markets/' + roomId + '#invite=' + token); setCopied(false); await load();
