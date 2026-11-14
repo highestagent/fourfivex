@@ -6,6 +6,7 @@ import {
 } from "@/lib/account/deposits";
 import { useDeposits } from "@/lib/account/useDeposits";
 import { coin } from "@/lib/format";
+import { QrCode } from "./QrCode";
 import { CopyButton } from "./ui";
 
 type Tokens = Awaited<ReturnType<typeof supportedTokens>>;
@@ -53,15 +54,19 @@ export function AddMoney({ accountId, onDone }: { accountId: string; onDone: () 
         ))}
       </div>
 
-      <div className="grid gap-3 rounded-[18px] border border-line bg-surface p-5">
-        <span className="mono text-ink-2">Your {selected.label} address</span>
-        {address ? <>
-          <p className="font-mono text-[15px] leading-relaxed break-all select-text">{address}</p>
-          <div><CopyButton text={address} label={`Copy ${selected.label} address`} /></div>
-        </> : address === null ? <div className="flex flex-wrap items-center gap-3 text-sm text-ink-2">
-          Address unavailable.
-          <button type="button" className="action action-secondary" onClick={() => setAddresses(previous => ({ ...previous, [network]: undefined }))}>Try again</button>
-        </div> : <span className="h-12 animate-pulse rounded-lg bg-card motion-reduce:animate-none" aria-label="Loading address" />}
+      <div className={`grid gap-4 rounded-[18px] border border-line bg-surface p-5 ${address === null ? "" : "sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center"}`}>
+        {address ? <QrCode value={address} label={`QR code for your ${selected.label} address`} />
+          : address === undefined && <span aria-hidden="true" className="size-36 animate-pulse rounded-xl bg-card motion-reduce:animate-none" />}
+        <div className="grid min-w-0 gap-3">
+          <span className="mono text-ink-2">Your {selected.label} address</span>
+          {address ? <>
+            <p className="font-mono text-[15px] leading-relaxed text-balance break-all select-text">{address}</p>
+            <div><CopyButton text={address} label={`Copy ${selected.label} address`} /></div>
+          </> : address === null ? <div className="flex flex-wrap items-center gap-3 text-sm text-ink-2">
+            Address unavailable.
+            <button type="button" className="action action-secondary" onClick={() => setAddresses(previous => ({ ...previous, [network]: undefined }))}>Try again</button>
+          </div> : <span className="h-12 animate-pulse rounded-lg bg-card motion-reduce:animate-none" aria-label="Loading address" />}
+        </div>
       </div>
 
       <div className="grid gap-1 text-sm text-ink-2">
