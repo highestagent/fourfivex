@@ -55,7 +55,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
   const canTrade = Boolean(accountId && trading?.available);
   const [closing] = useState(position);
   const expired = Boolean(quote && expiredQuote === quote);
-  const needsCollateral = preparationError?.code === "collateral" && quote?.market.collateral === "USDC" && !quote.market.dex;
+  const needsCollateral = preparationError?.code === "collateral" && quote?.market.collateral === "USDC";
 
   useEffect(() => {
     const controller = new AbortController();

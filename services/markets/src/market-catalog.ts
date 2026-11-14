@@ -6,6 +6,7 @@ import { HttpError, upstream } from './http';
 const decimals = z.number().int().nonnegative();
 const perpMetadata = z.array(z.object({
   universe: z.array(z.object({ name: z.string(), szDecimals: decimals, isDelisted: z.boolean().optional() })),
+  collateralToken: decimals.optional(),
 }));
 const dexMetadata = z.array(z.object({ name: z.string(), fullName: z.string() }).nullable());
 const annotations = z.array(z.tuple([z.string(), z.object({
@@ -15,6 +16,10 @@ const spotMetadata = z.tuple([z.object({
   universe: z.array(z.object({ name: z.string(), index: decimals, tokens: z.tuple([decimals, decimals]) })),
   tokens: z.array(z.object({ index: decimals, name: z.string(), fullName: z.string().nullish(), szDecimals: decimals })),
 }), z.array(z.object({ coin: z.string(), dayNtlVlm: z.union([z.number(), z.string()]).optional() }))]);
+const assetContexts = z.tuple([
+  z.object({ universe: z.array(z.object({ name: z.string() })) }),
+  z.array(z.object({ dayNtlVlm: z.union([z.number(), z.string()]).optional() })),
+]);
 const flareOrigin = 'https://flare.mcxross.xyz';
 const flareMetadata = z.object({
   schemaVersion: z.literal(2),
@@ -75,12 +80,32 @@ function flareIcon(asset: FlareAsset | undefined) {
   return asset?.icon ? flareOrigin + asset.icon : undefined;
 }
 
+let volumes: { value: Promise<ReadonlyMap<string, number>>; expires: number } | undefined;
+
+/**
+ * Each perpetual's traded value over the last day, from every exchange. It only decides which exchange's listing
+ * to show when several list one asset, so it is read every ten minutes and an exchange that fails is skipped.
+ */
+function perpVolumes(dexes: z.infer<typeof dexMetadata>): Promise<ReadonlyMap<string, number>> {
+  if (volumes && volumes.expires > Date.now()) return volumes.value;
+  const names = ['', ...dexes.flatMap(dex => (dex ? [dex.name] : []))];
+  const value = Promise.allSettled(names.map(dex => hyperliquid({ type: 'metaAndAssetCtxs', dex }).then(raw => assetContexts.parse(raw))))
+    .then(results => new Map(results.flatMap(result => result.status === 'fulfilled'
+      ? result.value[0].universe.map((asset, index) => [asset.name, Number(result.value[1][index]?.dayNtlVlm) || 0] as const)
+      : [])));
+  volumes = { value, expires: Date.now() + 600_000 };
+  return value;
+}
+
 function perpetuals(raw: z.infer<typeof perpMetadata>, dexes: z.infer<typeof dexMetadata>,
-  labels: z.infer<typeof annotations>, assets: FlareAssets): Instrument[] {
+  labels: z.infer<typeof annotations>, assets: FlareAssets, tokens: ReadonlyMap<number, string>,
+  traded: ReadonlyMap<string, number>): Instrument[] {
   const venueNames = new Map(dexes.flatMap(dex => dex ? [[dex.name, dex.fullName] as const] : []));
   const byCoin = new Map(labels);
   const result: Instrument[] = [];
-  for (const { universe } of raw) {
+  for (const { universe, collateralToken = 0 } of raw) {
+    // Token 0 is USDC. Others are named by the spot token list, and left unnamed if it couldn't be read.
+    const collateral = collateralToken === 0 ? 'USDC' : tokens.get(collateralToken);
     for (const row of universe) {
       const id = 'hyperliquid:perp:' + row.name;
       if (row.isDelisted || !isMarket(id)) continue;
@@ -95,7 +120,8 @@ function perpetuals(raw: z.infer<typeof perpMetadata>, dexes: z.infer<typeof dex
       result.push({
         id, type: 'perp', symbol, quote: 'USD', name, category, venue: venueNames.get(dex) ?? (dex || 'Hyperliquid'),
         precision: Math.max(2, 6 - row.szDecimals), icon: flareIcon(asset),
-        keywords: [row.name, ...(label?.keywords ?? [])],
+        keywords: [row.name, ...(label?.keywords ?? [])], ...(collateral ? { collateral } : {}),
+        ...(traded.has(row.name) ? { volume: Math.round(traded.get(row.name)!) } : {}),
       });
     }
   }
@@ -133,12 +159,14 @@ let saved: { catalog: MarketCatalog; expires: number } | undefined;
 
 export async function marketCatalog(): Promise<MarketCatalog> {
   if (saved && saved.expires > Date.now()) return saved.catalog;
-  const [perps, dexes, spot, labels, icons] = await Promise.allSettled([
+  const listed = hyperliquid({ type: 'perpDexs' }).then(value => dexMetadata.parse(value));
+  const [perps, dexes, spot, labels, icons, traded] = await Promise.allSettled([
     hyperliquid({ type: 'allPerpMetas' }).then(value => perpMetadata.parse(value)),
-    hyperliquid({ type: 'perpDexs' }).then(value => dexMetadata.parse(value)),
+    listed,
     hyperliquid({ type: 'spotMetaAndAssetCtxs' }).then(value => spotMetadata.parse(value)),
     hyperliquid({ type: 'perpConciseAnnotations' }).then(value => annotations.parse(value)),
     flareAssets(),
+    listed.then(perpVolumes),
   ]);
   const unavailable: Product[] = [];
   const assets = icons.status === 'fulfilled' ? icons.value : new Map();
@@ -149,7 +177,9 @@ export async function marketCatalog(): Promise<MarketCatalog> {
     instruments: [
       ...(spot.status === 'fulfilled' ? spotPairs(spot.value, assets) : lastGood('spot')),
       ...(perps.status === 'fulfilled' ? perpetuals(perps.value, dexes.status === 'fulfilled' ? dexes.value : [],
-        labels.status === 'fulfilled' ? labels.value : [], assets) : lastGood('perp')),
+        labels.status === 'fulfilled' ? labels.value : [], assets,
+        new Map(spot.status === 'fulfilled' ? spot.value[0].tokens.map(token => [token.index, token.name]) : []),
+        traded.status === 'fulfilled' ? traded.value : new Map()) : lastGood('perp')),
     ],
     unavailable,
   };

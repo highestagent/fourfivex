@@ -14,6 +14,10 @@ export type AssetClass = keyof typeof categories;
 export type MarketQuote = { symbol: string; quote: string; type: Product; precision: number; venue: string };
 export type Instrument = MarketQuote & {
   id: Market; name: string; category: AssetClass; icon?: string; glyph?: string; keywords?: string[];
+  /** What a perpetual settles in, such as USDC. Builder exchanges choose their own. */
+  collateral?: string;
+  /** Traded value over the last day, in USD, to pick the busiest exchange when several list the same asset. */
+  volume?: number;
 };
 export type MarketCatalog = { instruments: Instrument[]; unavailable: Product[] };
 /** Asset logos, from the same service the market catalog reads its icons from. */
@@ -26,7 +30,7 @@ export function assetIcon(symbol: string): string | undefined {
 
 export const defaultInstrument: Instrument = {
   id: defaultMarket, type: 'perp', symbol: 'BTC', quote: 'USD', precision: 2,
-  venue: 'Hyperliquid', name: 'Bitcoin', category: 'crypto', glyph: '₿', icon: assetIcon('BTC'),
+  venue: 'Hyperliquid', name: 'Bitcoin', category: 'crypto', glyph: '₿', icon: assetIcon('BTC'), collateral: 'USDC',
 };
 
 export function hyperliquidMarket(id: string): { type: Product; coin: string } | undefined {
@@ -34,6 +38,31 @@ export function hyperliquidMarket(id: string): { type: Product; coin: string } |
   if (spot) return { type: 'spot', coin: spot[1] };
   const perp = /^hyperliquid:perp:((?:[a-z][a-z0-9]{0,12}:)?[A-Za-z0-9._-]{1,30})$/.exec(id);
   if (perp) return { type: 'perp', coin: perp[1] };
+}
+
+/**
+ * A perpetual that one USDC trading balance can back, on the main exchange or a builder exchange.
+ * Main-exchange perps always settle in USDC; a builder exchange's market needs the catalog to say so.
+ */
+export function settlesInUsdc(item: Instrument) {
+  const listing = hyperliquidMarket(item.id);
+  if (listing?.type !== 'perp') return false;
+  return (item.collateral ?? (listing.coin.includes(':') ? undefined : 'USDC')) === 'USDC';
+}
+
+const listingKey = (item: Instrument) => `${item.type}:${item.symbol}:${item.quote}:${item.category}`;
+
+/**
+ * One row per asset. When several exchanges list the same asset, keeps the busiest, or the one already chosen.
+ * Same ticker in another category is another asset (STX the crypto is not STX the stock), so both stay.
+ */
+export function busiestListings(instruments: readonly Instrument[], keep?: Market): Instrument[] {
+  const best = new Map<string, Instrument>();
+  for (const item of instruments) {
+    const held = best.get(listingKey(item));
+    if (!held || item.id === keep || (held.id !== keep && (item.volume ?? -1) > (held.volume ?? -1))) best.set(listingKey(item), item);
+  }
+  return instruments.filter(item => best.get(listingKey(item)) === item);
 }
 
 export function marketQuote(market: Market): MarketQuote {

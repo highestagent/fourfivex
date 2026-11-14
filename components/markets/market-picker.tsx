@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Search } from 'lucide-react';
-import { assetIcon, categories, defaultInstrument, marketLabel, marketQuote, type AssetClass, type Instrument,
+import { assetIcon, busiestListings, categories, defaultInstrument, marketLabel, marketQuote, type AssetClass, type Instrument,
   type Market, type MarketCatalog, type Product } from '@fourfivex/markets-protocol/markets';
 import { api } from './client';
 
@@ -54,7 +54,7 @@ export function MarketPicker({ current, select, catalog, product }: {
   const [limit, setLimit] = useState(pageSize);
 
   const { markets, available } = useMemo(() => {
-    const instruments = catalog.instruments.filter(item => item.type === type);
+    const instruments = busiestListings(catalog.instruments.filter(item => item.type === type), current);
     return {
       available: new Set(instruments.map(item => item.category)),
       markets: instruments.map(item => ({
@@ -63,7 +63,7 @@ export function MarketPicker({ current, select, catalog, product }: {
           ...(item.venue === 'Hyperliquid' ? [] : [item.venue]), ...(item.keywords ?? [])].map(normalize),
       })),
     };
-  }, [catalog.instruments, type]);
+  }, [catalog.instruments, type, current]);
   const search = normalize(query);
   const choices = markets.filter(({ item, terms }) =>
     (category === 'all' || item.category === category) && (!search || terms.some(term => term.includes(search))));
@@ -103,7 +103,6 @@ export function MarketPicker({ current, select, catalog, product }: {
             onClick={() => select(instrument.id)}>
             <MarketIcon instrument={instrument}/>
             <span className="market-choice-text"><strong>{marketLabel(instrument)}</strong><small>{instrument.name === instrument.symbol ? categories[instrument.category] : instrument.name}</small></span>
-            {instrument.venue !== 'Hyperliquid' && <span className="market-venue">{instrument.venue}</span>}
             {current === instrument.id && <Check size={16} aria-label="Current market"/>}
           </button>
         </li>)}

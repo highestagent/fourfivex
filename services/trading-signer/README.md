@@ -61,7 +61,7 @@ Everything runs under `fourfivex.near`, the operations account. It pays for and 
    near account delete-keys trading-signer.fourfivex.near public-keys <the key listed above> network-config mainnet sign-with-keychain send
    near account list-keys trading-signer.fourfivex.near network-config mainnet now
    ```
-5. **Create the relayer** with 2 NEAR, then give it a capped key for the app. That key can only call `execute_intents` on `intents.near`. Each trade reserves about 0.025 NEAR of the cap (250 Tgas), so a cap of 1 NEAR covers about 40 trades before the key needs replacing.
+5. **Create the relayer** with 2 NEAR, then give it a capped key for the app. That key can only call `execute_intents` on `intents.near`. Each trade reserves about 0.025 NEAR of the cap (250 Tgas), so a cap of 1 NEAR covers about 40 trades before the key needs replacing. An account's first order also switches its Hyperliquid address to one balance for every USDC market. That adds a third digest, sent as a second `auth_call` in the same approval, and reserves 0.03 NEAR (300 Tgas).
    ```sh
    near account create-account fund-myself trading-relayer.fourfivex.near '2 NEAR' autogenerate-new-keypair save-to-keychain sign-as fourfivex.near network-config mainnet sign-with-keychain send
    near account add-key trading-relayer.fourfivex.near grant-function-call-access --allowance '1 NEAR' --contract-account-id intents.near --function-names execute_intents autogenerate-new-keypair save-to-legacy-keychain network-config mainnet sign-with-keychain send

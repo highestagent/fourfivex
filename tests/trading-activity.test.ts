@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describePosition, explorerLink, fillEvents, ledgerEvents } from "../lib/markets/activity";
+import { coinName, describePosition, explorerLink, fillEvents, ledgerEvents } from "../lib/markets/activity";
 
 const ME = "0xb24fe87ea8497c78c044c0ce7076028b562e7195";
 const OTHER = "0x8ba1f109551bd432803012645ac136ddd64dba72";
@@ -75,5 +75,13 @@ describe("explorerLink", () => {
   it("skips the empty hash Hyperliquid uses for some fills", () => {
     expect(explorerLink(`0x${"0".repeat(64)}`)).toBeUndefined();
     expect(explorerLink(HASH)).toBe(`https://app.hyperliquid.xyz/explorer/tx/${HASH}`);
+  });
+});
+
+describe("coinName", () => {
+  it("names builder-exchange markets by their ticker alone", () => {
+    expect(coinName("xyz:NVDA")).toBe("NVDA");
+    expect(coinName("BTC")).toBe("bitcoin");
+    expect(coinName("HYPE")).toBe("HYPE");
   });
 });

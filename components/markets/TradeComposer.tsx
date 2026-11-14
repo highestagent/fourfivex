@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import dynamic from "next/dynamic";
 import { ChevronDown } from "lucide-react";
-import { defaultInstrument, hyperliquidMarket, marketLabel, type Market } from "@fourfivex/markets-protocol/markets";
+import { defaultInstrument, marketLabel, settlesInUsdc, type Market } from "@fourfivex/markets-protocol/markets";
 import { Select } from "@/components/Select";
 import { money } from "./format";
 import { Dialog } from "./controls";
@@ -149,10 +149,7 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
         <button ref={reviewButton} type="submit" className="action action-primary trade-review-button">Review order</button>
       </form>}
       {dialog === "market" && <Dialog title="Choose a market" close={close}>
-        <MarketPicker current={market} product="perp" catalog={{ ...catalog, instruments: catalog.instruments.filter(item => {
-          const listing = hyperliquidMarket(item.id);
-          return listing?.type === "perp" && !listing.coin.includes(":");
-        }) }} select={next => {
+        <MarketPicker current={market} product="perp" catalog={{ ...catalog, instruments: catalog.instruments.filter(settlesInUsdc) }} select={next => {
           if (next !== market) setLeverage(1);
           selectMarket(next);
           close();

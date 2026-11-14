@@ -6,7 +6,7 @@ import { makeNonce, type SignedIntent } from '../account/intents';
 import { currentSalt, simulate } from '../account/chain';
 import { tradeActions, tradeDigest, tradePayload, withdrawalPayload, withdrawalRequest, type TradeAuthorization, type Withdrawal } from './authorization';
 import { requestSignatures, signerContract, tradingAddress, tradingConfigured } from './signer';
-import { prepareOrder, readPerpetual, readPosition, readWithdrawable, transport, type OrderDraft, type OrderQuote, type TradingAddress } from './trade';
+import { prepareOrder, readAbstraction, readFunds, readPerpetual, readPosition, readWithdrawable, sharesBalance, transport, type OrderDraft, type OrderQuote, type TradingAddress } from './trade';
 import type { Market } from '@fourfivex/markets-protocol/markets';
 
 export type PreparedTrade = { quote: OrderQuote; authorization: TradeAuthorization; ticket: string };
@@ -52,17 +52,20 @@ async function needsLeverage(quote: OrderQuote, user: TradingAddress) {
     return false;
   }
   if (position) throw new Error('A position is already open in this market.');
-  const [asset, orders] = await Promise.all([
+  const [asset, orders, funds] = await Promise.all([
     activeAssetData({ transport }, { user, coin: market.coin }),
     frontendOpenOrders({ transport }, { user, dex: market.dex }),
+    market.dex ? readFunds(user) : undefined,
   ]);
   if (orders.some(order => order.coin === market.coin)) throw new Error('Cancel existing orders on this market before opening a position.');
-  const available = Number(asset.availableToTrade[buy ? 0 : 1]);
+  // Until this order switches the address to one balance, a builder exchange sees none of it, so count what the switch brings.
+  const estimated = funds !== undefined && !funds.shared;
+  const available = estimated ? funds.withdrawable : Number(asset.availableToTrade[buy ? 0 : 1]);
   if (!Number.isFinite(available) || available < quote.margin + (quote.fee ?? 0)) {
     throw new CollateralRequired(`Your trading account needs more ${market.collateral} for this order.`);
   }
   const update = asset.leverage.type !== 'isolated' || asset.leverage.value !== leverage;
-  if (!update && Number(asset.maxTradeSzs[buy ? 0 : 1]) < Number(size)) {
+  if (!update && !estimated && Number(asset.maxTradeSzs[buy ? 0 : 1]) < Number(size)) {
     throw new Error('This order exceeds the available position size.');
   }
   return update;
@@ -74,8 +77,8 @@ export async function prepareTrade(accountId: string, market: Market, draft: Ord
   const position = instrument ? await readPosition(instrument, address) : undefined;
   if (closing && !position) throw new Error('This position is already closed.');
   const quote = await prepareOrder(market, draft, undefined, position);
-  if (!closing && quote.market.dex) throw new Error('Choose a Hyperliquid USDC perpetual to place an order.');
-  const changeLeverage = await needsLeverage(quote, address);
+  if (!closing && quote.market.collateral !== 'USDC') throw new Error('Choose a market that settles in USDC.');
+  const [changeLeverage, mode] = await Promise.all([needsLeverage(quote, address), readAbstraction(address)]);
   if (Date.now() >= quote.expires) throw new Error('This quote expired. Review a fresh quote.');
   const exchangeNonce = Date.now() + randomInt(60_000);
   const deadline = quote.expires;
@@ -83,6 +86,8 @@ export async function prepareTrade(accountId: string, market: Market, draft: Ord
     contract: signerContract()!, nonce: makeNonce(salt, new Date(deadline), crypto.getRandomValues(new Uint8Array(15))),
     deadline, exchangeNonce, expiresAfter: exchangeNonce + 120_000,
     id: `0x${randomUUID().replaceAll('-', '')}`, changeLeverage,
+    // The first order turns on one balance for every USDC market. Closing never needs it.
+    ...(!closing && !sharesBalance(mode) ? { unify: address } : {}),
   };
   return { quote, authorization, ticket: seal({ kind: 'trade', quote, authorization, accountId, address }) };
 }
@@ -100,11 +105,17 @@ export async function executeTrade(account: string, ticket: string, signed: Sign
   await simulate([signed]);
   const signatures = await requestSignatures(signed, requests.map(tradeDigest), address);
   if (Date.now() >= authorization.expiresAfter) throw new Error('Signing took too long. Review a fresh quote.');
+  if (authorization.unify && !sharesBalance(await readAbstraction(address))) {
+    await transport.request('exchange', { ...requests[0], signature: signatures[0] }).catch(() => undefined);
+    // A crypto order still works on the main exchange's balance; anything else needs the one balance.
+    if (quote.market.dex && !sharesBalance(await readAbstraction(address))) throw new Error('Hyperliquid could not combine your trading balance. Review a fresh quote.');
+  }
   const stillNeedsLeverage = await needsLeverage(quote, address);
   if (stillNeedsLeverage && !authorization.changeLeverage) throw new Error('Leverage changed. Review a fresh quote.');
 
   if (authorization.changeLeverage && stillNeedsLeverage) {
-    const leverage = await transport.request<{ status: string }>('exchange', { ...requests[0], signature: signatures[0] });
+    const step = authorization.unify ? 1 : 0;
+    const leverage = await transport.request<{ status: string }>('exchange', { ...requests[step], signature: signatures[step] });
     if (leverage.status !== 'ok' || await needsLeverage(quote, address)) throw new Error('Hyperliquid could not confirm isolated leverage.');
   }
   try {

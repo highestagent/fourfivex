@@ -1,4 +1,4 @@
-import { clearinghouseState, userFills, userNonFundingLedgerUpdates } from '@nktkas/hyperliquid/api/info';
+import { clearinghouseState, perpDexs, userFills, userNonFundingLedgerUpdates } from '@nktkas/hyperliquid/api/info';
 import { transport, type Position, type TradingAddress } from './trade';
 
 const info = { transport };
@@ -13,8 +13,8 @@ export type TradingEvent = { id: string; at: number; text: string; url?: string 
 type Fill = Awaited<ReturnType<typeof userFills>>[number];
 type LedgerUpdate = Awaited<ReturnType<typeof userNonFundingLedgerUpdates>>[number];
 
-/** Plain names for the coins the wallet already names; anything else keeps its ticker. */
-export const coinName = (coin: string) => NAMES[coin] ?? coin;
+/** Plain names for the coins the wallet already names; anything else keeps its ticker, without its exchange (xyz:NVDA is NVDA). */
+export const coinName = (coin: string) => NAMES[coin] ?? coin.slice(coin.indexOf(':') + 1);
 
 export function explorerLink(hash: string) {
   return /^0x0*$/.test(hash) ? undefined : `https://app.hyperliquid.xyz/explorer/tx/${hash}`;
@@ -76,9 +76,22 @@ export async function readTradingHistory(address: TradingAddress, signal?: Abort
   return [...fillEvents(fills), ...ledgerEvents(updates, address)].sort((a, b) => b.at - a.at);
 }
 
+let exchanges: { names: Promise<string[]>; until: number } | undefined;
+
+/** The main exchange and every builder exchange (stocks, commodities, FX…). Their list rarely changes, so it is kept for an hour. */
+function exchangeNames(signal?: AbortSignal) {
+  if (!exchanges || exchanges.until < Date.now()) {
+    const names = perpDexs(info, signal).then(dexes => ['', ...dexes.flatMap(dex => (dex ? [dex.name] : []))]);
+    exchanges = { names, until: Date.now() + 3_600_000 };
+    names.catch(() => { exchanges = undefined; });
+  }
+  return exchanges.names;
+}
+
+/** Open positions on every exchange: one balance can back a stock position as easily as a bitcoin one. */
 export async function readOpenPositions(address: TradingAddress, signal?: AbortSignal) {
-  const state = await clearinghouseState(info, { user: address }, signal);
-  return state.assetPositions.map(({ position }) => position).filter(position => Number(position.szi) !== 0);
+  const states = await Promise.all((await exchangeNames(signal)).map(dex => clearinghouseState(info, { user: address, dex }, signal)));
+  return states.flatMap(state => state.assetPositions.map(({ position }) => position)).filter(position => Number(position.szi) !== 0);
 }
 
 /** A position as a standing sentence, with the figures someone checks first. */

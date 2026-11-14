@@ -99,7 +99,8 @@ export async function requestSignatures(signed: SignedIntent, digests: Uint8Arra
   await verifySignerDeployment();
   relayer ??= new Account(process.env.TRADING_RELAYER_ACCOUNT!, provider(), process.env.TRADING_RELAYER_KEY as KeyPairString);
   const result = await relayer.signAndSendTransaction({
-    receiverId: VERIFIER, actions: [actions.functionCall('execute_intents', { signed: [signed] }, teraToGas(250))],
+    // Three digests take two signer calls, each with its own 100 Tgas floor, so they get the most a transaction can carry.
+    receiverId: VERIFIER, actions: [actions.functionCall('execute_intents', { signed: [signed] }, teraToGas(digests.length > 2 ? 300 : 250))],
     waitUntil: 'FINAL',
   });
   const candidates: unknown[] = [];

@@ -1,5 +1,5 @@
 import { HttpTransport } from '@nktkas/hyperliquid';
-import { clearinghouseState, l2Book, metaAndAssetCtxs, orderStatus, perpDexs, spotMeta, userNonFundingLedgerUpdates } from '@nktkas/hyperliquid/api/info';
+import { clearinghouseState, l2Book, metaAndAssetCtxs, orderStatus, perpDexs, spotClearinghouseState, spotMeta, userAbstraction, userNonFundingLedgerUpdates } from '@nktkas/hyperliquid/api/info';
 import { formatSize } from '@nktkas/hyperliquid/utils';
 import { hyperliquidMarket, type Market } from '@fourfivex/markets-protocol/markets';
 import type { TradingBalance } from '../account/portfolio';
@@ -81,17 +81,50 @@ export async function readPosition(market: Perpetual, user: TradingAddress, sign
 
 export const readOrderStatus = (user: TradingAddress, id: TradingAddress) => orderStatus(info, { user, oid: id });
 
+/** Hyperliquid modes in which one USDC balance backs every market that settles in USDC. */
+export const sharesBalance = (mode: string) => mode === 'unifiedAccount' || mode === 'portfolioMargin';
+
+export const readAbstraction = (user: TradingAddress, signal?: AbortSignal) => userAbstraction(info, { user }, signal);
+
+export type TradingFunds = TradingBalance & { shared: boolean };
+
+/**
+ * The trading balance in either mode. With one balance, Hyperliquid reports it all as spot USDC:
+ * `total` already counts open positions' margin and profit, and `hold` is the margin they use.
+ * Otherwise the balance is the main exchange's perp account, as it was before the switch.
+ */
+export async function readFunds(user: TradingAddress, signal?: AbortSignal): Promise<TradingFunds> {
+  const [mode, spot, perp] = await Promise.all([
+    readAbstraction(user, signal), spotClearinghouseState(info, { user }, signal), clearinghouseState(info, { user }, signal),
+  ]);
+  return fundsFrom(mode, spot, perp);
+}
+
+type SpotState = Awaited<ReturnType<typeof spotClearinghouseState>>;
+type PerpState = Awaited<ReturnType<typeof clearinghouseState>>;
+
+export function fundsFrom(mode: string, spot: Pick<SpotState, 'balances'>, perp: Pick<PerpState, 'marginSummary' | 'withdrawable'>): TradingFunds {
+  if (sharesBalance(mode)) {
+    const usdc = spot.balances.find(balance => balance.coin === 'USDC');
+    const total = Number(usdc?.total ?? 0);
+    const hold = Number(usdc?.hold ?? 0);
+    if (!Number.isFinite(total) || !Number.isFinite(hold)) throw new Error('Hyperliquid returned an invalid balance.');
+    return { shared: true, equity: total, withdrawable: Math.max(0, total - hold) };
+  }
+  const equity = Number(perp.marginSummary.accountValue);
+  const withdrawable = Number(perp.withdrawable);
+  if (!perp.marginSummary.accountValue || !perp.withdrawable || !Number.isFinite(equity) || !Number.isFinite(withdrawable)) {
+    throw new Error('Hyperliquid returned an invalid balance.');
+  }
+  return { shared: false, equity, withdrawable };
+}
+
 export async function readWithdrawable(user: TradingAddress, signal?: AbortSignal) {
-  return (await clearinghouseState(info, { user }, signal)).withdrawable;
+  return String((await readFunds(user, signal)).withdrawable);
 }
 
 export async function readTradingBalance(user: TradingAddress, signal?: AbortSignal): Promise<TradingBalance> {
-  const state = await clearinghouseState(info, { user }, signal);
-  const equity = Number(state.marginSummary.accountValue);
-  const withdrawable = Number(state.withdrawable);
-  if (!state.marginSummary.accountValue || !state.withdrawable || !Number.isFinite(equity) || !Number.isFinite(withdrawable)) {
-    throw new Error('Hyperliquid returned an invalid balance.');
-  }
+  const { equity, withdrawable } = await readFunds(user, signal);
   return { equity, withdrawable };
 }
 
