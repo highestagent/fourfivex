@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SendPlan } from "../verbs";
-import { PriceMoved, send, type Receipt } from "./flow";
+import { PriceMoved, send, sendMany, type Receipt } from "./flow";
 import { sent } from "./history";
 import type { Prepared } from "./types";
 
@@ -31,25 +31,39 @@ export function useSend() {
       setError(null);
       setReceipt(null);
       setSubmitted(false);
-      send(plan.ask, {
-        shown: plan.shown,
-        source: plan.source,
-        onStep: (s) => alive.current && setStep(s),
-        onSubmitted: ({ depositAddress, intentHash }) => {
-          sent.add({
-            id: depositAddress,
-            accountId: plan.ask.accountId,
-            kind: record.kind,
-            text: record.text,
-            waitingText: record.waitingText,
-            at: Date.now(),
-            state: "waiting",
-            intentHash,
-            links: [],
-          });
-          if (alive.current) setSubmitted(true);
-        },
-      }).then(
+      const [first] = plan.legs;
+      const onStep = (s: string) => {
+        if (alive.current) setStep(s);
+      };
+      const remember = (addresses: string[], intentHash: string) => {
+        sent.add({
+          id: addresses[0],
+          ...(addresses.length > 1 ? { legs: addresses } : {}),
+          accountId: first.ask.accountId,
+          kind: record.kind,
+          text: record.text,
+          waitingText: record.waitingText,
+          at: Date.now(),
+          state: "waiting",
+          intentHash,
+          links: addresses.length > 1 ? [{ hash: intentHash, url: `https://nearblocks.io/txns/${intentHash}` }] : [],
+        });
+        if (alive.current) setSubmitted(true);
+      };
+      const running = plan.legs.length === 1
+        ? send(first.ask, {
+          shown: plan.shown,
+          source: first.source,
+          onStep,
+          onSubmitted: ({ depositAddress, intentHash }) => remember([depositAddress], intentHash),
+        })
+        : sendMany(plan.legs, {
+          shown: plan.shown,
+          shownUsd: plan.shownUsd,
+          onStep,
+          onSubmitted: ({ depositAddresses, intentHash }) => remember(depositAddresses, intentHash),
+        });
+      running.then(
         (r) => {
           // Always recorded: the send went ahead whether or not anyone is watching.
           sent.update(r.depositAddress, { state: r.state, links: r.links });
@@ -63,7 +77,7 @@ export function useSend() {
             setMoved(e.prepared);
             setError(null);
           } else {
-            // Once a send is accepted `send` no longer throws, so this means nothing was sent.
+            // Once a send is accepted it no longer throws, so this means nothing was sent.
             setError(e instanceof Error ? e.message : "Something went wrong. Nothing was sent.");
           }
           setPhase("idle");

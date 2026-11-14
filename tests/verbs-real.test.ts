@@ -73,13 +73,12 @@ describe("change, for a real account", () => {
     expect(real.out(vals(), ctx({ holdings: null })).blocked).toBe("Reading your account…");
     expect(real.out(vals({ from: "eth", to: "usd" }), ctx()).blocked).toBe("You don’t hold any ether yet.");
     // Held in one place: the person simply has less than they typed.
-    expect(real.out(vals({ amt: 100 }), ctx()).blocked).toBe(
-      "You hold $80.00 of bitcoin. That is the most this sentence can use.",
-    );
-    // Held in two places that would cover it together: the one-source limit is the real reason.
+    expect(real.out(vals({ amt: 100 }), ctx()).blocked).toBe("You can use up to $80.00 of your bitcoin.");
+    // Held in two places that cover it together: one send draws on both.
     const split = hold(part("usd", 30, "nep141:usdc-a"), part("usd", 25, "nep141:usdc-b"));
-    expect(real.out(vals({ amt: 50, from: "usd", to: "btc" }), ctx({ holdings: split })).blocked).toBe(
-      "Your dollars are spread across networks. The most one sentence can use is $30.00.",
+    expect(real.out(vals({ amt: 50, from: "usd", to: "btc" }), ctx({ holdings: split })).blocked).toBeUndefined();
+    expect(real.out(vals({ amt: 60, from: "usd", to: "btc" }), ctx({ holdings: split })).blocked).toBe(
+      "You can use up to $55.00 of your dollars.",
     );
     expect(real.out(vals(), ctx({ quote: { status: "no-offer" } })).blocked).toMatch(/No one is offering/);
     expect(real.out(vals(), ctx({ quote: { status: "loading" } })).blocked).toBe("Getting a price…");
@@ -107,9 +106,18 @@ describe("change, for a real account", () => {
 
   it("plans from the source token and the quote on screen", () => {
     const plan = real.plan!(vals(), ctx())!;
-    expect(plan.ask).toEqual({ kind: "change", accountId: "0xabc", fromAssetId: BTC.assetId, to: "usd", usd: 10 });
-    expect(plan.source).toBe(BTC);
+    expect(plan.legs).toEqual([{ ask: { kind: "change", accountId: "0xabc", fromAssetId: BTC.assetId, to: "usd", usd: 10 }, source: BTC }]);
     expect(plan.shown).toBe(9.9);
+  });
+
+  it("plans one part per holding when the money sits on several networks", () => {
+    const a = part("usd", 30, "nep141:usdc-a");
+    const b = part("usd", 25, "nep141:usdc-b");
+    const plan = real.plan!(vals({ amt: 50, from: "usd", to: "btc" }), ctx({ holdings: hold(a, b) }))!;
+    expect(plan.legs).toEqual([
+      { ask: { kind: "change", accountId: "0xabc", fromAssetId: a.assetId, to: "btc", usd: 30 }, source: a },
+      { ask: { kind: "change", accountId: "0xabc", fromAssetId: b.assetId, to: "btc", usd: 20 }, source: b },
+    ]);
   });
 
   it("plans from the final price once it moved", () => {

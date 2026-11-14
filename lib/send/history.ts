@@ -8,8 +8,10 @@ import { useSyncExternalStore } from "react";
 import type { SendState } from "./types";
 
 export type SentEntry = {
-  /** The deposit address. */
+  /** The deposit address, or the first one of a send split across networks. */
   id: string;
+  /** Every deposit address of a send split across networks. */
+  legs?: string[];
   accountId: string;
   kind: "change" | "pay" | "add" | "withdraw";
   /** Past tense, for when it is done. */

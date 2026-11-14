@@ -2,6 +2,7 @@
 
 import { NetworkError } from "../account/api";
 import type { SignedIntent } from "../account/intents";
+import { combinedStatus } from "./legs";
 import type { Prepared, SendAsk, SendStatus, TransferAsset } from "./types";
 
 async function post<T>(body: Record<string, unknown>): Promise<T> {
@@ -29,3 +30,16 @@ export const submitSend = async (depositAddress: string, signed: SignedIntent) =
 
 export const sendStatus = async (depositAddress: string) =>
   (await post<{ status: SendStatus }>({ op: "status", depositAddress })).status;
+
+/** The message to sign for a send split across networks: one transfer per quote. */
+export const combineSend = async (accountId: string, depositAddresses: string[]) =>
+  (await post<{ payload: string }>({ op: "combine", accountId, depositAddresses })).payload;
+
+export const submitSendMany = async (depositAddresses: string[], signed: SignedIntent) =>
+  (await post<{ intentHash: string }>({ op: "submit-many", depositAddresses, signed })).intentHash;
+
+/** Where a recorded send is: one quote's status, or all of them combined for a send split across networks. */
+export async function entryStatus(entry: { id: string; legs?: string[] }): Promise<SendStatus> {
+  if (!entry.legs?.length) return sendStatus(entry.id);
+  return combinedStatus(await Promise.all(entry.legs.map(sendStatus)));
+}

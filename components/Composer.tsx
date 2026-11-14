@@ -111,10 +111,11 @@ export function Composer({
     const plan = variant.plan?.(vals, ctx);
     if (!plan) return;
     setFrozen(current);
-    engine.start(plan, { kind: plan.ask.kind, text: current.past, waitingText: current.waiting ?? current.past });
+    engine.start(plan, { kind: plan.legs[0].ask.kind, text: current.past, waitingText: current.waiting ?? current.past });
   };
 
   const summary = sendState === "done" ? outcome.past
+    : sendState === "partial" ? "Only part went through. The rest is back in your account."
     : sendState === "refunded" ? "The funds were returned."
       : sendState === "failed" ? "The transaction failed."
         : receipt ? outcome.waiting : null;

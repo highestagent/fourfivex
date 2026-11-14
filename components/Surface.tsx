@@ -8,7 +8,7 @@ import { useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
 import { when } from "@/lib/format";
 import { usePrices } from "@/lib/hooks";
-import { sendStatus } from "@/lib/send/api";
+import { entryStatus } from "@/lib/send/api";
 import { describePosition, type TradingEvent } from "@/lib/markets/activity";
 import { useTradingActivity } from "@/lib/markets/useTradingActivity";
 import { sent, useSent, type SentEntry } from "@/lib/send/history";
@@ -54,6 +54,7 @@ const STATE_LABEL: Record<SentEntry["state"], string> = {
   refunded: "Refunded",
   failed: "Failed",
   short: "Deposit short",
+  partial: "Partly done",
 };
 
 type View = (typeof VIEWS)[number]["key"];
@@ -132,15 +133,17 @@ export default function Surface() {
   const pending = history.filter(isPending);
   const deposits = pending.filter((entry) => entry.kind === "add" && !isExpired(entry, now));
   const standing = deposits.length + arriving.length + trading.positions.length;
-  const watch = pending.map(({ id }) => id).join(",");
+  // Each pending send as "id|part|part": a send split across networks is followed part by part.
+  const watch = pending.map(({ id, legs }) => [id, ...(legs ?? [])].join("|")).join(",");
   useEffect(() => {
     if (!watch) return;
     let active = true;
     const poll = () => {
       setNow(Date.now());
-      for (const id of watch.split(",")) {
-        sendStatus(id).then((status) => {
-          if (active) sent.update(id, { state: status.state, links: status.links });
+      for (const item of watch.split(",")) {
+        const [id, ...legs] = item.split("|");
+        entryStatus({ id, legs }).then((status) => {
+          if (active) sent.update(id, { state: status.state, ...(status.links.length ? { links: status.links } : {}) });
         }).catch(() => {});
       }
     };

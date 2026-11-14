@@ -3,13 +3,15 @@
  * questions before anything is signed: what arrives, what leaves, when, who can see it,
  * what happens if it fails, and whether it can be undone.
  */
-import type { Holdings, Part as Held } from "./account/holdings";
+import type { Holdings } from "./account/holdings";
 import { ASSETS, HOLDINGS, type AssetKey, type Prices } from "./assets";
 import { coin, cost, pct, usd, usd0, wait } from "./format";
 import type { QuoteAsk, QuoteOk } from "./oneclick";
-import { pickSource } from "./send/source";
+import { networkName } from "./send/address";
+import type { PlanLeg } from "./send/flow";
+import { joinNames, pickSources, type Sources } from "./send/source";
 import type { Person } from "./send/people";
-import { NETWORK_NAME, type Prepared, type SendAsk } from "./send/types";
+import { NETWORK_NAME, type Prepared } from "./send/types";
 
 export type VerbKey = "pay" | "change" | "grow" | "borrow" | "ask";
 export type Vals = Record<string, string | number>;
@@ -64,7 +66,8 @@ export type Slot = { cap: string; kind?: "choice" | "amount" | "person"; opts: (
 export type Part = string | { slot: string };
 
 /** What a real send needs: who is asking, what they saw, and the one token it draws from. */
-export type SendPlan = { ask: Extract<SendAsk, { kind: "change" | "pay" }>; shown: number; source: Held };
+/** What a real send needs: one part per holding it draws on (usually one), and what the person saw. */
+export type SendPlan = { legs: PlanLeg[]; shown: number; shownUsd: number };
 
 /** The same sentence for a real account: choices come from what it holds, and it can be sent. */
 export type RealVariant = {
@@ -189,15 +192,28 @@ function biggestGroup(h: Holdings | null): Money {
   return best;
 }
 
-/**
- * Why a send can't be covered. Usually the person simply holds less than they typed. Only when
- * the money sits on several networks is the one-source limit the real reason, so say that only then.
- */
-function shortReason(holdings: Holdings | null, group: Money, most: number): string {
-  const word = heldWord(group);
-  const places = holdings ? holdings.parts.filter((p) => p.group === group && p.usd > 0).length : 1;
-  if (places <= 1) return `You hold ${usd(most)} of ${word}. That is the most this sentence can use.`;
-  return `Your ${word} ${group === "usd" ? "are" : "is"} spread across networks. The most one sentence can use is ${usd(most)}.`;
+/** Why a send can't be covered: everything it could draw on, across networks, still falls short. */
+function shortReason(group: Money, most: number): string {
+  return `You can use up to ${usd(most)} of your ${heldWord(group)}.`;
+}
+
+/** Kept back on each holding of a split pay, whose parts each pay their own costs. */
+const SPLIT_MARGIN = 0.01;
+
+/** What leaves per dollar delivered: from the quote when it is for this amount, else an estimate. */
+function payRatio(q: QuoteOk | null, amt: number): number {
+  return q && Math.abs(q.amountOut - amt) < 0.005 ? Math.max(1, q.amountInUsd / amt) : 1.013;
+}
+
+/** "from Base and Arbitrum" when a send draws on several networks; nothing when it draws on one. */
+function fromNetworks(src: Sources | null): string {
+  return src?.kind === "ok" && src.draws.length > 1 ? `from ${joinNames(src.draws.map((d) => networkName(d.part.network)))}` : "";
+}
+
+/** Adds where the money comes from to the "Leaves you" line of a split send. */
+function withSources(rows: Row[], src: Sources | null): Row[] {
+  const from = fromNetworks(src);
+  return from ? rows.map((row) => (row.k === "Leaves you" ? { ...row, sub: [row.sub, from].filter(Boolean).join(" · ") } : row)) : rows;
 }
 
 /** Only the kinds of money the account actually holds. Shared by every real sentence that spends. */
@@ -230,9 +246,9 @@ const changeReal: RealVariant = {
   ask(v, c) {
     const amt = Number(v.amt);
     if (tooSmall(amt) || !c.holdings || v.from === v.to) return null;
-    const src = pickSource(c.holdings, v.from as Money, amt);
+    const src = pickSources(c.holdings, v.from as Money, amt);
     if (src.kind !== "ok") return null;
-    return { kind: "change", from: v.from as AssetKey, to: v.to as AssetKey, usd: amt, fromAssetId: src.part.assetId };
+    return { kind: "change", from: v.from as AssetKey, to: v.to as AssetKey, usd: amt, fromAssetId: src.draws[0].part.assetId };
   },
   out(v, c) {
     const raw = Number(v.amt);
@@ -256,16 +272,17 @@ const changeReal: RealVariant = {
     base.status = m ? { label: "Final price", tone: "live" } : quoteStatus(c.quote);
 
     let blocked: string | undefined;
-    const src = c.holdings && !tooSmall(raw) ? pickSource(c.holdings, from, raw) : null;
+    const src = c.holdings && !tooSmall(raw) ? pickSources(c.holdings, from, raw) : null;
     if (tooSmall(raw)) blocked = MIN_AMOUNT;
     else if (!c.holdings) blocked = "Reading your account…";
     else if (from === to) blocked = "Choose a different asset to receive.";
     else if (src?.kind === "empty") blocked = `You don’t hold any ${heldWord(from)} yet.`;
-    else if (src?.kind === "short") blocked = shortReason(c.holdings, from, src.most);
+    else if (src?.kind === "short") blocked = shortReason(from, src.most);
     else if (!m && c.quote.status === "no-offer") blocked = NO_OFFER;
     else if (!m && c.quote.status !== "live") blocked = "Getting a price…";
     return {
       ...base,
+      rows: withSources(base.rows, src),
       past: `You changed ${usd(amt)} of your ${heldWord(from)} into ${heldWord(to)}.`,
       waiting: `Changing ${usd(amt)} of your ${heldWord(from)} into ${heldWord(to)}.`,
       blocked,
@@ -274,14 +291,19 @@ const changeReal: RealVariant = {
   plan(v, c): SendPlan | null {
     const amt = Number(v.amt);
     if (changeReal.out(v, c).blocked || !c.holdings || !c.accountId) return null;
-    const src = pickSource(c.holdings, v.from as Money, amt);
+    const src = pickSources(c.holdings, v.from as Money, amt);
     if (src.kind !== "ok") return null;
-    const shown = c.moved ? c.moved.arrives.amount : c.quote.status === "live" ? c.quote.data.amountOut : null;
-    if (shown === null) return null;
+    const quoted = c.moved ? { out: c.moved.arrives.amount, inUsd: c.moved.leaves.usd }
+      : c.quote.status === "live" ? { out: c.quote.data.amountOut, inUsd: c.quote.data.amountInUsd } : null;
+    if (!quoted) return null;
+    const accountId = c.accountId;
     return {
-      ask: { kind: "change", accountId: c.accountId, fromAssetId: src.part.assetId, to: v.to as AssetKey, usd: amt },
-      shown,
-      source: src.part,
+      legs: src.draws.map((d) => ({
+        ask: { kind: "change", accountId, fromAssetId: d.part.assetId, to: v.to as AssetKey, usd: d.usd },
+        source: d.part,
+      })),
+      shown: quoted.out,
+      shownUsd: quoted.inUsd,
     };
   },
 };
@@ -321,9 +343,9 @@ const payReal: RealVariant = {
     const amt = Number(v.amt);
     const person = c.people.find((p) => p.id === v.who);
     if (tooSmall(amt) || !person || !c.holdings) return null;
-    const src = pickSource(c.holdings, v.from as Money, amt);
+    const src = pickSources(c.holdings, v.from as Money, amt);
     if (src.kind !== "ok") return null;
-    return { kind: "pay", from: v.from as AssetKey, usd: amt, fromAssetId: src.part.assetId, toNetwork: person.network };
+    return { kind: "pay", from: v.from as AssetKey, usd: amt, fromAssetId: src.draws[0].part.assetId, toNetwork: person.network };
   },
   out(v, c) {
     const raw = Number(v.amt);
@@ -338,20 +360,19 @@ const payReal: RealVariant = {
     const leaves = q ? q.amountIn : leavesUsd / c.prices[from];
     const fee = Math.max(0, leavesUsd - amt);
 
-    const src = c.holdings && !tooSmall(raw) ? pickSource(c.holdings, from, raw) : null;
+    const src = c.holdings && !tooSmall(raw) ? pickSources(c.holdings, from, raw, payRatio(q, raw), SPLIT_MARGIN) : null;
     let blocked: string | undefined;
     if (tooSmall(raw)) blocked = MIN_AMOUNT;
     else if (!c.holdings) blocked = "Reading your account…";
     else if (v.who === NEW_PERSON) blocked = "Add their details above first.";
     else if (!person) blocked = "Choose who to pay.";
     else if (src?.kind === "empty") blocked = `You don’t hold any ${heldWord(from)} yet.`;
-    else if (src?.kind === "short") blocked = shortReason(c.holdings, from, src.most);
-    else if (src?.kind === "ok" && q && q.amountInUsd > src.part.usd) blocked = shortReason(c.holdings, from, src.part.usd);
+    else if (src?.kind === "short") blocked = shortReason(from, src.most);
     else if (!m && c.quote.status === "no-offer") blocked = NO_OFFER;
     else if (!m && c.quote.status !== "live") blocked = "Getting a price…";
 
     return {
-      rows: [
+      rows: withSources([
         {
           k: person ? `${name} gets` : "They get",
           v: `${usd(amt)} exactly, as dollars`,
@@ -372,7 +393,7 @@ const payReal: RealVariant = {
         },
         { k: "If it fails", v: "your money comes back to your account" },
         { k: "Once it arrives", v: `only ${person ? name : "they"} can send it back`, tone: "stop" },
-      ],
+      ], src),
       status: m ? { label: "Final price", tone: "live" } : quoteStatus(c.quote),
       cta: "Hold to sign",
       hold: 900,
@@ -389,19 +410,16 @@ const payReal: RealVariant = {
     const amt = Number(v.amt);
     const person = c.people.find((p) => p.id === v.who);
     if (payReal.out(v, c).blocked || !c.holdings || !c.accountId || !person) return null;
-    const src = pickSource(c.holdings, v.from as Money, amt);
     const q = payQuote(c);
-    if (src.kind !== "ok" || !q) return null;
+    if (!q) return null;
+    const src = pickSources(c.holdings, v.from as Money, amt, payRatio(q, amt), SPLIT_MARGIN);
+    if (src.kind !== "ok") return null;
+    const accountId = c.accountId;
+    const to = { address: person.address, network: person.network };
     return {
-      ask: {
-        kind: "pay",
-        accountId: c.accountId,
-        fromAssetId: src.part.assetId,
-        usd: amt,
-        to: { address: person.address, network: person.network },
-      },
+      legs: src.draws.map((d) => ({ ask: { kind: "pay", accountId, fromAssetId: d.part.assetId, usd: d.usd, to }, source: d.part })),
       shown: q.amountIn,
-      source: src.part,
+      shownUsd: q.amountInUsd,
     };
   },
 };

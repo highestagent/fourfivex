@@ -4,8 +4,8 @@ import type { Part } from "../lib/account/holdings";
 import { challengeFor, signedIntent } from "../lib/account/intents";
 import { accountIdOf } from "../lib/account/keys";
 import { displayUnits, withdrawalUnits } from "../lib/send/amount";
-import { PriceMoved, send, type SendDeps } from "../lib/send/flow";
-import type { Leg, Prepared, SendStatus } from "../lib/send/types";
+import { PriceMoved, send, sendMany, type SendDeps } from "../lib/send/flow";
+import type { Leg, Prepared, SendAsk, SendStatus } from "../lib/send/types";
 import { makeAuthenticator } from "./virtual-authenticator";
 
 const passkey = makeAuthenticator();
@@ -68,12 +68,14 @@ const pay = {
 function deps(p: Prepared, statuses: (SendStatus | Error)[] = [{ state: "done", arrived: { amount: 50, usd: 50 }, links: [] }]) {
   let i = 0;
   const d = {
-    prepare: vi.fn(async () => p),
+    prepare: vi.fn<(ask: SendAsk) => Promise<Prepared>>(async () => p),
     signPayload: vi.fn(async (_id: string, payload: string) =>
       signedIntent(payload, passkey.publicKey, passkey.assert(challengeFor(payload))),
     ),
     submit: vi.fn(async () => "hash123"),
-    status: vi.fn(async () => {
+    combine: vi.fn(async () => ""),
+    submitMany: vi.fn(async () => "tx123"),
+    status: vi.fn<(address: string) => Promise<SendStatus>>(async () => {
       const s = statuses[Math.min(i++, statuses.length - 1)];
       if (s instanceof Error) throw s;
       return s;
@@ -202,5 +204,92 @@ describe("wallet withdrawal amounts", () => {
 
   it.each(["0", "-1", "1e2", "1.0000001"])("rejects %s for a six-decimal token", input => {
     expect(withdrawalUnits(input, 6)).toBeUndefined();
+  });
+});
+
+describe("sendMany", () => {
+  const BASE = "nep141:base-usdc";
+  const ARB = "nep141:arb-usdc";
+  const DEPOSITS = ["a".repeat(64), "b".repeat(64)];
+  const holding = (assetId: string, units: string): Part => ({ ...source(units), assetId, group: "usd" });
+  const legs = [
+    { ask: { ...change, fromAssetId: BASE, usd: 30 }, source: holding(BASE, "40000000") },
+    { ask: { ...change, fromAssetId: ARB, usd: 20 }, source: holding(ARB, "40000000") },
+  ];
+  const quote = (i: number, units = String((30 - 10 * i) * 1e6)): Prepared => prepared({
+    depositAddress: DEPOSITS[i],
+    leaves: { ...leg([BASE, ARB][i], units, 30 - 10 * i, 30 - 10 * i), decimals: 6 },
+    arrives: leg(BTC, String((30 - 10 * i) * 1000), (30 - 10 * i) / 100000, 30 - 10 * i),
+  });
+  const combined = (over: { units?: string[]; receivers?: string[] } = {}) => JSON.stringify({
+    verifying_contract: "intents.near",
+    signer_id: accountId,
+    deadline: new Date(Date.now() + 3 * 60_000).toISOString(),
+    nonce: "AAAA",
+    intents: [0, 1].map((i) => ({
+      intent: "transfer",
+      receiver_id: over.receivers?.[i] ?? DEPOSITS[i],
+      tokens: { [[BASE, ARB][i]]: over.units?.[i] ?? String((30 - 10 * i) * 1e6) },
+    })),
+  });
+  const many = (quotes: Prepared[], payload: string, statuses: SendStatus[][]) => {
+    let polls = 0;
+    const d = deps(quotes[0]);
+    d.prepare.mockImplementation(async (ask) => quotes[(ask as { fromAssetId: string }).fromAssetId === BASE ? 0 : 1]);
+    d.combine.mockImplementation(async () => payload);
+    d.status.mockImplementation(async (address: string) => {
+      const round = statuses[Math.min(Math.floor(polls++ / 2), statuses.length - 1)];
+      return round[DEPOSITS.indexOf(address)];
+    });
+    return d;
+  };
+  const done = (amount: number): SendStatus => ({ state: "done", arrived: { amount, usd: amount }, links: [] });
+
+  it("signs once for every part and follows them to the end", async () => {
+    const message = combined();
+    const d = many([quote(0), quote(1)], message, [
+      [{ state: "working", links: [] }, { state: "waiting", links: [] }],
+      [done(0.0003), done(0.0002)],
+    ]);
+    const steps: string[] = [];
+    const submitted: string[][] = [];
+    const r = await sendMany(legs, {
+      shown: 0.0005, shownUsd: 50, onStep: (s) => steps.push(s),
+      onSubmitted: ({ depositAddresses }) => submitted.push(depositAddresses),
+    }, d);
+    expect(d.combine).toHaveBeenCalledWith(accountId, DEPOSITS);
+    expect(d.signPayload).toHaveBeenCalledTimes(1);
+    expect(d.signPayload).toHaveBeenCalledWith(accountId, message);
+    expect(d.submitMany).toHaveBeenCalledWith(DEPOSITS, expect.objectContaining({ payload: message }));
+    expect(submitted).toEqual([DEPOSITS]);
+    expect(r).toMatchObject({ depositAddress: DEPOSITS[0], legs: DEPOSITS, intentHash: "tx123", state: "done", arrived: { amount: 0.0005 } });
+    expect(steps).toContain("Waiting for your passkey");
+  });
+
+  it("calls it partial when one part arrives and the other comes back", async () => {
+    const d = many([quote(0), quote(1)], combined(), [[done(0.0003), { state: "refunded", refunded: { amount: 20 }, links: [] }]]);
+    const r = await sendMany(legs, { shown: 0.0005, shownUsd: 50, onStep: () => {} }, d);
+    expect(r.state).toBe("partial");
+  });
+
+  it("asks again when the parts together come to less than was shown", async () => {
+    const d = many([quote(0), quote(1)], combined(), [[done(0)]]);
+    await expect(sendMany(legs, { shown: 0.001, shownUsd: 50, onStep: () => {} }, d)).rejects.toBeInstanceOf(PriceMoved);
+    expect(d.signPayload).not.toHaveBeenCalled();
+  });
+
+  it("stops before signing when a part asks for more than its holding has", async () => {
+    const d = many([quote(0, "50000000"), quote(1)], combined(), [[done(0)]]);
+    await expect(sendMany(legs, { shown: 0.0005, shownUsd: 60, onStep: () => {} }, d)).rejects.toThrow("doesn't hold enough");
+    expect(d.signPayload).not.toHaveBeenCalled();
+  });
+
+  it("stops before signing when the message doesn't match the quotes", async () => {
+    for (const payload of [combined({ units: ["30000001", "20000000"] }), combined({ receivers: [DEPOSITS[0], "c".repeat(64)] })]) {
+      const d = many([quote(0), quote(1)], payload, [[done(0)]]);
+      await expect(sendMany(legs, { shown: 0.0005, shownUsd: 50, onStep: () => {} }, d)).rejects.toThrow("before anything was signed");
+      expect(d.signPayload).not.toHaveBeenCalled();
+      expect(d.submitMany).not.toHaveBeenCalled();
+    }
   });
 });

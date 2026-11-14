@@ -94,13 +94,12 @@ describe("pay, for a real account", () => {
     expect(real.out(vals({ who: "" }), ctx()).blocked).toBe("Choose who to pay.");
     expect(real.out(vals({ who: "gone" }), ctx()).blocked).toBe("Choose who to pay.");
     expect(real.out(vals({ from: "eth" }), ctx()).blocked).toBe("You don’t hold any ether yet.");
-    expect(real.out(vals({ amt: 100 }), ctx()).blocked).toBe(
-      "You hold $80.00 of bitcoin. That is the most this sentence can use.",
-    );
-    // The price asks for more than the token holds.
-    const dear: QuoteOk = { ...quoteOk, amountInUsd: 81 };
+    // Everything it could draw on, after costs, falls short.
+    expect(real.out(vals({ amt: 100 }), ctx()).blocked).toBe("You can use up to $78.19 of your bitcoin.");
+    // The price for this amount asks for more than the one holding has.
+    const dear: QuoteOk = { ...quoteOk, amountOut: 79, amountInUsd: 81 };
     expect(real.out(vals({ amt: 79 }), ctx({ quote: { status: "live", data: dear } })).blocked).toBe(
-      "You hold $80.00 of bitcoin. That is the most this sentence can use.",
+      "You can use up to $77.25 of your bitcoin.",
     );
     expect(real.out(vals(), ctx({ quote: { status: "no-offer" } })).blocked).toMatch(/No one is offering/);
     expect(real.out(vals(), ctx({ quote: { status: "loading" } })).blocked).toBe("Getting a price…");
@@ -135,15 +134,17 @@ describe("pay, for a real account", () => {
 
   it("plans to the person's address and network from the token held", () => {
     const plan = real.plan!(vals(), ctx())!;
-    expect(plan.ask).toEqual({
+    expect(plan.legs).toHaveLength(1);
+    expect(plan.legs[0].ask).toEqual({
       kind: "pay",
       accountId: "0xabc",
       fromAssetId: BTC.assetId,
       usd: 10,
       to: { address: MAYA.address, network: "base" },
     });
-    expect(plan.source).toBe(BTC);
+    expect(plan.legs[0].source).toBe(BTC);
     expect(plan.shown).toBe(0.0005);
+    expect(plan.shownUsd).toBe(10.1);
   });
 
   it("plans from what leaves in the final price once it moved", () => {

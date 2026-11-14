@@ -22,6 +22,7 @@ const states: Record<SendStatus["state"], string> = {
   done: "Transfer complete",
   refunded: "Funds refunded",
   failed: "Transfer failed",
+  partial: "Partly sent",
 };
 
 type Transfer = { quote: Prepared; destination: string };
