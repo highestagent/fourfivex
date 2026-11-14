@@ -30,9 +30,13 @@ const LEADING = ["USDC", "USDT", "ETH", "SOL", "BTC", "TRX", "BNB", "POL", "AVAX
 
 export const chainName = (chain: string) => CHAIN_NAMES[chain] ?? chain;
 
+/** The bridge can hang rather than fail when it is down, so every call gives up after this long. */
+const TIMEOUT = 10_000;
+
 async function rpc<T>(method: string, params: object, signal?: AbortSignal): Promise<T> {
+  const timeout = AbortSignal.timeout(TIMEOUT);
   const response = await fetch(BRIDGE, {
-    method: "POST", headers: { "Content-Type": "application/json" }, signal,
+    method: "POST", headers: { "Content-Type": "application/json" }, signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     body: JSON.stringify({ jsonrpc: "2.0", id: method, method, params: [params] }),
   });
   if (!response.ok) throw new Error("Deposits are unavailable.");
@@ -45,6 +49,37 @@ export async function depositAddress(accountId: string, chain: string, signal?: 
   const { address } = await rpc<{ address?: unknown }>("deposit_address", { account_id: accountId, chain }, signal);
   if (typeof address !== "string" || !address) throw new Error("Deposits are unavailable.");
   return address;
+}
+
+/**
+ * Addresses this device has been given. They are lasting, so one seen once can show straight away next time,
+ * even while the bridge is down. They are public, like everything else the device remembers.
+ */
+const REMEMBERED = "fourfivex.deposit-addresses.v1";
+type Remembered = Record<string, Record<string, string>>;
+
+function remembered(): Remembered {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(REMEMBERED) ?? "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value as Remembered : {};
+  } catch {
+    return {};
+  }
+}
+
+export function rememberedAddress(accountId: string, chain: string): string | undefined {
+  const value = remembered()[accountId]?.[chain];
+  return typeof value === "string" && value ? value : undefined;
+}
+
+export function rememberAddress(accountId: string, chain: string, address: string) {
+  try {
+    const all = remembered();
+    all[accountId] = { ...all[accountId], [chain]: address };
+    localStorage.setItem(REMEMBERED, JSON.stringify(all));
+  } catch {
+    /* storage blocked: the address is simply fetched again next time */
+  }
 }
 
 type Token = { symbol: string; decimals: number; min: number };

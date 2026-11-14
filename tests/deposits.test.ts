@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { DEPOSIT_NETWORKS, depositAmount, leadingSymbols, parseDeposits } from "../lib/account/deposits";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEPOSIT_NETWORKS, depositAddress, depositAmount, leadingSymbols, parseDeposits, rememberAddress, rememberedAddress } from "../lib/account/deposits";
 
 const BASE_USDC = "base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near";
 const tokens = new Map([
@@ -44,4 +44,53 @@ describe("leadingSymbols", () => {
     expect(leadingSymbols(tokens, evm)).toEqual({ symbols: ["USDC", "ETH"], more: true });
     expect(leadingSymbols(tokens, DEPOSIT_NETWORKS.find(network => network.id === "sol")!)).toEqual({ symbols: ["SOL"], more: false });
   });
+});
+
+describe("lasting deposit addresses", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const storage = () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+    });
+    return values;
+  };
+  const account = "0x" + "ab".repeat(20);
+
+  it("remembers each address per account and network, so it shows while the bridge is down", () => {
+    storage();
+    expect(rememberedAddress(account, "eth:1")).toBeUndefined();
+    rememberAddress(account, "eth:1", "0x1111111111111111111111111111111111111111");
+    rememberAddress(account, "sol:mainnet", "So1anaAddress");
+    rememberAddress("0x" + "cd".repeat(20), "eth:1", "0x2222222222222222222222222222222222222222");
+    expect(rememberedAddress(account, "eth:1")).toBe("0x1111111111111111111111111111111111111111");
+    expect(rememberedAddress(account, "sol:mainnet")).toBe("So1anaAddress");
+    expect(rememberedAddress(account, "btc:mainnet")).toBeUndefined();
+  });
+
+  it("treats unreadable or blocked storage as nothing remembered", () => {
+    storage().set("fourfivex.deposit-addresses.v1", "not json");
+    expect(rememberedAddress(account, "eth:1")).toBeUndefined();
+    vi.stubGlobal("localStorage", { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });
+    expect(() => rememberAddress(account, "eth:1", "0x1")).not.toThrow();
+    expect(rememberedAddress(account, "eth:1")).toBeUndefined();
+  });
+
+  it("gives up on a bridge that hangs instead of waiting for it", async () => {
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal("fetch", (_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      signal = init.signal ?? undefined;
+      signal?.addEventListener("abort", () => reject(signal!.reason));
+    }));
+    const controller = new AbortController();
+    const pending = depositAddress(account, "eth:1", controller.signal);
+    expect(signal).toBeDefined();
+    // The caller's own signal still cancels it, and so does the built-in timeout.
+    controller.abort();
+    await expect(pending).rejects.toBeDefined();
+    const timed = depositAddress(account, "eth:1");
+    expect(signal?.aborted).toBe(false);
+    await expect(timed).rejects.toMatchObject({ name: "TimeoutError" });
+  }, 15_000);
 });
