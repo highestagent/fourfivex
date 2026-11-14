@@ -7,7 +7,7 @@ export function MarketsHeader({ current, actions }: { current?: "markets"; actio
   return (
     <header className="border-b border-line">
       <div className="markets-container flex min-h-14 flex-wrap items-center gap-x-3 sm:min-h-[60px]">
-        <AppNavigation current={current} compact={!current} />
+        <AppNavigation compact={!current} />
         {actions && <div className="market-header-actions">{actions}</div>}
       </div>
     </header>

@@ -150,7 +150,7 @@ export default function Surface() {
     <div className="min-h-dvh bg-page pb-12 sm:pb-20">
       <header className="border-b border-line">
         <div className="shell flex min-h-14 flex-wrap items-center justify-between gap-x-2 sm:min-h-[60px]">
-          <AppNavigation current="wallet" onWalletNavigate={() => setView("now")} />
+          <AppNavigation onWalletNavigate={() => setView("now")} />
           <AccountButton onClick={(event) => open("account", event)} />
         </div>
       </header>
