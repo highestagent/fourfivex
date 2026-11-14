@@ -170,6 +170,10 @@ describe('host record', () => {
 });
 
 describe('listing a session', () => {
+  test('the app can ask whether this deployment sells seats', async () => {
+    expect(await (await call('/sessions')).json()).toEqual({ available: true });
+  });
+
   test('opens it on the escrow with the published schedule, one session per host', async () => {
     const host = await goodHost();
     const { roomId, startsAt, endsAt } = await listed(host, { fee: '12.50', seats: 3 });

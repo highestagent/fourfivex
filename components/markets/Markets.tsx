@@ -22,6 +22,14 @@ export function Markets() {
   const [market, setMarket] = useState<Market>(defaultMarket);
   const [creating, setCreating] = useState(false);
   const [kind, setKind] = useState<"free" | "paid">("free");
+  // Paid sessions show only where the markets service can take payment for them.
+  const [paidSessions, setPaidSessions] = useState(false);
+  useEffect(() => {
+    if (!creating || paidSessions) return;
+    let active = true;
+    void api<{ available: boolean }>("/sessions").then(({ available }) => { if (active) setPaidSessions(available); }, () => {});
+    return () => { active = false; };
+  }, [creating, paidSessions]);
   const [recent, setRecent] = useState<string>();
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountFromReview, setAccountFromReview] = useState(false);
@@ -89,11 +97,11 @@ export function Markets() {
         setCreating(false);
         requestAnimationFrame(() => createButton.current?.focus());
       }}>
-        <div className="room-kind" role="group" aria-label="Room type">
+        {paidSessions && <div className="room-kind" role="group" aria-label="Room type">
           <button type="button" aria-pressed={kind === "free"} onClick={() => setKind("free")}>Free room</button>
           <button type="button" aria-pressed={kind === "paid"} onClick={() => setKind("paid")}>Paid session</button>
-        </div>
-        {kind === "paid" && accountId ? <HostSession accountId={accountId} market={market} />
+        </div>}
+        {paidSessions && kind === "paid" && accountId ? <HostSession accountId={accountId} market={market} />
           : <RoomEntry market={market} accountId={accountId} marketName={marketLabel(catalog.instruments.find(item => item.id === market) ?? catalog.instruments[0])}
             onJoined={room => {
               sessionStorage.setItem(recentRoomKey, room);

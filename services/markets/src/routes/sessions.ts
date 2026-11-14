@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { accountProof, displayName, id } from '@fourfivex/markets-protocol/protocol';
 import { sessionListing, sessionRule, signedPayload, usdcUnits, type Booking } from '@fourfivex/markets-protocol/sessions';
 import { identity } from '../auth';
-import { requireSessions } from '../escrow';
+import { requireSessions, sessionsConfigured } from '../escrow';
 import type { Env } from '../env';
 import { body, HttpError, json, limit } from '../http';
 import { trackRecord } from '../hyperliquid';
@@ -21,6 +21,9 @@ const entry = z.union([
 export async function sessionsRoutes(request: Request, env: Env, url: URL) {
   const path = url.pathname;
   const post = request.method === 'POST';
+
+  // Whether this deployment sells seats at all, so the app only offers paid sessions where they work.
+  if (path === '/api/markets/sessions' && request.method === 'GET') return json({ available: sessionsConfigured(env) });
 
   if (path === '/api/markets/sessions/record' && post) {
     await limit(request, env, 'session-record');
