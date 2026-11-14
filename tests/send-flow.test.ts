@@ -65,7 +65,7 @@ const pay = {
   to: { address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72", network: "base" },
 } as const;
 
-function deps(p: Prepared, statuses: (SendStatus | Error)[] = [{ state: "done", arrived: { amount: 50, usd: 50 }, links: [] }]) {
+function deps(p: Prepared, statuses: (SendStatus | Error)[] = [{ state: "done", arrived: { amount: 50, usd: 50 } }]) {
   let i = 0;
   const d = {
     prepare: vi.fn<(ask: SendAsk) => Promise<Prepared>>(async () => p),
@@ -94,16 +94,15 @@ const run = (ask: typeof change | typeof pay, d: ReturnType<typeof deps>, shown 
 describe("send", () => {
   it("completes a change", async () => {
     const d = deps(prepared(), [
-      { state: "waiting", links: [] },
-      { state: "working", links: [] },
-      { state: "done", arrived: { amount: 50, usd: 50 }, links: [{ hash: "h", url: "u" }] },
+      { state: "waiting" },
+      { state: "working" },
+      { state: "done", arrived: { amount: 50, usd: 50 } },
     ]);
     const { result, steps } = run(change, d);
     const r = await result;
     expect(r.state).toBe("done");
     expect(r.intentHash).toBe("hash123");
     expect(r.arrived).toEqual({ amount: 50, usd: 50 });
-    expect(r.links).toHaveLength(1);
     expect(steps).toEqual([
       "Getting the final price",
       "Waiting for your passkey",
@@ -171,9 +170,9 @@ describe("send", () => {
 
   it("returns a refunded receipt", async () => {
     const d = deps(prepared(), [
-      { state: "waiting", links: [] },
-      { state: "working", links: [] },
-      { state: "refunded", refunded: { amount: 0.0007, reason: "PARTIAL_DEPOSIT" }, links: [] },
+      { state: "waiting" },
+      { state: "working" },
+      { state: "refunded", refunded: { amount: 0.0007, reason: "PARTIAL_DEPOSIT" } },
     ]);
     const r = await run(change, d).result;
     expect(r.state).toBe("refunded");
@@ -181,14 +180,14 @@ describe("send", () => {
   });
 
   it("returns the last state when the polls run out", async () => {
-    const d = deps(prepared(), [{ state: "working", links: [] }]);
+    const d = deps(prepared(), [{ state: "working" }]);
     const r = await run(change, d, 50, { maxPolls: 3 }).result;
     expect(r.state).toBe("working");
     expect(d.status).toHaveBeenCalledTimes(3);
   });
 
   it("survives a status call that throws once", async () => {
-    const d = deps(prepared(), [new Error("down"), { state: "done", links: [] }]);
+    const d = deps(prepared(), [new Error("down"), { state: "done" }]);
     const r = await run(change, d).result;
     expect(r.state).toBe("done");
   });
@@ -243,12 +242,12 @@ describe("sendMany", () => {
     });
     return d;
   };
-  const done = (amount: number): SendStatus => ({ state: "done", arrived: { amount, usd: amount }, links: [] });
+  const done = (amount: number): SendStatus => ({ state: "done", arrived: { amount, usd: amount } });
 
   it("signs once for every part and follows them to the end", async () => {
     const message = combined();
     const d = many([quote(0), quote(1)], message, [
-      [{ state: "working", links: [] }, { state: "waiting", links: [] }],
+      [{ state: "working" }, { state: "waiting" }],
       [done(0.0003), done(0.0002)],
     ]);
     const steps: string[] = [];
@@ -267,7 +266,7 @@ describe("sendMany", () => {
   });
 
   it("calls it partial when one part arrives and the other comes back", async () => {
-    const d = many([quote(0), quote(1)], combined(), [[done(0.0003), { state: "refunded", refunded: { amount: 20 }, links: [] }]]);
+    const d = many([quote(0), quote(1)], combined(), [[done(0.0003), { state: "refunded", refunded: { amount: 20 } }]]);
     const r = await sendMany(legs, { shown: 0.0005, shownUsd: 50, onStep: () => {} }, d);
     expect(r.state).toBe("partial");
   });

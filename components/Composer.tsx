@@ -4,12 +4,14 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import type { Holdings } from "@/lib/account/holdings";
 import type { Prices } from "@/lib/assets";
 import { useMobileSheet, useQuote } from "@/lib/hooks";
+import { sendAddresses } from "@/lib/send/explorer";
 import { useSent } from "@/lib/send/history";
 import type { Person } from "@/lib/send/people";
 import { useSend } from "@/lib/send/useSend";
 import { VERBS, type Ctx, type Outcome, type SlotCtx, type Tone, type Vals, type VerbKey } from "@/lib/verbs";
 import { Address } from "./Address";
 import { NewPerson } from "./NewPerson";
+import { SendLinks } from "./SendLinks";
 import { Sentence } from "./Sentence";
 import { Sheet } from "./Sheet";
 import { CopyButton, Finger } from "./ui";
@@ -72,7 +74,8 @@ export function Composer({
   const receipt = engine.receipt;
   const activity = mine.find((entry) => entry.id === receipt?.depositAddress);
   const sendState = activity?.state ?? receipt?.state;
-  const links = activity?.links ?? receipt?.links ?? [];
+  // The explorer's page exists from the moment a send is submitted, so the link shows while it travels too.
+  const links = activity ? sendAddresses(activity) : receipt ? sendAddresses({ id: receipt.depositAddress, legs: receipt.legs }) : [];
   const complete = receipt !== null;
   const addingPerson = !demo && action === "pay" && vals.who === "__new";
   const recipientStep = mobile && addingPerson;
@@ -150,11 +153,7 @@ export function Composer({
 
         {links.length > 0 && (
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-            {links.map(({ hash, url }, index) => (
-              <a key={hash} href={url} target="_blank" rel="noreferrer" className="text-blue underline underline-offset-2">
-                {links.length === 1 ? "View transaction" : `View transaction ${index + 1}`}
-              </a>
-            ))}
+            <SendLinks addresses={links} />
           </div>
         )}
 

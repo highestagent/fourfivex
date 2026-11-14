@@ -24,7 +24,6 @@ export type Receipt = {
   state: SendState;
   arrived?: { amount: number; usd: number };
   refunded?: { amount: number; reason?: string };
-  links: { hash: string; url: string }[];
   prepared: Prepared;
 };
 
@@ -102,7 +101,7 @@ export async function send(
 
   const pollMs = opts.pollMs ?? 2000;
   const maxPolls = opts.maxPolls ?? 90;
-  let last: SendStatus = { state: "waiting", links: [] };
+  let last: SendStatus = { state: "waiting" };
   for (let i = 0; i < maxPolls; i++) {
     await d.sleep(pollMs);
     try {
@@ -119,7 +118,6 @@ export async function send(
     state: last.state,
     ...(last.arrived ? { arrived: last.arrived } : {}),
     ...(last.refunded ? { refunded: last.refunded } : {}),
-    links: last.links,
     prepared,
   };
 }
@@ -199,8 +197,7 @@ export async function sendMany(
 
   const pollMs = opts.pollMs ?? 2000;
   const maxPolls = opts.maxPolls ?? 90;
-  const sent = { hash: intentHash, url: `https://nearblocks.io/txns/${intentHash}` };
-  let last: SendStatus = { state: "waiting", links: [] };
+  let last: SendStatus = { state: "waiting" };
   for (let i = 0; i < maxPolls; i++) {
     await d.sleep(pollMs);
     try {
@@ -218,7 +215,6 @@ export async function sendMany(
     state: last.state,
     ...(last.arrived ? { arrived: last.arrived } : {}),
     ...(last.refunded ? { refunded: last.refunded } : {}),
-    links: [sent, ...last.links],
     prepared: total,
   };
 }

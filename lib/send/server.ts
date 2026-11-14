@@ -246,13 +246,7 @@ export async function status(depositAddress: string): Promise<SendStatus> {
   const state = STATE_OF[s.status];
   if (!state) throw new SendError("We couldn't tell where that payment is.");
   const d = s.swapDetails ?? {};
-  const out: SendStatus = {
-    state,
-    links: [...(d.originChainTxHashes ?? []), ...(d.destinationChainTxHashes ?? [])].map((t) => ({
-      hash: t.hash,
-      url: t.explorerUrl,
-    })),
-  };
+  const out: SendStatus = { state };
   if (state === "done" && d.amountOutFormatted)
     out.arrived = { amount: Number(d.amountOutFormatted), usd: Number(d.amountOutUsd ?? 0) };
   if (state === "refunded")

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { combinedStatus } from "../lib/send/legs";
 import type { SendStatus } from "../lib/send/types";
 
-const s = (state: SendStatus["state"], extra: Partial<SendStatus> = {}): SendStatus => ({ state, links: [], ...extra });
+const s = (state: SendStatus["state"], extra: Partial<SendStatus> = {}): SendStatus => ({ state, ...extra });
 
 describe("combinedStatus", () => {
   it("is done only when every part arrived, adding up what arrived", () => {
@@ -27,8 +27,4 @@ describe("combinedStatus", () => {
     expect(combinedStatus([s("short"), s("done")]).state).toBe("short");
   });
 
-  it("keeps every part's links", () => {
-    const r = combinedStatus([s("done", { links: [{ hash: "a", url: "u1" }] }), s("done", { links: [{ hash: "b", url: "u2" }] })]);
-    expect(r.links.map((l) => l.hash)).toEqual(["a", "b"]);
-  });
 });

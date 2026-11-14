@@ -75,7 +75,7 @@ export function WalletTransfer({ accountId, holdings, step, setStep, back }: {
     function poll() {
       for (const id of tracked.split(",")) {
         void sendStatus(id).then(status => {
-          if (active) sent.update(id, { state: status.state, links: status.links });
+          if (active) sent.update(id, { state: status.state });
         }).catch(() => {});
       }
     }
@@ -121,7 +121,7 @@ export function WalletTransfer({ accountId, holdings, step, setStep, back }: {
       setStep("Submitting withdrawal…");
       const summary = `${displayUnits(arrives.units, arrives.decimals)} ${arrives.symbol} on ${networkName(arrives.network)}`;
       sent.add({ id: depositAddress, accountId, kind: "withdraw", state: "waiting", deadline: quote.deadline,
-        links: [], text: `Withdrew ${summary}`, waitingText: `Withdrawing ${summary}` });
+        text: `Withdrew ${summary}`, waitingText: `Withdrawing ${summary}` });
       setTracking(depositAddress);
       const intentHash = await submitSend(depositAddress, signed);
       sent.update(depositAddress, { intentHash });

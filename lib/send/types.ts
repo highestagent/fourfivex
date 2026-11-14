@@ -44,5 +44,4 @@ export type SendStatus = {
   state: SendState;
   arrived?: { amount: number; usd: number };
   refunded?: { amount: number; reason?: string };
-  links: { hash: string; url: string }[];
 };

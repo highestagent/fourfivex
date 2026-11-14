@@ -11,6 +11,7 @@ import { usePrices } from "@/lib/hooks";
 import { entryStatus } from "@/lib/send/api";
 import { describePosition, type TradingEvent } from "@/lib/markets/activity";
 import { useTradingActivity } from "@/lib/markets/useTradingActivity";
+import { sendAddresses } from "@/lib/send/explorer";
 import { sent, useSent, type SentEntry } from "@/lib/send/history";
 import { usePeople } from "@/lib/send/people";
 import { AccountButton } from "./AccountButton";
@@ -18,6 +19,7 @@ import dynamic from "next/dynamic";
 import { AccountSheet } from "./AccountSheet";
 import { AddMoney } from "./AddMoney";
 import { Address } from "./Address";
+import { SendLinks } from "./SendLinks";
 import { Sheet } from "./Sheet";
 import { AppNavigation } from "./AppNavigation";
 import { Composer, type ActionKey } from "./Composer";
@@ -147,7 +149,7 @@ export default function Surface() {
       for (const item of watch.split(",")) {
         const [id, ...legs] = item.split("|");
         entryStatus({ id, legs }).then((status) => {
-          if (active) sent.update(id, { state: status.state, ...(status.links.length ? { links: status.links } : {}) });
+          if (active) sent.update(id, { state: status.state });
         }).catch(() => {});
       }
     };
@@ -280,9 +282,7 @@ export default function Surface() {
                     <p className="mt-1.5 text-sm text-ink-2">
                       {when(item.entry.at)} · {isExpired(item.entry, now) ? "Expired" : STATE_LABEL[item.entry.state]}
                     </p>
-                    {item.entry.links[0] && (
-                      <a href={item.entry.links[0].url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-blue underline underline-offset-2">View transaction</a>
-                    )}
+                    <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm"><SendLinks addresses={sendAddresses(item.entry)} /></p>
                   </li>
                 ) : (
                   <li key={item.event.id} className="p-5">

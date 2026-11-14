@@ -46,7 +46,6 @@ export function useSend() {
           at: Date.now(),
           state: "waiting",
           intentHash,
-          links: addresses.length > 1 ? [{ hash: intentHash, url: `https://nearblocks.io/txns/${intentHash}` }] : [],
         });
         if (alive.current) setSubmitted(true);
       };
@@ -66,7 +65,7 @@ export function useSend() {
       running.then(
         (r) => {
           // Always recorded: the send went ahead whether or not anyone is watching.
-          sent.update(r.depositAddress, { state: r.state, links: r.links });
+          sent.update(r.depositAddress, { state: r.state });
           if (!alive.current) return;
           setReceipt(r);
           setPhase(r.state === "refunded" || r.state === "failed" ? "failed" : "done");
