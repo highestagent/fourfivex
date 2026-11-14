@@ -11,6 +11,7 @@ import { payloadProblem } from "@/lib/send/guard";
 import { sent, useSent } from "@/lib/send/history";
 import type { Prepared, SendStatus, TransferAsset } from "@/lib/send/types";
 import { when } from "@/lib/format";
+import { Address } from "./Address";
 import { Select } from "./Select";
 
 const states: Record<SendStatus["state"], string> = {
@@ -139,7 +140,7 @@ export function WalletTransfer({ accountId, holdings, step, setStep, back }: {
         <div className="detail-row"><dt>Receive</dt>
           <dd>{displayUnits(quote.arrives.units, quote.arrives.decimals)} {quote.arrives.symbol} · {networkName(quote.arrives.network)}</dd></div>
         <div className="detail-row"><dt>To address</dt>
-          <dd className="font-mono text-sm wrap-anywhere">{transfer.destination}</dd></div>
+          <dd className="min-w-0"><Address value={transfer.destination} className="text-sm" /></dd></div>
         <div className="detail-row"><dt>Quote expires</dt><dd>{when(quote.deadline)}</dd></div>
       </dl>
       {latest && <p role="status" className="text-sm text-ink-2">{states[latest.state]}</p>}

@@ -9,6 +9,7 @@ import { AccountError } from "@/lib/account/session";
 import { memory, useDeviceMemory } from "@/lib/account/store";
 import { coin, usd } from "@/lib/format";
 import { AddMoney } from "./AddMoney";
+import { Address } from "./Address";
 import { Sheet } from "./Sheet";
 import { WalletTransfer } from "./WalletTransfer";
 import { CopyButton, Finger } from "./ui";
@@ -185,8 +186,8 @@ function Settings({ accountId, holdings, step, setStep, onClose, onTransfer }: P
       <dl className="rounded-[18px] border border-line bg-surface px-4 sm:px-5">
         <div className="detail-row">
           <dt>Account ID</dt>
-          <dd className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="min-w-0 font-mono text-[13px] wrap-anywhere select-text">{accountId}</span>
+          <dd className="flex min-w-0 items-center gap-2">
+            <Address value={accountId} className="flex-1 text-[13px]" />
             <CopyButton text={accountId} label="Copy account ID" />
           </dd>
         </div>

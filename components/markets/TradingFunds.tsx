@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode, type SubmitEvent } 
 import { ArrowUpRight, CircleCheck, TriangleAlert } from "lucide-react";
 import { Select } from "@/components/Select";
 import { Sheet } from "@/components/Sheet";
+import { Address } from "@/components/Address";
 import { CopyButton } from "@/components/ui";
 import { useHoldings } from "@/lib/account/useHoldings";
 import { signPayload } from "@/lib/account/flows";
@@ -312,7 +313,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
       <div className="funds-address">
         <span id={`${ids}-address`} className="funds-address-label">Trading address</span>
         <div className="funds-address-row">
-          <code aria-labelledby={`${ids}-address`} className="funds-mono select-text">{address}</code>
+          <Address value={address} className="flex-1 text-sm" />
           <CopyButton text={address} label="Copy trading address" />
         </div>
       </div>
@@ -363,7 +364,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
   const withdrawView = withdrawal ? <div className="funds-panel">
     <dl className="trade-review-details">
       <div><dt>You receive</dt><dd>{afterFee(withdrawal.amount)}</dd></div>
-      <div><dt>To Arbitrum</dt><dd className="funds-mono funds-break">{withdrawal.destination}</dd></div>
+      <div><dt>To Arbitrum</dt><dd className="funds-address-value"><Address value={withdrawal.destination} className="justify-end" /></dd></div>
     </dl>
     <p className="funds-waiting" role="status">
       {withdrawal.submitted ? "Processing…" : "Checking…"}
@@ -378,7 +379,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
         <div><dt>Withdraw</dt><dd>{dollars.format(Number(review.withdrawal.amount))}</dd></div>
         <div><dt>Fee</dt><dd>{dollars.format(WITHDRAWAL_FEE)}</dd></div>
         <div><dt>You receive</dt><dd><strong>{afterFee(review.withdrawal.amount)}</strong></dd></div>
-        <div><dt>To Arbitrum</dt><dd className="funds-mono funds-break">{review.withdrawal.destination}</dd></div>
+        <div><dt>To Arbitrum</dt><dd className="funds-address-value"><Address value={review.withdrawal.destination} className="justify-end" /></dd></div>
       </dl>
       <p className="funds-note">Withdrawals can&rsquo;t be reversed.</p>
       <div className="funds-actions">

@@ -572,9 +572,9 @@
 .trade-review-lead { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.025em; }
 .trade-review-note { color: var(--muted); font-size: 0.875rem; }
 .trade-notice { color: var(--color-rose); font-size: 0.875rem; }
-.trade-review-details { display: grid; gap: 0.55rem; width: 100%; padding-block: 0.9rem; border-block: 1px solid var(--line); }
+.trade-review-details { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.55rem; width: 100%; padding-block: 0.9rem; border-block: 1px solid var(--line); }
 .trade-review-details > div { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.875rem; }
-.trade-review-details dt { color: var(--muted); }
+.trade-review-details dt { flex: none; color: var(--muted); }
 .trade-review-details dd { text-align: end; }
 
 @media (width < 40rem) {
@@ -584,9 +584,9 @@
 }
 
 /* Add funds and Withdraw dialog */
-.funds { display: grid; gap: 1.25rem; margin-block-start: 0.5rem; }
+/* Every grid here gets a shrinkable column, so one-line addresses trim instead of widening the sheet. */
+.funds { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; margin-block-start: 0.5rem; }
 .funds-mono { font-family: var(--mono); font-size: 0.875rem; }
-.funds-break { overflow-wrap: anywhere; }
 .funds-balance {
   display: flex;
   flex-wrap: wrap;
@@ -621,12 +621,12 @@
 .funds-method input:focus-visible { outline: none; }
 .funds-method strong { font-weight: 600; }
 
-.funds-panel { display: grid; gap: 1rem; min-width: 0; }
+.funds-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; min-width: 0; }
 
-.funds-address { display: grid; gap: 0.5rem; padding: 0.875rem 1rem; border-radius: 0.875rem; background: var(--page); }
+.funds-address { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; padding: 0.875rem 1rem; border-radius: 0.875rem; background: var(--page); }
 .funds-address-label { color: var(--muted); font-size: 0.875rem; }
 .funds-address-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
-.funds-address-row code { min-width: 0; overflow-wrap: anywhere; }
+.funds-address-value { flex: 1; min-width: 0; }
 
 .funds-callout { display: flex; gap: 0.625rem; padding: 0.75rem 0.875rem; border-radius: 0.75rem; font-size: 0.875rem; line-height: 1.45; }
 .funds-callout > svg { flex: none; margin-block-start: 0.15rem; }
@@ -640,7 +640,7 @@
 .funds-waiting::before { content: ""; flex: none; width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--green); }
 .funds-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
-.funds-form { display: grid; gap: 1.25rem; }
+.funds-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
 .funds-field { display: grid; gap: 0.375rem; min-width: 0; }
 .funds-field > label, .funds-field > span:first-child { font-size: 0.875rem; font-weight: 600; }
 .funds-input {

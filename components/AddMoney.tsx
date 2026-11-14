@@ -6,6 +6,7 @@ import {
 } from "@/lib/account/deposits";
 import { useDeposits } from "@/lib/account/useDeposits";
 import { coin } from "@/lib/format";
+import { Address } from "./Address";
 import { QrCode } from "./QrCode";
 import { CopyButton } from "./ui";
 
@@ -59,10 +60,10 @@ export function AddMoney({ accountId, onDone }: { accountId: string; onDone: () 
           : address === undefined && <span aria-hidden="true" className="size-36 animate-pulse rounded-xl bg-card motion-reduce:animate-none" />}
         <div className="grid min-w-0 gap-3">
           <span className="mono text-ink-2">Your {selected.label} address</span>
-          {address ? <>
-            <p className="font-mono text-[15px] leading-relaxed text-balance break-all select-text">{address}</p>
-            <div><CopyButton text={address} label={`Copy ${selected.label} address`} /></div>
-          </> : address === null ? <div className="flex flex-wrap items-center gap-3 text-sm text-ink-2">
+          {address ? <div className="flex min-w-0 items-center gap-3">
+            <Address value={address} className="flex-1 text-[15px]" />
+            <CopyButton text={address} label={`Copy ${selected.label} address`} />
+          </div> : address === null ? <div className="flex flex-wrap items-center gap-3 text-sm text-ink-2">
             Address unavailable.
             <button type="button" className="action action-secondary" onClick={() => setAddresses(previous => ({ ...previous, [network]: undefined }))}>Try again</button>
           </div> : <span className="h-12 animate-pulse rounded-lg bg-card motion-reduce:animate-none" aria-label="Loading address" />}

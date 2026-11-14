@@ -8,6 +8,7 @@ import { useSent } from "@/lib/send/history";
 import type { Person } from "@/lib/send/people";
 import { useSend } from "@/lib/send/useSend";
 import { VERBS, type Ctx, type Outcome, type SlotCtx, type Tone, type Vals, type VerbKey } from "@/lib/verbs";
+import { Address } from "./Address";
 import { NewPerson } from "./NewPerson";
 import { Sentence } from "./Sentence";
 import { Sheet } from "./Sheet";
@@ -19,10 +20,10 @@ type Detail = { k: string; v: ReactNode; sub?: string; tone?: Tone };
 
 const LABELS = { pay: "Pay", change: "Change" };
 const ACTIONS = { pay: "Approve payment", change: "Approve swap" };
-function CopyValue({ value, label, children }: { value: string; label: string; children?: ReactNode }) {
+function CopyAddress({ value, label }: { value: string; label: string }) {
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="min-w-0 wrap-anywhere select-text">{children ?? value}</span>
+    <span className="flex min-w-0 items-center gap-2">
+      <Address value={value} className="flex-1 text-[13px]" />
       <CopyButton text={value} label={label} />
     </span>
   );
@@ -90,7 +91,7 @@ export function Composer({
     (demo || busy || quote.status === "live" || engine.moved !== null);
   const rows: Detail[] = outcome.rows.filter(({ k }) => k !== "If the price moves" && k !== "Afterwards" && (!demo || k !== "Seen by")).map((row) => (
       row.k === "Sent to" && recipient
-        ? { ...row, v: <CopyValue value={recipient.address} label="Copy recipient address"><span className="font-mono text-[13px]">{recipient.address}</span></CopyValue> }
+        ? { ...row, v: <CopyAddress value={recipient.address} label="Copy recipient address" /> }
         : row
     ));
 

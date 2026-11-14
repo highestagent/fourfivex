@@ -16,6 +16,7 @@ import { usePeople } from "@/lib/send/people";
 import { AccountButton } from "./AccountButton";
 import { AccountSheet } from "./AccountSheet";
 import { AddMoney } from "./AddMoney";
+import { Address } from "./Address";
 import { Sheet } from "./Sheet";
 import { AppNavigation } from "./AppNavigation";
 import { Composer, type ActionKey } from "./Composer";
@@ -84,16 +85,16 @@ function Deposit({ entry }: { entry: SentEntry }) {
           </div>
           <div className="detail-row">
             <dt>Address</dt>
-            <dd className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="min-w-0 font-mono text-[13px] wrap-anywhere select-text">{deposit.address}</span>
+            <dd className="flex min-w-0 items-center gap-2">
+              <Address value={deposit.address} className="flex-1 text-[13px]" />
               <CopyButton text={deposit.address} label="Copy deposit address" />
             </dd>
           </div>
           {deposit.memo && (
             <div className="detail-row">
               <dt>Required memo</dt>
-              <dd className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="min-w-0 font-mono text-[13px] wrap-anywhere select-text">{deposit.memo}</span>
+              <dd className="flex min-w-0 items-center gap-2">
+                <Address value={deposit.memo} className="flex-1 text-[13px]" />
                 <CopyButton text={deposit.memo} label="Copy memo" />
               </dd>
             </div>
