@@ -27,6 +27,9 @@ export const fetchSalt = async () => (await chain<{ salt: string }>({ op: "salt"
 export const hasKey = async (accountId: string, publicKey: string) =>
   (await chain<{ has: boolean }>({ op: "has-key", accountId, publicKey })).has;
 
+/** For each account, whether it has ever held anything, added a passkey or received a deposit. */
+export const accountsUsed = async (accountIds: string[]) => (await chain<{ used: boolean[] }>({ op: "used", accountIds })).used;
+
 export const fetchKeys = async (accountId: string) => (await chain<{ keys: string[] }>({ op: "keys", accountId })).keys;
 
 export const fetchHoldings = async (accountId: string) =>

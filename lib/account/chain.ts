@@ -70,6 +70,10 @@ export const hasPublicKey = (accountId: string, publicKey: string) =>
 /** Keys added to an account. The key an account was derived from is implied and not listed. */
 export const publicKeysOf = (accountId: string) => view<string[]>("public_keys_of", { account_id: accountId });
 
+/** Up to `limit` of the tokens an account holds, of any kind. */
+export const tokensOf = (accountId: string, limit = 1) =>
+  view<{ token_id: string }[]>("mt_tokens_for_owner", { account_id: accountId, limit });
+
 export const balancesOf = (accountId: string, tokenIds: string[]) =>
   view<string[]>("mt_batch_balance_of", { account_id: accountId, token_ids: tokenIds });
 

@@ -126,3 +126,45 @@ describe("opening an account with a passkey", () => {
     await expect(openWithPasskey(w.deps)).rejects.toMatchObject({ code: "mismatch" });
   });
 });
+
+describe("opening a founding passkey on a new device", () => {
+  function setup() {
+    const passkey = makeAuthenticator();
+    const account = accountIdOf(passkey.publicKey);
+    const w = world(passkey, founderHandle(random(15)));
+    w.attach(account, passkey.publicKey);
+    return { passkey, account, w };
+  }
+
+  it("takes one touch when only the passkey's own account has been used", async () => {
+    const { passkey, account, w } = setup();
+    const asked: string[][] = [];
+    const opened = await openWithPasskey({
+      ...w.deps,
+      used: async (ids) => {
+        asked.push(ids);
+        return ids.map((id) => id === account);
+      },
+    });
+    expect(opened.accountId).toBe(account);
+    expect(equal(opened.publicKey, passkey.publicKey)).toBe(true);
+    expect(w.prompts.length).toBe(1);
+    expect(w.secondTouch).toBe(0);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toHaveLength(2);
+    expect(asked[0]).toContain(account);
+  });
+
+  it.each([
+    ["neither account has been used", async (ids: string[]) => ids.map(() => false)],
+    ["both accounts look used", async (ids: string[]) => ids.map(() => true)],
+    ["the check fails", async (): Promise<boolean[]> => { throw new Error("offline"); }],
+  ])("asks for a second touch when %s", async (_, used) => {
+    const { passkey, account, w } = setup();
+    const opened = await openWithPasskey({ ...w.deps, used });
+    expect(opened.accountId).toBe(account);
+    expect(equal(opened.publicKey, passkey.publicKey)).toBe(true);
+    expect(w.prompts.length).toBe(2);
+    expect(w.secondTouch).toBe(1);
+  });
+});

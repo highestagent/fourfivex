@@ -27,6 +27,8 @@ export type OpenDeps = {
   /** Ask the contract whether a key may sign for an account. */
   hasKey: (accountId: string, publicKey: string) => Promise<boolean>;
   recall: (credentialId: string) => Known | undefined;
+  /** For each account, whether it has ever been used. Lets a new device skip the second touch. */
+  used?: (accountIds: string[]) => Promise<boolean[]>;
   /** Called before a second touch is needed, so the screen can say why. */
   onSecondTouch?: () => void;
   challenge?: () => Uint8Array;
@@ -82,7 +84,12 @@ export async function openWithPasskey(deps: OpenDeps): Promise<Opened> {
     throw new AccountError("detached", DETACHED);
   }
 
-  // The passkey that created its account. One signature leaves two possible keys; a second settles it.
+  // The passkey that created its account. One signature leaves two possible keys. The wrong one's account
+  // has never been used, so if exactly one of them has, that settles it. Otherwise a second signature does.
+  if (found.length > 1 && deps.used) {
+    const used = await deps.used(found.map(accountIdOf)).catch(() => null);
+    if (used?.length === found.length && used.filter(Boolean).length === 1) found = [found[used.indexOf(true)]];
+  }
   if (found.length > 1) {
     deps.onSecondTouch?.();
     const c2 = next();

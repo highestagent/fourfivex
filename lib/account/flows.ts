@@ -5,7 +5,7 @@
  * Every change to an account is signed by a passkey. Nothing is signed for them.
  */
 import { verifyAssertion } from "./assertion";
-import { fetchKeys, fetchSalt, hasKey, intentStatus, NetworkError, publishIntent } from "./api";
+import { accountsUsed, fetchKeys, fetchSalt, hasKey, intentStatus, NetworkError, publishIntent } from "./api";
 import { founderHandle, memberHandle } from "./handle";
 import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent, type SignedIntent } from "./intents";
 import { accountIdOf, decodePublicKey, encodePublicKey } from "./keys";
@@ -36,7 +36,7 @@ export async function createAccount(name: string): Promise<string> {
 
 /** Finds the account a passkey opens. `onSecondTouch` fires if a new device needs one more touch. */
 export async function openAccount(onSecondTouch?: () => void): Promise<string> {
-  const opened = await openWithPasskey({ use: askPasskey, hasKey, recall: memory.recall, onSecondTouch });
+  const opened = await openWithPasskey({ use: askPasskey, hasKey, used: accountsUsed, recall: memory.recall, onSecondTouch });
   if (!opened.remembered) {
     const founder = accountIdOf(opened.publicKey) === opened.accountId;
     memory.remember({

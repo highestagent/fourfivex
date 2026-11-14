@@ -114,6 +114,12 @@ export async function recentDeposits(accountId: string, signal?: AbortSignal) {
   return parseDeposits(page.deposits ?? [], list);
 }
 
+/** Whether the bridge has ever delivered anything to this account. */
+export async function hasDeposits(accountId: string, signal?: AbortSignal) {
+  const page = await rpc<{ deposits?: RawDeposit[] }>("recent_deposits", { account_id: accountId, limit: 1, offset: 0 }, signal);
+  return (page.deposits?.length ?? 0) > 0;
+}
+
 /** "$25.00 on Base" for dollars, "0.01 ETH on Base" for anything else. */
 export function depositAmount(deposit: IncomingDeposit) {
   const value = STABLE.has(deposit.symbol) ? usd(deposit.amount) : `${coin(deposit.amount)} ${deposit.symbol}`.trim();

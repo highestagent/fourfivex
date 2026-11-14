@@ -1,3 +1,4 @@
+import { accountUsed } from "@/lib/account/activity";
 import { ContractError, currentSalt, hasPublicKey, publicKeysOf, simulate } from "@/lib/account/chain";
 import { holdingsOf } from "@/lib/account/holdings";
 import { isCrossSite } from "@/lib/http/origin";
@@ -68,6 +69,12 @@ export async function POST(request: Request) {
       case "keys":
         if (typeof body.accountId !== "string" || !isAccountId(body.accountId)) return bad();
         return Response.json({ ok: true, keys: await publicKeysOf(body.accountId) });
+
+      case "used": {
+        const ids = body.accountIds;
+        if (!Array.isArray(ids) || ids.length < 1 || ids.length > 4 || !ids.every((id) => typeof id === "string" && isAccountId(id))) return bad();
+        return Response.json({ ok: true, used: await Promise.all(ids.map(accountUsed)) });
+      }
 
       case "holdings":
         if (typeof body.accountId !== "string" || !isAccountId(body.accountId)) return bad();
