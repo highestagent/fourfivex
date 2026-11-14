@@ -127,3 +127,29 @@ describe.runIf(process.env.LIVE === "1")("the live verifier contract", () => {
     }
   });
 });
+
+describe.runIf(process.env.LIVE === "1")("one signature over several sources", () => {
+  it("is accepted by the verifier up to the balance check, like a single transfer", async () => {
+    const passkey = makeAuthenticator();
+    const accountId = accountIdOf(passkey.publicKey);
+    const sources = [
+      "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+      "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near",
+    ];
+    const legs = await Promise.all(sources.map((fromAssetId) => prepare({ kind: "change", accountId, fromAssetId, to: "eth", usd: 40 })));
+    const transfers = legs.map((leg) => ({ intent: "transfer", receiver_id: leg.depositAddress, tokens: { [leg.leaves.assetId]: leg.leaves.units } }));
+    const combined = await sign(passkey, transfers as unknown as Intent[]);
+    const single = signedIntent(legs[0].payload!, passkey.publicKey, passkey.assert(challengeFor(legs[0].payload!)));
+    const refusal = async (signed: Parameters<typeof simulate>[0]) => {
+      try {
+        await simulate(signed);
+        return "accepted";
+      } catch (error) {
+        return error instanceof ContractError ? `contract: ${error.message}` : `other: ${String(error)}`;
+      }
+    };
+    const [both, one] = [await refusal([combined]), await refusal([single])];
+    expect(both.startsWith("contract:")).toBe(true);
+    expect(both.replace(/\d+/g, "#")).toBe(one.replace(/\d+/g, "#"));
+  });
+});
