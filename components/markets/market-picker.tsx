@@ -69,9 +69,10 @@ export function MarketPicker({ current, select, catalog, product }: {
     (category === 'all' || item.category === category) && (!search || terms.some(term => term.includes(search))));
   const loading = catalog.status === 'loading';
   const unavailable = catalog.status === 'error' || catalog.unavailable.includes(type);
+  const filtered = category !== 'all' || Boolean(search);
   const searchField = <label className="market-search">
     <Search size={17} aria-hidden="true" />
-    <input type="search" aria-label="Search markets" placeholder="Search markets"
+    <input type="search" aria-label="Search markets" placeholder={loading || !markets.length ? 'Search markets' : `Search ${markets.length} markets`}
       value={query} onChange={event => { setQuery(event.target.value); setLimit(pageSize); }} data-dialog-focus onKeyDown={event => {
         if (event.key === 'Enter' && choices.length === 1) { event.preventDefault(); select(choices[0].item.id); }
       }} />
@@ -83,26 +84,26 @@ export function MarketPicker({ current, select, catalog, product }: {
       {(['spot', 'perp'] as const).map(value => <button key={value} type="button" aria-pressed={type === value}
         onClick={() => { setType(value); setCategory('all'); setLimit(pageSize); }}>{value === 'spot' ? 'Spot' : 'Perps'}</button>)}
     </div>}
-    <div className="market-categories" role="group" aria-label="Asset category">
+    {available.size > 1 && <div className="market-categories" role="group" aria-label="Asset category">
       <button type="button" aria-pressed={category === 'all'} onClick={() => { setCategory('all'); setLimit(pageSize); }}>All assets</button>
       {categoryEntries.filter(([key]) => available.has(key)).map(([key, label]) =>
         <button type="button" key={key} aria-pressed={category === key}
           onClick={() => { setCategory(key); setLimit(pageSize); }}>{label}</button>)}
-    </div>
+    </div>}
     {unavailable && !loading && <div className="market-notice">
-      <span role="status">Some Hyperliquid listings or categories are temporarily unavailable.</span>
+      <span role="status">Some markets are unavailable right now.</span>
       <button className="text-button" type="button" onClick={catalog.retry}>Retry</button>
     </div>}
-    <div className="market-count secondary" role="status">
-      {loading ? 'Loading Hyperliquid markets…' : choices.length ? `${choices.length} ${choices.length === 1 ? 'market' : 'markets'}` : 'No markets match your filters.'}
-    </div>
+    {(loading || filtered || !choices.length) && <div className="market-count secondary" role="status">
+      {loading ? 'Loading markets…' : !choices.length ? 'No markets match.' : `${choices.length} ${choices.length === 1 ? 'market' : 'markets'}`}
+    </div>}
     <ul key={type + category + search} aria-label={type === 'spot' ? 'Spot markets' : 'Perpetual markets'}>
       {choices.slice(0, limit).map(({ item: instrument }) => <li key={instrument.id}>
           <button className="market-choice" type="button" aria-current={current === instrument.id ? 'true' : undefined}
             onClick={() => select(instrument.id)}>
             <MarketIcon instrument={instrument}/>
-            <span><strong>{marketLabel(instrument)}</strong><small>{instrument.name === instrument.symbol ? categories[instrument.category] : instrument.name}</small></span>
-            <span className="market-venue">{instrument.venue}</span>
+            <span className="market-choice-text"><strong>{marketLabel(instrument)}</strong><small>{instrument.name === instrument.symbol ? categories[instrument.category] : instrument.name}</small></span>
+            {instrument.venue !== 'Hyperliquid' && <span className="market-venue">{instrument.venue}</span>}
             {current === instrument.id && <Check size={16} aria-label="Current market"/>}
           </button>
         </li>)}
