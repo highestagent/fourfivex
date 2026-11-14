@@ -12,10 +12,14 @@ export const VERIFIER = "intents.near";
 
 export type AuthCall = { intent: "auth_call"; contract_id: string; msg: string; min_gas: string };
 
+/** Moves tokens from the signer to another account inside the verifier, such as a 1Click deposit address. */
+export type Transfer = { intent: "transfer"; receiver_id: string; tokens: Record<string, string> };
+
 export type Intent =
   | { intent: "add_public_key"; public_key: string }
   | { intent: "remove_public_key"; public_key: string }
-  | AuthCall;
+  | AuthCall
+  | Transfer;
 
 export type SignedIntent = {
   standard: "webauthn";

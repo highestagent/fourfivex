@@ -13,7 +13,8 @@ import { accountIdOf, encodePublicKey } from "../lib/account/keys";
 import { getTokens } from "../lib/oneclick";
 import { payloadProblem } from "../lib/send/guard";
 import { PAY_IN } from "../lib/send/payin";
-import { prepare, status } from "../lib/send/server";
+import { combine, prepare, status } from "../lib/send/server";
+import { payloadProblems } from "../lib/send/guard";
 import { makeAuthenticator } from "./virtual-authenticator";
 
 const random15 = () => crypto.getRandomValues(new Uint8Array(15));
@@ -151,5 +152,21 @@ describe.runIf(process.env.LIVE === "1")("one signature over several sources", (
     const [both, one] = [await refusal([combined]), await refusal([single])];
     expect(both.startsWith("contract:")).toBe(true);
     expect(both.replace(/\d+/g, "#")).toBe(one.replace(/\d+/g, "#"));
+  });
+
+  it("builds the message the app signs from real quotes, and the verifier accepts it up to the balance check", async () => {
+    // combine only checks that a relayer is set up; it never uses it, and nothing here submits.
+    process.env.TRADING_RELAYER_ACCOUNT ??= "unused.near";
+    process.env.TRADING_RELAYER_KEY ??= "unused";
+    const passkey = makeAuthenticator();
+    const accountId = accountIdOf(passkey.publicKey);
+    const legs = await Promise.all([
+      "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+      "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near",
+    ].map((fromAssetId) => prepare({ kind: "change", accountId, fromAssetId, to: "eth", usd: 40 })));
+    const { payload } = await combine(accountId, legs.map((leg) => leg.depositAddress));
+    expect(payloadProblems(payload, accountId, legs.map((leg) => ({ depositAddress: leg.depositAddress, assetId: leg.leaves.assetId, maxUnits: leg.leaves.units })))).toBeNull();
+    const signed = signedIntent(payload, passkey.publicKey, passkey.assert(challengeFor(payload)));
+    await expect(simulate([signed])).rejects.toThrow(/insufficient balance/);
   });
 });

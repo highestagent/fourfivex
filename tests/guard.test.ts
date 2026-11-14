@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { payloadProblem } from "../lib/send/guard";
+import { payloadProblem, payloadProblems } from "../lib/send/guard";
 
 const NOW = Date.parse("2026-11-12T00:00:00Z");
 const ACCOUNT = "0x3602b546589a8fcafdce7fad64a46f91db0e4d50";
@@ -70,5 +70,42 @@ describe("payloadProblem", () => {
     expect(check("not json")).not.toBeNull();
     expect(check("null")).not.toBeNull();
     expect(check("[]")).not.toBeNull();
+  });
+});
+
+describe("payloadProblems", () => {
+  const SECOND = "b".repeat(64);
+  const ETH = "nep141:eth.omft.near";
+  const legs = [
+    { depositAddress: DEPOSIT, assetId: BTC, maxUnits: "70000" },
+    { depositAddress: SECOND, assetId: ETH, maxUnits: "900" },
+  ];
+  const two = (over: Record<string, unknown>[] = []) => JSON.stringify(fixture({
+    intents: [
+      { intent: "transfer", receiver_id: DEPOSIT, tokens: { [BTC]: "70000" }, ...over[0] },
+      { intent: "transfer", receiver_id: SECOND, tokens: { [ETH]: "900" }, ...over[1] },
+    ],
+  }));
+  const run = (payload: string, expected = legs) => payloadProblems(payload, ACCOUNT, expected, NOW);
+
+  it("accepts exactly the expected transfers, in order", () => {
+    expect(run(two())).toBeNull();
+  });
+
+  it("refuses a transfer that differs from its quote", () => {
+    expect(run(two([{}, { tokens: { [ETH]: "901" } }]))).toBe("This payment is for more than the amount shown.");
+    expect(run(two([{}, { receiver_id: "c".repeat(64) }]))).toBe("This payment goes to a different place than the one shown.");
+    expect(run(two([{}, { tokens: { [BTC]: "900" } }]))).toBe("This payment sends a different kind of money than the one shown.");
+  });
+
+  it("refuses a missing, extra or repeated transfer", () => {
+    expect(run(two(), [legs[0]])).toBe("This payment does more than one thing.");
+    expect(run(two(), [...legs, { ...legs[1], depositAddress: "d".repeat(64) }])).toBe("This payment does more than one thing.");
+    expect(run(two(), [legs[0], legs[0]])).toBe("This payment pays the same place twice.");
+  });
+
+  it("refuses more transfers than one signature may carry", () => {
+    const five = Array.from({ length: 5 }, (_, i) => ({ ...legs[0], depositAddress: String(i).repeat(64) }));
+    expect(run(two(), five)).toBe("This payment does more than one thing.");
   });
 });

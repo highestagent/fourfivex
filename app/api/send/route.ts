@@ -3,7 +3,8 @@ import { isCrossSite } from "@/lib/http/origin";
 import { ASSETS, type AssetKey } from "@/lib/assets";
 import { findToken } from "@/lib/oneclick";
 import { addressProblem, familyOf } from "@/lib/send/address";
-import { prepare, SendError, status, submit, transferAssets } from "@/lib/send/server";
+import { MAX_TRANSFERS } from "@/lib/send/guard";
+import { combine, prepare, SendError, status, submit, submitMany, transferAssets } from "@/lib/send/server";
 import { NETWORKS, type Network, type SendAsk } from "@/lib/send/types";
 
 /**
@@ -14,6 +15,8 @@ import { NETWORKS, type Network, type SendAsk } from "@/lib/send/types";
 const bad = (reason = "That request wasn't valid.") => Response.json({ ok: false, reason }, { status: 400 });
 
 const text = (v: unknown, max = 200): v is string => typeof v === "string" && v.length > 0 && v.length <= max;
+/** The deposit addresses of a send split across networks. */
+const addresses = (v: unknown): v is string[] => Array.isArray(v) && v.length >= 2 && v.length <= MAX_TRANSFERS && v.every((a) => text(a, 200));
 
 /** Validates the fields and returns a SendAsk, or a reason. */
 async function askFrom(b: Record<string, unknown>): Promise<SendAsk | string> {
@@ -67,6 +70,12 @@ export async function POST(request: Request) {
       case "submit":
         if (!text(body.depositAddress, 200) || !body.signed || typeof body.signed !== "object") return bad();
         return Response.json({ ok: true, ...(await submit(body.depositAddress, body.signed)) });
+      case "combine":
+        if (!text(body.accountId, 100) || !addresses(body.depositAddresses)) return bad();
+        return Response.json({ ok: true, ...(await combine(body.accountId, body.depositAddresses)) });
+      case "submit-many":
+        if (!addresses(body.depositAddresses) || !body.signed || typeof body.signed !== "object") return bad();
+        return Response.json({ ok: true, ...(await submitMany(body.depositAddresses, body.signed)) });
       case "status":
         if (!text(body.depositAddress, 200)) return bad();
         return Response.json({ ok: true, status: await status(body.depositAddress) });

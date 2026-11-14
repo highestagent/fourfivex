@@ -37,7 +37,8 @@ export type Prepared = {
   payload?: string;
 };
 
-export type SendState = "waiting" | "seen" | "short" | "working" | "done" | "refunded" | "failed";
+/** `partial`: a send split across networks where some parts arrived and the rest came back. */
+export type SendState = "waiting" | "seen" | "short" | "working" | "done" | "refunded" | "failed" | "partial";
 
 export type SendStatus = {
   state: SendState;

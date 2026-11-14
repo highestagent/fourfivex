@@ -329,6 +329,15 @@ export async function submitIntent(signed: unknown): Promise<string> {
   return data.intentHash;
 }
 
+/** Tells 1Click a deposit was sent, so it looks sooner. The deposit counts whether or not this arrives. */
+export async function notifyDeposit(depositAddress: string, txHash: string): Promise<void> {
+  await call<unknown>("/deposit/submit", {
+    method: "POST",
+    headers: headers(true),
+    body: JSON.stringify({ txHash, depositAddress }),
+  });
+}
+
 export type ApiStatus =
   | "PENDING_DEPOSIT"
   | "KNOWN_DEPOSIT_TX"
