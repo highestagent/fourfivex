@@ -1,7 +1,9 @@
+import { isCrossSite } from "@/lib/http/origin";
 import { parseAsk, quote } from "@/lib/oneclick";
 
 /** Prices one sentence. Always a dry run: see lib/oneclick.ts. */
 export async function POST(request: Request) {
+  if (isCrossSite(request)) return Response.json({ ok: false, reason: "bad-request" }, { status: 403 });
   let body: unknown;
   try {
     body = await request.json();

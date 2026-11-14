@@ -9,6 +9,7 @@ import { equal, utf8 } from '@/lib/account/encoding';
 import { CollateralRequired, executeTrade, executeWithdrawal, executionConfigured, prepareTrade, prepareWithdrawal } from '@/lib/markets/execution';
 import { tradingAddress } from '@/lib/markets/signer';
 import { prepareFunding, submitFunding, fundingConfigured } from '@/lib/markets/funding';
+import { isCrossSite } from '@/lib/http/origin';
 
 function signedIntent(value: unknown, origin: string): SignedIntent | undefined {
   if (!value || typeof value !== 'object') return;
@@ -38,10 +39,8 @@ function reply(value: unknown, status = 200) {
 }
 
 export async function POST(request: Request) {
+  if (isCrossSite(request)) return reply({ error: 'Invalid request origin.' }, 403);
   const origin = new URL(request.url).origin;
-  if (request.headers.get('origin') !== origin || request.headers.get('sec-fetch-site') === 'cross-site') {
-    return reply({ error: 'Invalid request origin.' }, 403);
-  }
   const data = await request.json().catch(() => null);
   if (!data || typeof data.accountId !== 'string' || !isAccountId(data.accountId)) return reply({ error: 'Invalid account.' }, 400);
   const { accountId } = data;

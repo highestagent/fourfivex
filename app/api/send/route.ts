@@ -1,4 +1,5 @@
 import { isAccountId } from "@/lib/account/keys";
+import { isCrossSite } from "@/lib/http/origin";
 import { ASSETS, type AssetKey } from "@/lib/assets";
 import { findToken } from "@/lib/oneclick";
 import { addressProblem, familyOf } from "@/lib/send/address";
@@ -56,6 +57,7 @@ async function askFrom(b: Record<string, unknown>): Promise<SendAsk | string> {
 }
 
 export async function POST(request: Request) {
+  if (isCrossSite(request)) return Response.json({ ok: false, reason: "That request didn't come from this site." }, { status: 403 });
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;

@@ -1,5 +1,6 @@
 import { ContractError, currentSalt, hasPublicKey, publicKeysOf, simulate } from "@/lib/account/chain";
 import { holdingsOf } from "@/lib/account/holdings";
+import { isCrossSite } from "@/lib/http/origin";
 import { VERIFIER, type SignedIntent } from "@/lib/account/intents";
 import { decodePublicKey, isAccountId } from "@/lib/account/keys";
 import { publish, statusOf } from "@/lib/account/relay";
@@ -47,6 +48,7 @@ function keyIntent(v: unknown): SignedIntent | null {
 }
 
 export async function POST(request: Request) {
+  if (isCrossSite(request)) return Response.json({ ok: false, reason: "That request didn't come from this site." }, { status: 403 });
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
