@@ -11,5 +11,5 @@ async function Room({ params }: { params: Promise<{ roomId: string }> }) {
 }
 
 export default function RoomPage({ params }: PageProps<"/markets/[roomId]">) {
-  return <Suspense fallback={<ShellMessage title="Opening room…" text="" />}><Room params={params} /></Suspense>;
+  return <Suspense fallback={<ShellMessage title="Opening room…" />}><Room params={params} /></Suspense>;
 }

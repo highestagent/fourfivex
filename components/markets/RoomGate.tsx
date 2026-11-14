@@ -35,12 +35,10 @@ export function RoomGate({ roomId }: { roomId: string }) {
     return () => { active = false; };
   }, [roomId, attempt]);
 
-  if (!result) return <ShellMessage title="Opening room…" text="" />;
+  if (!result) return <ShellMessage title="Opening room…" />;
   if (result.status === "joined") return <><Workspace roomId={roomId} /><MarketsFooter /></>;
-  if (result.status === "error") return <>
-    <ShellMessage title="Room unavailable" text={result.error ?? ""} />
-    <div className="shell"><button className="action action-primary" type="button" onClick={() => { setResult(undefined); setAttempt(value => value + 1); }}>Retry</button></div>
-  </>;
+  if (result.status === "error") return <ShellMessage title="Room unavailable" text={result.error}
+    actions={<button className="action action-primary" type="button" onClick={() => { setResult(undefined); setAttempt(value => value + 1); }}>Retry</button>} />;
   if (!result.token) return <ShellMessage title="This room needs an invite" text="Ask the owner for an invite link." />;
   return <>
     <MarketsHeader />

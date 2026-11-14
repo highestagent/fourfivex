@@ -12,9 +12,10 @@ import { sent, useSent, type SentEntry } from "@/lib/send/history";
 import { usePeople } from "@/lib/send/people";
 import { AccountButton } from "./AccountButton";
 import { AccountSheet } from "./AccountSheet";
+import { AppNavigation } from "./AppNavigation";
 import { Composer, type ActionKey } from "./Composer";
 import { ThemeSwitcher } from "./ThemeSwitcher";
-import { Arrow, CopyButton, Dot, FourfivexBrand, Plus } from "./ui";
+import { Arrow, CopyButton, Dot, Plus } from "./ui";
 
 const VIEWS = [
   { key: "now", label: "Now" },
@@ -148,10 +149,8 @@ export default function Surface() {
   return (
     <div className="min-h-dvh bg-page pb-12 sm:pb-20">
       <header className="border-b border-line">
-        <div className="shell flex h-16 items-center justify-between gap-4 sm:h-[72px]">
-          <button type="button" onClick={() => setView("now")} className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg" aria-label="fourfivex home">
-            <FourfivexBrand />
-          </button>
+        <div className="shell flex min-h-14 flex-wrap items-center justify-between gap-x-2 sm:min-h-[60px]">
+          <AppNavigation current="wallet" onWalletNavigate={() => setView("now")} />
           <AccountButton onClick={(event) => open("account", event)} />
         </div>
       </header>
@@ -162,7 +161,7 @@ export default function Surface() {
             <button
               key={key}
               type="button"
-              aria-current={view === key ? "page" : undefined}
+              aria-pressed={view === key}
               onClick={() => setView(key)}
               className={`mono min-h-11 cursor-pointer rounded-full px-4 sm:px-6 ${view === key ? "bg-surface font-semibold text-ink shadow-chip" : "text-ink-2 hover:text-ink"}`}
             >

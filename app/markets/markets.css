@@ -87,11 +87,12 @@
   .segmented > button[aria-pressed="true"] { color: var(--blue); background: var(--page); border-color: var(--line); }
   .room-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     min-height: var(--room-header-height);
-    gap: 8px;
+    column-gap: 8px;
   }
-  .room-navigation, .room-actions {
+  .room-actions {
     display: flex;
     align-items: center;
     flex: none;
@@ -128,14 +129,13 @@
   .room-presence[data-connected="false"] { color: var(--color-amber); }
 
   @media (width < 28rem) {
-    .room-header { gap: 4px; }
-    .room-navigation, .room-actions { gap: 0; }
+    .room-header { column-gap: 4px; }
+    .room-actions { gap: 0; }
     .room-title { font-size: 15px; text-transform: capitalize; }
     .room-title-prefix { display: none; }
   }
   @media (width < 25rem) {
-    .room-header { width: calc(100% - 16px); gap: 2px; }
-    .room-header :is(.room-header-divider, .room-brand-icon) { display: none; }
+    .room-header { width: calc(100% - 16px); }
   }
 
   .chart-panel {
@@ -421,27 +421,15 @@
 }
 
 .market-page {
-  --workspace-header-height: 60px;
   background: var(--workspace-surface);
 
-  .market-page-header {
-    border-bottom: 1px solid var(--workspace-line);
-  }
-  .market-page-header .markets-container {
-    width: calc(100% - 2 * clamp(1rem, 2.25vw, 2rem));
-    min-height: calc(var(--workspace-header-height) - 1px);
-  }
-  .market-header-divider { flex: 0 0 1px; height: 22px; background: var(--workspace-line); }
-  .market-page-title { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
-  .market-header-actions { display: flex; align-items: center; gap: 12px; margin-inline-start: auto; }
+  .market-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; margin-inline-start: auto; }
   .market-header-actions > * { flex-shrink: 0; }
   .market-header-actions .action span.truncate { max-width: min(8rem, 23vw); }
   .market-return { display: inline-flex; align-items: center; min-height: 44px; border-radius: 6px; color: var(--muted); font-size: 13px; }
   .market-return:hover, .market-return:focus-visible { color: var(--ink); text-decoration: underline; }
   @media (width < 40rem) {
-    --workspace-header-height: 56px;
-    .market-page-header .markets-container { flex-wrap: wrap; row-gap: 0; }
-    .market-header-actions { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .market-header-actions { gap: 8px; padding-block: 4px; }
     .market-header-actions .action { padding-inline: 12px; font-size: 13px; }
     .market-return { font-size: 12px; }
   }

@@ -7,7 +7,7 @@ export function FourfivexBrand({ markOnly = false }: { markOnly?: boolean }) {
   return (
     <>
       <Image src="/icon.svg" alt="" width={28} height={28} className="size-7 shrink-0 rounded-[8px]" unoptimized />
-      {!markOnly && <span className="text-[17px] font-semibold tracking-[-0.035em]">fourfivex</span>}
+      {!markOnly && <span className="ml-2 hidden text-[17px] font-semibold tracking-[-0.035em] sm:inline">fourfivex</span>}
     </>
   );
 }

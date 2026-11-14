@@ -1,8 +1,7 @@
-import Link from 'next/link';
-import { ChartNoAxesCombined, ChevronDown, MonitorUp, Pause, Play, UserPlus, Users, WifiOff } from 'lucide-react';
+import { ChevronDown, MonitorUp, Pause, Play, UserPlus, Users, WifiOff } from 'lucide-react';
 import type { Member } from '@fourfivex/markets-protocol/protocol';
+import { AppNavigation } from '@/components/AppNavigation';
 import { Select } from '@/components/Select';
-import { FourfivexBrand } from '@/components/ui';
 import { RoomAudio } from './RoomAudio';
 
 type Props = {
@@ -34,12 +33,7 @@ export function RoomHeader({ roomId, me, members, presenter, online, connected, 
 
   return (
     <header className="markets-container room-header">
-      <nav className="room-navigation" aria-label="Room navigation">
-        <Link href="/" className="room-icon room-brand-icon" aria-label="fourfivex wallet" title="fourfivex wallet"><FourfivexBrand markOnly /></Link>
-        <Link href="/markets" className="room-icon" aria-label="Back to Markets" title="Back to Markets">
-          <ChartNoAxesCombined size={18} aria-hidden="true" />
-        </Link>
-      </nav>
+      <AppNavigation compact />
       <span className="room-header-divider" aria-hidden="true" />
       <h1 className="room-title" aria-label="Trading room"><span className="room-title-prefix">Trading </span>room</h1>
       <div className="room-actions">

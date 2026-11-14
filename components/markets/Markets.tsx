@@ -52,12 +52,13 @@ export function Markets() {
 
   return (
     <div className="markets-ui market-page trade-page">
-      <MarketsHeader showMarketsLink={false} actions={<>
+      <MarketsHeader current="markets" actions={<>
         {recent && <Link className="market-return" href={`/markets/${recent}`}>Return to room</Link>}
         <button ref={createButton} type="button" className="action action-secondary" onClick={() => setCreating(true)}>Create room</button>
         <AccountButton buttonRef={accountButton} onClick={() => setAccountOpen(true)} />
       </>} />
       <main className="trade-main markets-container">
+        <h1 className="sr-only">Markets</h1>
         <TradeComposer market={market} selectMarket={setMarket} catalog={catalog} accountId={accountId}
           accountOpen={accountOpen} openAccount={() => {
             setAccountFromReview(true);
