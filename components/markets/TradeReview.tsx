@@ -77,7 +77,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
     };
     void load().catch(failure => {
       if (!controller.signal.aborted) {
-        setError(failure instanceof Error ? failure.message.split("\n")[0] : "Could not get a quote from Hyperliquid.");
+        setError(failure instanceof Error ? failure.message.split("\n")[0] : "Could not get a price right now.");
       }
     });
     return () => controller.abort();
@@ -118,7 +118,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
         const next = { id: prepared.authorization.id, expires: prepared.authorization.expiresAfter };
         localStorage.setItem(pendingKey(accountId), JSON.stringify(next));
         setPending(next);
-        setBusy("Submitting to Hyperliquid…");
+        setBusy("Placing your order…");
         let response: TradeResult;
         try {
           response = await tradeApi<TradeResult>(accountId, "execute", { ticket: prepared.ticket, signed });
@@ -201,7 +201,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
         <div className="flex flex-wrap gap-2">
           {pending ? <button type="button" className="action action-primary" onClick={() => void check()} disabled={Boolean(busy)}>Check order</button>
             : result ? null
-            : needsCollateral ? <button type="button" className="action action-primary" onClick={onFund}>Add funds</button>
+            : needsCollateral ? <button type="button" className="action action-primary" onClick={onFund}>Add money</button>
             : expired || (!quote && error)
             ? <button type="button" className="action action-primary" onClick={reload}>{expired ? "Refresh expired quote" : "Get a new quote"}</button>
             : prepared ? <button type="button" className="action action-primary" disabled={Boolean(busy)} onClick={() => void confirm()}>Confirm with passkey</button>

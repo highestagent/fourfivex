@@ -22,7 +22,7 @@ type PendingWithdrawal = Withdrawal & { submitted?: boolean };
 type Method = "relay" | "hyperliquid" | "fourfivex";
 type Outcome = { ok: boolean; text: string };
 
-const usdc = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const hyperliquidPortfolio = "https://app.hyperliquid.xyz/portfolio";
 const amountDraft = /^\d{0,7}([.,]\d{0,2})?$/;
 
@@ -30,10 +30,10 @@ const transferProgress: Record<string, string> = {
   waiting: "Waiting for 1Click to receive your transfer…",
   seen: "1Click received your transfer.",
   short: "1Click received less than the quoted amount.",
-  working: "Converting to USDC on Hyperliquid…",
+  working: "Moving your money to trading…",
 };
 const transferOutcome: Record<string, Outcome> = {
-  done: { ok: true, text: "Your USDC arrived in your trading account." },
+  done: { ok: true, text: "Your money arrived in your trading balance." },
   refunded: { ok: false, text: "The transfer was refunded to your fourfivex balance." },
   failed: { ok: false, text: "1Click couldn't complete the transfer." },
 };
@@ -44,7 +44,7 @@ function saved<T>(key: string): T | null {
 }
 
 const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
-const afterFee = (amount: string | number) => usdc.format(Math.max(0, Number(amount) - WITHDRAWAL_FEE));
+const afterFee = (amount: string | number) => dollars.format(Math.max(0, Number(amount) - WITHDRAWAL_FEE));
 
 function Callout({ tone, role, children }: { tone: "ok" | "warn" | "error"; role?: "status" | "alert"; children: ReactNode }) {
   const Icon = tone === "ok" ? CircleCheck : TriangleAlert;
@@ -162,8 +162,8 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
         setWithdrawal(null);
         setReview(undefined);
         setOutcome(record
-          ? { ok: true, text: "Hyperliquid processed your withdrawal. The USDC should reach your Arbitrum wallet within a few minutes." }
-          : { ok: false, text: "The withdrawal expired without a record on Hyperliquid, so nothing was withdrawn." });
+          ? { ok: true, text: "Your withdrawal was processed. The money should reach your Arbitrum wallet within a few minutes." }
+          : { ok: false, text: "The withdrawal expired before it was processed, so nothing was withdrawn." });
       } catch {}
     }
     void update();
@@ -249,7 +249,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
           setWithdrawal(review.withdrawal);
           try {
             const result = await tradeApi<{ state: string; message?: string }>(accountId, "withdraw-submit", { ticket: review.ticket, signed });
-            if (result.state === "rejected") throw new TradeApiError(result.message || "Hyperliquid rejected the withdrawal.", "not_submitted");
+            if (result.state === "rejected") throw new TradeApiError(result.message || "The withdrawal was rejected.", "not_submitted");
             if (result.state === "submitted") {
               const submitted = { ...review.withdrawal, submitted: true };
               localStorage.setItem(withdrawKey, JSON.stringify(submitted));
@@ -284,16 +284,16 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
     </button>
   );
   const methods: { id: Method; title: string; detail: string }[] = [
-    { id: "relay", title: "Another wallet or chain", detail: "Bridge from most chains and tokens with Relay." },
+    { id: "relay", title: "Another wallet or chain", detail: "Pay with most tokens on most chains, using Relay." },
     { id: "hyperliquid", title: "A Hyperliquid account", detail: "Send USDC you already hold on Hyperliquid." },
-    ...(trading.funding ? [{ id: "fourfivex" as const, title: "Your fourfivex balance", detail: "Convert a balance in this account to USDC." }] : []),
+    ...(trading.funding ? [{ id: "fourfivex" as const, title: "Your fourfivex balance", detail: "Use money already in your fourfivex balance." }] : []),
   ];
   const fourfivexBusy = method === "fourfivex" && (fundTransfer || review);
 
   const fundingView = <>
-    {arrived && <Callout tone="ok" role="status"><strong>{usdc.format(received)} USDC arrived.</strong> You can trade now.</Callout>}
+    {arrived && <Callout tone="ok" role="status"><strong>{dollars.format(received)} arrived.</strong> You can trade now.</Callout>}
     {!fourfivexBusy && !outcome && <fieldset className="funds-methods">
-      <legend>Add USDC from</legend>
+      <legend>Add money from</legend>
       {methods.map(option => (
         <label key={option.id} className="funds-method">
           <input type="radio" name={`${ids}-method`} value={option.id} checked={method === option.id} onChange={() => {
@@ -334,7 +334,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
       <Callout tone="warn">
         Send only on Hyperliquid. USDC sent to this address on Arbitrum, Ethereum or any other network won&rsquo;t reach your trading account.
       </Callout>
-      <p className="funds-note">Hyperliquid may charge 1 USDC for the first transfer to a new address.</p>
+      <p className="funds-note">Hyperliquid may charge $1 for the first transfer to a new address.</p>
       <div className="funds-actions">
         {!arrived && <OutLink primary href={hyperliquidPortfolio}>Open Hyperliquid</OutLink>}
         {doneButton}
@@ -349,8 +349,8 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
         : review && "payload" in review ? <>
           <dl className="trade-review-details">
             <div><dt>You send</dt><dd>Up to {review.from} {review.symbol}</dd></div>
-            <div><dt>You receive</dt><dd><strong>{review.to} USDC</strong></dd></div>
-            <div><dt>Arrives in</dt><dd>Your trading account</dd></div>
+            <div><dt>You receive</dt><dd><strong>{dollars.format(Number(review.to))}</strong></dd></div>
+            <div><dt>Arrives in</dt><dd>Your trading balance</dd></div>
           </dl>
           <div className="funds-actions">
             <button type="button" className="action action-primary" disabled={busy} onClick={submit}>Confirm with passkey</button>
@@ -366,7 +366,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
               }))} />
           </div> : <p className="funds-note">{status === "loading" ? "Loading your fourfivex balances…" : "Your fourfivex account has no balance to convert."}</p>}
           <div className="funds-field">
-            <label htmlFor={`${ids}-fund-amount`}>USDC to receive</label>
+            <label htmlFor={`${ids}-fund-amount`}>Amount to add</label>
             <input id={`${ids}-fund-amount`} name="amount" className="field" inputMode="decimal" autoComplete="off" placeholder="0.00"
               pattern="[0-9]{1,7}([.,][0-9]{1,2})?" required />
           </div>
@@ -381,13 +381,13 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
 
   const withdrawView = withdrawal ? <div className="funds-panel">
     <dl className="trade-review-details">
-      <div><dt>Withdrawing</dt><dd>{usdc.format(Number(withdrawal.amount))} USDC</dd></div>
-      <div><dt>You receive</dt><dd>{afterFee(withdrawal.amount)} USDC</dd></div>
+      <div><dt>Withdrawing</dt><dd>{dollars.format(Number(withdrawal.amount))}</dd></div>
+      <div><dt>You receive</dt><dd>{afterFee(withdrawal.amount)}</dd></div>
       <div><dt>Network</dt><dd>Arbitrum One</dd></div>
       <div><dt>To</dt><dd className="funds-mono funds-break">{withdrawal.destination}</dd></div>
     </dl>
     <p className="funds-waiting" role="status">
-      {withdrawal.submitted ? "Submitted. Waiting for Hyperliquid to process it…" : "Checking whether Hyperliquid received your withdrawal…"}
+      {withdrawal.submitted ? "Submitted. Waiting for it to be processed…" : "Checking on your withdrawal…"}
     </p>
   </div>
     : outcome ? <div className="funds-panel">
@@ -396,9 +396,9 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
     </div>
     : review && !("payload" in review) ? <div className="funds-panel">
       <dl className="trade-review-details">
-        <div><dt>Withdraw</dt><dd>{usdc.format(Number(review.withdrawal.amount))} USDC</dd></div>
-        <div><dt>Hyperliquid fee</dt><dd>{usdc.format(WITHDRAWAL_FEE)} USDC</dd></div>
-        <div><dt>You receive</dt><dd><strong>{afterFee(review.withdrawal.amount)} USDC</strong></dd></div>
+        <div><dt>Withdraw</dt><dd>{dollars.format(Number(review.withdrawal.amount))}</dd></div>
+        <div><dt>Withdrawal fee</dt><dd>{dollars.format(WITHDRAWAL_FEE)}</dd></div>
+        <div><dt>You receive</dt><dd><strong>{afterFee(review.withdrawal.amount)}</strong></dd></div>
         <div><dt>Network</dt><dd>Arbitrum One</dd></div>
         <div><dt>To</dt><dd className="funds-mono funds-break">{review.withdrawal.destination}</dd></div>
       </dl>
@@ -409,10 +409,11 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
       </div>
     </div>
     : <form className="funds-form" noValidate onSubmit={prepareWithdrawal}>
-      {!canWithdraw && <p className="funds-note">You need more than 1 USDC available to withdraw.</p>}
+      {!canWithdraw && <p className="funds-note">You need more than $1 available to withdraw.</p>}
       <div className="funds-field">
         <label htmlFor={`${ids}-amount`}>Amount</label>
         <div className="funds-input">
+          <span aria-hidden="true">$</span>
           <input id={`${ids}-amount`} name="amount" inputMode="decimal" autoComplete="off" placeholder="0.00" value={amount}
             aria-invalid={Boolean(fieldErrors.amount)} aria-describedby={`${ids}-amount-help`}
             onChange={event => {
@@ -420,7 +421,6 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
               setAmount(event.target.value);
               setFieldErrors(errors => ({ ...errors, amount: undefined }));
             }} />
-          <span aria-hidden="true">USDC</span>
           <button type="button" className="funds-max" disabled={!maxWithdrawal || !canWithdraw} onClick={() => {
             if (!maxWithdrawal) return;
             setAmount(maxWithdrawal.toFixed(2));
@@ -429,8 +429,8 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
         </div>
         <p id={`${ids}-amount-help`} className={fieldErrors.amount ? "funds-error" : "funds-note"}>
           {fieldErrors.amount ?? (Number(amount.replace(",", ".")) > WITHDRAWAL_FEE
-            ? `You receive ${afterFee(amount.replace(",", "."))} USDC after Hyperliquid's 1 USDC fee.`
-            : "Hyperliquid keeps 1 USDC of every withdrawal as a fee.")}
+            ? `You receive ${afterFee(amount.replace(",", "."))} after the $1 withdrawal fee.`
+            : "Each withdrawal costs $1.")}
         </p>
       </div>
       <div className="funds-field">
@@ -452,15 +452,15 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
       </div>
     </form>;
 
-  return <Sheet label={funding ? "Add funds" : "Withdraw"} showTitle busy={busy} onClose={close}>
+  return <Sheet label={funding ? "Add money to trading" : "Withdraw from trading"} showTitle busy={busy} onClose={close}>
     <div className="markets-ui funds">
       <p className="funds-lead">
-        {funding ? "Trades use USDC in your trading account on Hyperliquid." : "Move USDC from your trading account to a wallet on Arbitrum."}
+        {funding ? "Trading uses the dollars in your trading balance. It counts toward your balance on the home screen." : "Send dollars from your trading balance to a wallet on Arbitrum."}
       </p>
       <div className="funds-balance">
         <span>{funding ? "Available to trade" : "Available to withdraw"}</span>
         <strong>
-          {balance !== undefined ? `${usdc.format(Number(balance))} USDC`
+          {balance !== undefined ? dollars.format(Number(balance))
             : balanceFailed ? "Unavailable"
             : <span className="funds-skeleton"><span className="sr-only">Loading balance</span></span>}
         </strong>

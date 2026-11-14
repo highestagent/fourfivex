@@ -20,8 +20,8 @@ describe("withdrawalProblems", () => {
   it("asks for a well-formed amount above the fee and within the balance", () => {
     expect(withdrawalProblems("", WALLET, 100, TRADING).problems.amount).toMatch(/like 25/);
     expect(withdrawalProblems("2.555", WALLET, 100, TRADING).problems.amount).toMatch(/like 25/);
-    expect(withdrawalProblems("1", WALLET, 100, TRADING).problems.amount).toMatch(/more than 1 USDC/);
-    expect(withdrawalProblems("100.01", WALLET, 100, TRADING).problems.amount).toBe("You can withdraw up to 100.00 USDC.");
+    expect(withdrawalProblems("1", WALLET, 100, TRADING).problems.amount).toMatch(/more than \$1/);
+    expect(withdrawalProblems("100.01", WALLET, 100, TRADING).problems.amount).toBe("You can withdraw up to $100.00.");
     expect(withdrawalProblems("100", WALLET, 100, TRADING).problems.amount).toBeUndefined();
     expect(withdrawalProblems("5000", WALLET, undefined, TRADING).problems.amount).toBeUndefined();
   });
