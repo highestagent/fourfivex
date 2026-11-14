@@ -47,7 +47,7 @@ export function tradeIntent(requests: ExchangeRequest[], contract: string): Auth
   };
 }
 
-export const signingPath = (accountId: string) => `intuite:hyperliquid:v1:${accountId}`;
+export const signingPath = (accountId: string) => `fourfivex:hyperliquid:v1:${accountId}`;
 
 export type Withdrawal = { destination: `0x${string}`; amount: string; time: number };
 

@@ -53,7 +53,7 @@ impl TradingSigner {
             // The current MPC request shape. `payload` and `key_version` are deprecated, and this
             // contract can never be updated once its keys are removed. Domain 0 is secp256k1.
             let args = serde_json::json!({ "request": {
-                "path": format!("intuite:hyperliquid:v1:{signer_id}"),
+                "path": format!("fourfivex:hyperliquid:v1:{signer_id}"),
                 "payload_v2": { "Ecdsa": hex(&digest) },
                 "domain_id": 0
             } });

@@ -2,7 +2,7 @@
 
 Gives every fourfivex account its own Hyperliquid address without anyone holding its key.
 
-- The address comes from NEAR Chain Signatures. Its derivation path is `intuite:hyperliquid:v1:<account id>` under this contract's account, so each account gets its own address.
+- The address comes from NEAR Chain Signatures. Its derivation path is `fourfivex:hyperliquid:v1:<account id>` under this contract's account, so each account gets its own address.
 - A trade or withdrawal is a passkey-signed `auth_call` intent. The NEAR Intents verifier (`intents.near`) checks the passkey, then calls `on_auth` here. This contract refuses any other caller and asks `v1.signer` to sign the one or two digests in the intent.
 - Any passkey attached to the account can approve, and every passkey gets the same address.
 
@@ -23,8 +23,8 @@ The output is `services/trading-signer/target/near/fourfivex_trading_signer.wasm
 
 | Form | Value |
 | --- | --- |
-| Code hash (base58, what NEAR's RPC reports) | `CWJ6MsmF2hpHsYU9mzpV8u88q2EKJ4A32RdAJRZAong9` |
-| SHA-256 hex (what NEAR CLI prints) | `aaf1b9e20a0d41e3abccd119171c6954d5331674977c4eebcef46abffc385672` |
+| Code hash (base58, what NEAR's RPC reports) | `9wWUEB6gSnCnN593SSMrzfvsrNSmM4vzWos5UMA8AU1E` |
+| SHA-256 hex (what NEAR CLI prints) | `84d42e27d8765e9b1859b07c80deadfe98eaad0eae6dabf45354f86edec38cd1` |
 
 If the source, `Cargo.lock` or the image changes, these change too.
 
@@ -88,7 +88,7 @@ RELAYER_KEY=~/.near-credentials/fourfivex/relayer/$RELAYER.json
    | Variable | Value |
    | --- | --- |
    | `TRADING_SIGNER_CONTRACT` | `28d180cb1023548794a934d7338885b75e8ebc312ee8ddcc434418840155298d` |
-   | `TRADING_SIGNER_CODE_HASH` | `CWJ6MsmF2hpHsYU9mzpV8u88q2EKJ4A32RdAJRZAong9` |
+   | `TRADING_SIGNER_CODE_HASH` | `9wWUEB6gSnCnN593SSMrzfvsrNSmM4vzWos5UMA8AU1E` |
    | `TRADING_RELAYER_ACCOUNT` | `4d264c9e407805c2fd84a14064c7b0130b0fcde138eb792a4bcea8edad79b47c` |
    | `TRADING_RELAYER_KEY` | The capped key from step 5, Sensitive |
    | `TRADING_TICKET_SECRET` | Optional. At least 32 random characters. Without it, the app derives one from the relayer key |
