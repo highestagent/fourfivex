@@ -32,53 +32,41 @@ If the source, `Cargo.lock` or the image changes, these change too.
 
 These steps use [NEAR CLI](https://github.com/near/near-cli-rs) 0.31.1 (`npm install -g near-cli-rs`). Every command below was checked against its help.
 
-The signer and relayer are plain (implicit) accounts. Each is the hex form of its own public key, so it needs no parent account: it comes into being when NEAR is first sent to it.
+Everything runs under `fourfivex.near`, the operations account. It pays for and creates the other two, and later tops up the relayer. Its key is in this Mac's keychain (imported with `near account import-account using-seed-phrase`).
 
-| Account | Role | Key file (owner-only) | Keys after setup |
-| --- | --- | --- | --- |
-| `28d180cb1023548794a934d7338885b75e8ebc312ee8ddcc434418840155298d` | Signer. Runs this contract | `~/.near-credentials/fourfivex/signer/<account>.json` | None |
-| `4d264c9e407805c2fd84a14064c7b0130b0fcde138eb792a4bcea8edad79b47c` | Relayer. Pays gas for trades | `~/.near-credentials/fourfivex/relayer/<account>.json` | Its full-access key, plus the capped key Vercel uses |
+| Account | Role | Keys after setup |
+| --- | --- | --- |
+| `fourfivex.near` | Operations. Creates the other two, tops up the relayer | Its own full-access key |
+| `trading-signer.fourfivex.near` | Runs this contract | None |
+| `trading-relayer.fourfivex.near` | Pays gas for trades | A full-access key in the keychain, plus the capped key Vercel uses |
 
-Each key file holds a private key and a seed phrase. The signer's file is worthless once step 4 deletes its key. Keep a backup of the relayer's: it is the only way to top up the relayer or replace its capped key.
+`fourfivex.near` needs about 3.1 NEAR first: 1 for the signer, 2 for the relayer, and a little for gas.
 
-The keys were made with:
-```sh
-near account create-account fund-later use-auto-generation save-to-folder ~/.near-credentials/fourfivex/signer
-near account create-account fund-later use-auto-generation save-to-folder ~/.near-credentials/fourfivex/relayer
-```
-
-The commands below use these shell variables:
-```sh
-SIGNER=28d180cb1023548794a934d7338885b75e8ebc312ee8ddcc434418840155298d
-RELAYER=4d264c9e407805c2fd84a14064c7b0130b0fcde138eb792a4bcea8edad79b47c
-SIGNER_KEY=~/.near-credentials/fourfivex/signer/$SIGNER.json
-RELAYER_KEY=~/.near-credentials/fourfivex/relayer/$RELAYER.json
-```
-
-1. **Fund both accounts** from any wallet or exchange: 1 NEAR to the signer, 2 NEAR to the relayer. About 0.77 NEAR of the signer's stays locked for the contract's storage, and every signature costs 1 yoctoNEAR from the rest. Check that both arrived:
+1. **Create the signer account** with 1 NEAR. About 0.77 NEAR stays locked for the contract's storage, and every signature costs 1 yoctoNEAR from the rest.
    ```sh
-   near account view-account-summary $SIGNER network-config mainnet now
-   near account view-account-summary $RELAYER network-config mainnet now
+   near account create-account fund-myself trading-signer.fourfivex.near '1 NEAR' autogenerate-new-keypair save-to-keychain sign-as fourfivex.near network-config mainnet sign-with-keychain send
    ```
 2. **Deploy the Wasm.**
    ```sh
-   near contract deploy $SIGNER use-file services/trading-signer/target/near/fourfivex_trading_signer.wasm without-init-call network-config mainnet sign-with-access-key-file $SIGNER_KEY send
+   near contract deploy trading-signer.fourfivex.near use-file services/trading-signer/target/near/fourfivex_trading_signer.wasm without-init-call network-config mainnet sign-with-keychain send
    ```
 3. **Check it before locking it.** `version` must return `1`, and the account summary must show the SHA-256 hex above.
    ```sh
-   near contract call-function as-read-only $SIGNER version json-args '{}' network-config mainnet now
-   near account view-account-summary $SIGNER network-config mainnet now
+   near contract call-function as-read-only trading-signer.fourfivex.near version json-args '{}' network-config mainnet now
+   near account view-account-summary trading-signer.fourfivex.near network-config mainnet now
    ```
 4. **Delete the signer's key.** The app refuses a signer account that still has a key, so this step is required. It cannot be undone: afterwards nobody can change the contract or move its NEAR.
    ```sh
-   near account delete-keys $SIGNER public-keys ed25519:3kLbRaUMAi8TvQkat4fRgopqEKC19iso2LutaDhb3B1v network-config mainnet sign-with-access-key-file $SIGNER_KEY send
-   near account list-keys $SIGNER network-config mainnet now
+   near account list-keys trading-signer.fourfivex.near network-config mainnet now
+   near account delete-keys trading-signer.fourfivex.near public-keys <the key listed above> network-config mainnet sign-with-keychain send
+   near account list-keys trading-signer.fourfivex.near network-config mainnet now
    ```
-5. **Give the relayer a capped key for the app.** It can only call `execute_intents` on `intents.near`. Each trade reserves about 0.025 NEAR of the cap (250 Tgas), so a cap of 1 NEAR covers about 40 trades before the key needs replacing.
+5. **Create the relayer** with 2 NEAR, then give it a capped key for the app. That key can only call `execute_intents` on `intents.near`. Each trade reserves about 0.025 NEAR of the cap (250 Tgas), so a cap of 1 NEAR covers about 40 trades before the key needs replacing.
    ```sh
-   near account add-key $RELAYER grant-function-call-access --allowance '1 NEAR' --contract-account-id intents.near --function-names execute_intents autogenerate-new-keypair save-to-legacy-keychain network-config mainnet sign-with-access-key-file $RELAYER_KEY send
+   near account create-account fund-myself trading-relayer.fourfivex.near '2 NEAR' autogenerate-new-keypair save-to-keychain sign-as fourfivex.near network-config mainnet sign-with-keychain send
+   near account add-key trading-relayer.fourfivex.near grant-function-call-access --allowance '1 NEAR' --contract-account-id intents.near --function-names execute_intents autogenerate-new-keypair save-to-legacy-keychain network-config mainnet sign-with-keychain send
    ```
-   The CLI prints where it saved the new key file. It never shows the key.
+   The second command prints where it saved the capped key's file. It never shows the key.
 6. **Set the Vercel variables** for Production, then redeploy. The relayer key goes from its file straight into Vercel, without appearing on screen:
    ```sh
    python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["private_key"], end="")' <capped key file from step 5> \
@@ -87,9 +75,9 @@ RELAYER_KEY=~/.near-credentials/fourfivex/relayer/$RELAYER.json
 
    | Variable | Value |
    | --- | --- |
-   | `TRADING_SIGNER_CONTRACT` | `28d180cb1023548794a934d7338885b75e8ebc312ee8ddcc434418840155298d` |
+   | `TRADING_SIGNER_CONTRACT` | `trading-signer.fourfivex.near` |
    | `TRADING_SIGNER_CODE_HASH` | `9wWUEB6gSnCnN593SSMrzfvsrNSmM4vzWos5UMA8AU1E` |
-   | `TRADING_RELAYER_ACCOUNT` | `4d264c9e407805c2fd84a14064c7b0130b0fcde138eb792a4bcea8edad79b47c` |
+   | `TRADING_RELAYER_ACCOUNT` | `trading-relayer.fourfivex.near` |
    | `TRADING_RELAYER_KEY` | The capped key from step 5, Sensitive |
    | `TRADING_TICKET_SECRET` | Optional. At least 32 random characters. Without it, the app derives one from the relayer key |
    | `TRADING_NEAR_RPC_URL` | Optional mainnet RPC URL. Defaults to FastNEAR |
