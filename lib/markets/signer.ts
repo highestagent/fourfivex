@@ -12,9 +12,13 @@ const decoder = new TextDecoder();
 let relayer: Account | undefined;
 const provider = () => new JsonRpcProvider({ url: process.env.TRADING_NEAR_RPC_URL ?? 'https://rpc.fastnear.com' });
 
+/** A named `.near` account, or a plain (implicit) account: 64 lowercase hex characters. */
+const NAMED_ACCOUNT = /^[a-z0-9]+(?:[._-][a-z0-9]+)*\.near$/;
+const IMPLICIT_ACCOUNT = /^[0-9a-f]{64}$/;
+
 export function signerContract() {
   const contract = process.env.TRADING_SIGNER_CONTRACT;
-  return contract && contract.length <= 64 && /^[a-z0-9]+(?:[._-][a-z0-9]+)*\.near$/.test(contract) ? contract : undefined;
+  return contract && contract.length <= 64 && (NAMED_ACCOUNT.test(contract) || IMPLICIT_ACCOUNT.test(contract)) ? contract : undefined;
 }
 
 export function tradingConfigured() {
