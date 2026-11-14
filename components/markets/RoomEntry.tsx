@@ -55,7 +55,7 @@ export function RoomEntry({ roomId, token, market, marketName, accountId, onJoin
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <p className="sentence">{roomId ? "Join a private trading room." : marketName ? `Open a private room on ${marketName} for an hour.` : "Open a private trading room for an hour."}</p>
+      <p className="sentence">{roomId ? "Join a private trading room." : marketName ? `Open a private room on ${marketName}.` : "Create a private trading room."}</p>
       <div className="grid gap-2">
         <label htmlFor={nameId} className="text-sm font-medium">Display name</label>
         <div className="flex gap-2">
