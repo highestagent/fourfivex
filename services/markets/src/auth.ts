@@ -3,7 +3,7 @@ import type { Env } from './env';
 import { HttpError } from './http';
 
 export type Identity = { id: string; expires: number; cookie?: string };
-const cookieName = '__Host-intuite-markets';
+const cookieName = '__Host-fourfivex-markets';
 const cookieLife = 30 * 24 * 3600;
 const encoder = new TextEncoder();
 const ticketPrefix = 'fourfivex.ticket.';
