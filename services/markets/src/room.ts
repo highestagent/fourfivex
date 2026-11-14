@@ -156,7 +156,8 @@ export class TradingRoom extends DurableObject<Env> {
       this.send(server, { type: 'snapshot', room: { me, members: this.members(), items, presentation: this.presentation() } });
       if (request.headers.get('x-fourfivex-reconnect') === '1') console.log('room_reconnected');
       this.presence();
-      return new Response(null, { status: 101, webSocket: client });
+      const protocol = request.headers.get('Sec-WebSocket-Protocol');
+      return new Response(null, { status: 101, webSocket: client, headers: protocol ? { 'Sec-WebSocket-Protocol': protocol } : undefined });
     }
     if (me.role !== 'owner') throw new HttpError(403, 'Only the owner can manage access.');
     if (path === '/invites') {

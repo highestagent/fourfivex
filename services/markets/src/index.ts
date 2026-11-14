@@ -9,9 +9,9 @@ export default {
   async fetch(request: Request, env: Env) {
     try {
       const url = new URL(request.url);
-      if (request.headers.get('Sec-Fetch-Site') === 'cross-site' ||
-        ((request.method !== 'GET' || request.headers.has('Upgrade')) &&
-          (!env.APP_ORIGIN || request.headers.get('Origin') !== env.APP_ORIGIN))) {
+      const socket = request.headers.get('Upgrade')?.toLowerCase() === 'websocket';
+      if ((request.headers.get('Sec-Fetch-Site') === 'cross-site' && !(socket && request.headers.has('Sec-WebSocket-Protocol'))) ||
+        ((request.method !== 'GET' || socket) && (!env.APP_ORIGIN || request.headers.get('Origin') !== env.APP_ORIGIN))) {
         throw new HttpError(403, 'Invalid request origin.');
       }
       const response = await marketsRoutes(request, env, url) ?? await roomsRoutes(request, env, url);

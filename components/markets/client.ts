@@ -54,11 +54,26 @@ export function useRoom(roomId: string) {
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     let attempts = 0;
-    function connect() {
-      const url = new URL('/api/markets/rooms/' + roomId + '/socket', location.href);
-      url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      if (attempts) url.searchParams.set('reconnect', '1');
-      const connection = new WebSocket(url);
+    function retry() {
+      if (!disposed) timer = setTimeout(() => void connect(), Math.min(7000, 350 * 2 ** attempts++));
+    }
+    async function connect() {
+      const origin = process.env.NEXT_PUBLIC_MARKETS_SOCKET_ORIGIN;
+      const path = '/rooms/' + roomId;
+      let connection: WebSocket;
+      try {
+        const ticket = origin ? (await api<{ ticket: string }>(path + '/socket-ticket', {})).ticket : undefined;
+        if (disposed) return;
+        const url = new URL('/api/markets' + path + '/socket', origin || location.href);
+        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        if (attempts) url.searchParams.set('reconnect', '1');
+        connection = new WebSocket(url, ticket ? ['fourfivex', ticket] : undefined);
+      } catch (failure) {
+        if (disposed) return;
+        if (failure instanceof ApiError && [401, 403].includes(failure.status)) setRevoked(true);
+        else retry();
+        return;
+      }
       socket.current = connection;
       connection.onmessage = ({ data }) => {
         if (disposed) return;
@@ -117,10 +132,10 @@ export function useRoom(roomId: string) {
           setRevoked(true);
           return;
         }
-        timer = setTimeout(connect, Math.min(7000, 350 * 2 ** attempts++));
+        retry();
       };
     }
-    connect();
+    void connect();
     return () => { disposed = true; clearTimeout(timer); socket.current?.close(); socket.current = null; };
   }, [roomId, send]);
   return { room, online, connected, error, revoked, transient, edit, send };

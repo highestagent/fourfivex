@@ -22,6 +22,31 @@ async function create() {
   return { path: '/rooms/' + roomId, roomId, cookie: response.headers.get('Set-Cookie')!.split(';')[0] };
 }
 
+test('only room members receive a short-lived ticket for their room socket', async () => {
+  const { path, cookie } = await create();
+  const outsider = await create();
+  expect((await request(path + '/socket-ticket', {})).status).toBe(401);
+  expect((await request(path + '/socket-ticket', {}, outsider.cookie)).status).toBe(403);
+  const response = await request(path + '/socket-ticket', {}, cookie);
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  const { ticket } = await response.json<{ ticket: string }>();
+  const expires = Number(ticket.split('.')[4]);
+  expect(expires).toBeGreaterThan(Date.now());
+  expect(expires).toBeLessThanOrEqual(Date.now() + 30_000);
+
+  const connect = (target: string, protocol: string, browserOrigin = origin) => worker.fetch('https://worker.test/api/markets' + target + '/socket', {
+    headers: { Origin: browserOrigin, Upgrade: 'websocket', 'Sec-Fetch-Site': 'cross-site', 'Sec-WebSocket-Protocol': `fourfivex, ${protocol}` },
+  });
+  expect((await connect(outsider.path, ticket)).status).toBe(401);
+  expect((await connect(path, ticket + '0')).status).toBe(401);
+  expect((await connect(path, ticket, 'https://other.test')).status).toBe(403);
+  const session = await connect(path, ticket);
+  expect(session.status).toBe(101);
+  expect(session.headers.get('Sec-WebSocket-Protocol')).toBe('fourfivex');
+  session.webSocket!.accept();
+  session.webSocket!.close();
+});
+
 test('opens a new room on the selected market and keeps the draft private', async () => {
   const market = 'hyperliquid:perp:ETH';
   const response = await request('/rooms', { name: 'Owner', market, margin: 123, leverage: 20 });
