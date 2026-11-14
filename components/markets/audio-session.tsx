@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRealtimeKitClient, type SocketConnectionState } from '@cloudflare/realtimekit-react';
+import RTKClient, { type SocketConnectionState } from '@cloudflare/realtimekit';
 import { Headphones, Mic, MicOff, PhoneOff, Volume2 } from 'lucide-react';
 import type { Member } from '@fourfivex/markets-protocol/protocol';
 import { api, ApiError } from './client';
 import { Dialog } from './controls';
 import type { AudioStatus } from './RoomAudio';
 
-type Meeting = NonNullable<ReturnType<typeof useRealtimeKitClient>[0]>;
+type Meeting = Awaited<ReturnType<typeof RTKClient.init>>;
 type Peer = { id: string; name: string; enabled: boolean; track?: MediaStreamTrack };
 type Connection = { meeting?: Meeting; unsubscribe?: () => void };
+/** A call set up ahead of joining. Its audio pass lasts 15 minutes, so it is only used for the first 10. */
+type Prepared = { meeting: Promise<Meeting | undefined>; at: number };
+const preparedLife = 10 * 60_000;
 
 export function AudioSession({ roomId, member, open, status, setStatus, close }: {
   roomId: string; member: Member; open: boolean; status: AudioStatus; setStatus: (status: AudioStatus) => void; close: () => void;
 }) {
-  const [, initialize] = useRealtimeKitClient({ resetOnLeave: true });
   const connection = useRef<Connection | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [speaker, setSpeaker] = useState('');
@@ -22,6 +24,7 @@ export function AudioSession({ roomId, member, open, status, setStatus, close }:
   const [message, setMessage] = useState('');
   const [blocked, setBlocked] = useState(false);
   const audioElements = useRef(new Map<string, HTMLAudioElement>());
+  const prepared = useRef<Prepared | null>(null);
 
   const release = useCallback(() => {
     const previous = connection.current;
@@ -30,7 +33,39 @@ export function AudioSession({ roomId, member, open, status, setStatus, close }:
     return previous?.meeting?.leave().catch(() => {});
   }, []);
 
-  useEffect(() => () => { void release(); }, [release]);
+  /** Gets an audio pass and sets up the call, without joining it. Each call is its own, so two never collide. */
+  const setUp = useCallback(() => api<{ token: string }>(`/rooms/${roomId}/voice`, {})
+    .then(({ token }): Promise<Meeting | undefined> => RTKClient.init({ authToken: token, defaults: { audio: false, video: false } })),
+  [roomId]);
+
+  const discard = useCallback(() => {
+    const current = prepared.current;
+    prepared.current = null;
+    void current?.meeting.then(meeting => meeting?.leave()).catch(() => {});
+  }, []);
+
+  useEffect(() => () => { discard(); void release(); }, [release, discard]);
+
+  // While the panel is open, the call is set up in the background, so "Join audio" only has to connect.
+  useEffect(() => {
+    if (!open || status !== 'idle' || prepared.current) return;
+    const meeting = setUp();
+    meeting.catch(() => {});
+    prepared.current = { meeting, at: Date.now() };
+  }, [open, status, setUp]);
+
+  /** The call set up while the panel was open, if it is still fresh; otherwise a new one. */
+  async function ready(retry: boolean) {
+    const current = prepared.current;
+    prepared.current = null;
+    if (current && !retry && Date.now() - current.at < preparedLife) {
+      const meeting = await current.meeting.catch(() => undefined);
+      if (meeting) return meeting;
+    } else if (current) {
+      void current.meeting.then(meeting => meeting?.leave()).catch(() => {});
+    }
+    return setUp();
+  }
 
   function reset() {
     setStatus('idle');
@@ -48,9 +83,7 @@ export function AudioSession({ roomId, member, open, status, setStatus, close }:
     setStatus(retry ? 'reconnecting' : 'joining');
     setMessage('');
     try {
-      const { token } = await api<{ token: string }>(`/rooms/${roomId}/voice`, {});
-      if (connection.current !== attempt) return;
-      const meeting = await initialize({ authToken: token, defaults: { audio: false, video: false } });
+      const meeting = await ready(retry);
       if (!meeting) throw new Error('Audio could not initialize.');
       if (connection.current !== attempt) { await meeting.leave(); return; }
       attempt.meeting = meeting;

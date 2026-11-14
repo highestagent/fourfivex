@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@cloudflare/realtimekit-react':
-        specifier: ^2.0.4
-        version: 2.0.4(react@19.3.0)
+      '@cloudflare/realtimekit':
+        specifier: 2.0.4
+        version: 2.0.4
       '@fourfivex/markets-protocol':
         specifier: workspace:*
         version: link:packages/markets-protocol
@@ -196,11 +196,6 @@ packages:
   '@cloudflare/kv-asset-handler@0.5.0':
     resolution: {integrity: sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==}
     engines: {node: '>=22.0.0'}
-
-  '@cloudflare/realtimekit-react@2.0.4':
-    resolution: {integrity: sha512-+iurNv2nVNvUkXUF5w9wpOpx9edfFZ3YR5KNVIKB8EiwkhOUVtUfEr9ieJimbnJZqX+HAsZNhKHM2aXS8UYL0Q==}
-    peerDependencies:
-      react: '>=16.8.6'
 
   '@cloudflare/realtimekit@2.0.4':
     resolution: {integrity: sha512-7oCbdj+tLTMgq4TDoIux900eELcYJtiDq6fJIY9K3Ej50rPm9rjL7lkFkv8xX9zLdJI4TsJ1vqyENKq7fqTUoA==}
@@ -3388,11 +3383,6 @@ snapshots:
       '@babel/helper-validator-identifier': 7.29.7
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
-
-  '@cloudflare/realtimekit-react@2.0.4(react@19.3.0)':
-    dependencies:
-      '@cloudflare/realtimekit': 2.0.4
-      react: 19.3.0
 
   '@cloudflare/realtimekit@2.0.4':
     dependencies:

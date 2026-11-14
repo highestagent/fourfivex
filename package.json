@@ -13,7 +13,7 @@
     "test:markets": "pnpm --filter @fourfivex/markets-worker test"
   },
   "dependencies": {
-    "@cloudflare/realtimekit-react": "^2.0.4",
+    "@cloudflare/realtimekit": "2.0.4",
     "@fourfivex/markets-protocol": "workspace:*",
     "@klinecharts/extension": "^0.1.0",
     "@nktkas/hyperliquid": "0.33.3",
