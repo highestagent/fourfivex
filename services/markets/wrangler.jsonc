@@ -5,6 +5,8 @@
   "compatibility_date": "2026-11-01",
   "workers_dev": true,
   "preview_urls": false,
+  // The only origin allowed to write or open sockets. `pnpm dev` overrides it with localhost.
+  "vars": { "APP_ORIGIN": "https://fourfivex.xyz" },
   "durable_objects": {
     "bindings": [{ "name": "ROOMS", "class_name": "TradingRoom" }]
   },
