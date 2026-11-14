@@ -2,6 +2,7 @@ import { HttpTransport } from '@nktkas/hyperliquid';
 import { clearinghouseState, l2Book, metaAndAssetCtxs, orderStatus, perpDexs, spotMeta, userNonFundingLedgerUpdates } from '@nktkas/hyperliquid/api/info';
 import { formatSize } from '@nktkas/hyperliquid/utils';
 import { hyperliquidMarket, type Market } from '@fourfivex/markets-protocol/markets';
+import type { TradingBalance } from '../account/portfolio';
 
 export type Side = 'long' | 'short';
 export const transport = new HttpTransport({ isTestnet: false });
@@ -82,6 +83,16 @@ export const readOrderStatus = (user: TradingAddress, id: TradingAddress) => ord
 
 export async function readWithdrawable(user: TradingAddress, signal?: AbortSignal) {
   return (await clearinghouseState(info, { user }, signal)).withdrawable;
+}
+
+export async function readTradingBalance(user: TradingAddress, signal?: AbortSignal): Promise<TradingBalance> {
+  const state = await clearinghouseState(info, { user }, signal);
+  const equity = Number(state.marginSummary.accountValue);
+  const withdrawable = Number(state.withdrawable);
+  if (!state.marginSummary.accountValue || !state.withdrawable || !Number.isFinite(equity) || !Number.isFinite(withdrawable)) {
+    throw new Error('Hyperliquid returned an invalid balance.');
+  }
+  return { equity, withdrawable };
 }
 
 export async function readWithdrawal(user: TradingAddress, nonce: number, signal?: AbortSignal) {

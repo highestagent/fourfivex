@@ -16,6 +16,7 @@ export type Part = {
   symbol: string; network: string;
   amount: number;
   usd: number;
+  unpriced?: true;
   group: Group;
 };
 
@@ -46,11 +47,12 @@ export async function holdingsOf(accountId: string): Promise<Holdings> {
   tokens.forEach((t, i) => {
     if (!raw[i] || raw[i] === "0") return;
     const amount = Number(raw[i]) / 10 ** t.decimals;
-    const usd = amount * (t.price || 0);
+    const priced = Number.isFinite(t.price) && t.price > 0;
+    const usd = priced ? amount * t.price : 0;
     const group = GROUP_OF[t.symbol] ?? "other";
     groups[group].amount += group === "other" ? 0 : amount;
     groups[group].usd += usd;
-    parts.push({ assetId: t.assetId, decimals: t.decimals, units: raw[i], symbol: t.symbol, network: t.blockchain, amount, usd, group });
+    parts.push({ assetId: t.assetId, decimals: t.decimals, units: raw[i], symbol: t.symbol, network: t.blockchain, amount, usd, group, ...(!priced && { unpriced: true }) });
   });
   parts.sort((a, b) => b.usd - a.usd);
   return { total: parts.reduce((n, p) => n + p.usd, 0), groups, parts };

@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
-import { ASSETS, HOLDINGS } from "@/lib/assets";
-import { coin, usd, when } from "@/lib/format";
+import { when } from "@/lib/format";
 import { usePrices } from "@/lib/hooks";
 import { sendStatus } from "@/lib/send/api";
 import { sent, useSent, type SentEntry } from "@/lib/send/history";
@@ -14,8 +13,9 @@ import { AccountButton } from "./AccountButton";
 import { AccountSheet } from "./AccountSheet";
 import { AppNavigation } from "./AppNavigation";
 import { Composer, type ActionKey } from "./Composer";
+import { DemoBalance, PortfolioBalance } from "./PortfolioBalance";
 import { ThemeSwitcher } from "./ThemeSwitcher";
-import { Arrow, CopyButton, Dot, Plus } from "./ui";
+import { Arrow, CopyButton, Plus } from "./ui";
 
 const VIEWS = [
   { key: "now", label: "Now" },
@@ -38,7 +38,7 @@ const PREVIEWS = [
 const CARD = "grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] content-start items-center gap-x-3 rounded-[18px] border border-line p-4 text-left sm:grid-cols-[1fr_auto] sm:items-start sm:gap-y-4 sm:p-5";
 const CARD_MARK = "grid size-9 place-items-center rounded-full text-lg font-medium sm:col-start-1";
 
-const GROUPS = ["usd", "btc", "eth", "sol"] as const;
+const NO_WALLETS = [] as const;
 const STATE_LABEL: Record<SentEntry["state"], string> = {
   done: "Complete",
   waiting: "Pending",
@@ -134,9 +134,6 @@ export default function Surface() {
     };
   }, [watch]);
 
-  const demo = accountId === null;
-  const balance = demo ? HOLDINGS.usd + HOLDINGS.btc * prices.btc : holdings.holdings?.total;
-  const groups = holdings.holdings?.groups;
   const open = (next: Overlay, event: MouseEvent<HTMLButtonElement>) => {
     opener.current = event.currentTarget;
     setOverlay(next);
@@ -172,27 +169,9 @@ export default function Surface() {
 
         {view === "now" && (
           <>
-            <section className="mt-7 rounded-[24px] border border-line bg-card px-5 py-7 sm:mt-9 sm:px-9 sm:py-9" aria-labelledby="balance-label">
-              <h1 id="balance-label" className="mono text-ink-2">{demo ? "Demo balance" : "Balance"}</h1>
-              <p className="mt-3 text-[clamp(2.6rem,8vw,4.5rem)] leading-none font-medium tracking-[-0.065em] tabular-nums">
-                {balance !== undefined ? usd(balance) : "—"}
-              </p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {demo ? (
-                  <>
-                    <Holding color={ASSETS.usd.color}>{usd(HOLDINGS.usd)} in dollars</Holding>
-                    <Holding color={ASSETS.btc.color}>{HOLDINGS.btc} bitcoin</Holding>
-                  </>
-                ) : groups && GROUPS.filter((key) => groups[key].amount > 0).map((key) => (
-                  <Holding key={key} color={ASSETS[key].color}>
-                    {key === "usd" ? usd(groups[key].amount) : coin(groups[key].amount)} {ASSETS[key].name}
-                  </Holding>
-                ))}
-                {groups && groups.other.usd > 0 && <Holding color="#71717a">{usd(groups.other.usd)} in other assets</Holding>}
-                {holdings.status === "loading" && <p role="status" className="text-sm text-ink-2">Loading balance…</p>}
-                {holdings.status === "error" && <p role="status" className="text-sm text-ink-2">Balance unavailable. Retrying…</p>}
-              </div>
-            </section>
+            {accountId
+              ? <PortfolioBalance key={accountId} accountId={accountId} holdings={holdings} wallets={device.wallets[accountId] ?? NO_WALLETS} />
+              : <DemoBalance bitcoinPrice={prices.btc} />}
 
             <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-3" aria-label="Money actions">
               {ACTIONS.map(({ key, label, description, mark }) => (
@@ -290,15 +269,6 @@ function CardCopy({ label, description }: { label: string; description: string }
     <span className="min-w-0 sm:col-span-2 sm:row-start-2">
       <span className="block text-[16px] font-semibold tracking-[-0.02em]">{label}</span>
       <span className="mt-0.5 block text-sm leading-snug text-ink-2 sm:mt-1.5">{description}</span>
-    </span>
-  );
-}
-
-function Holding({ color, children }: { color: string; children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-[13px] tabular-nums">
-      <Dot color={color} />
-      {children}
     </span>
   );
 }

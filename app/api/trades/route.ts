@@ -8,6 +8,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { equal, utf8 } from '@/lib/account/encoding';
 import { CollateralRequired, executeTrade, executeWithdrawal, executionConfigured, prepareTrade, prepareWithdrawal } from '@/lib/markets/execution';
 import { tradingAddress } from '@/lib/markets/signer';
+import { readTradingBalance } from '@/lib/markets/trade';
 import { prepareFunding, submitFunding, fundingConfigured } from '@/lib/markets/funding';
 import { isCrossSite } from '@/lib/http/origin';
 
@@ -46,10 +47,12 @@ export async function POST(request: Request) {
   const { accountId } = data;
   if (!executionConfigured()) {
     if (data.op === 'account') return reply({ available: false, funding: false });
+    if (data.op === 'balance') return reply({ balance: null });
     return reply({ error: 'Trading signer is unavailable.' }, 503);
   }
   try {
     if (data.op === 'account') return reply({ available: true, address: await tradingAddress(accountId), funding: fundingConfigured() });
+    if (data.op === 'balance') return reply({ balance: await readTradingBalance(await tradingAddress(accountId), request.signal) });
     if (data.op === 'prepare' && isMarket(data.market) && hyperliquidMarket(data.market)?.type === 'perp'
       && ['long', 'short'].includes(data.side) && typeof data.margin === 'number' && Number.isFinite(data.margin)
       && data.margin >= 0 && data.margin <= 1_000_000 && Number.isInteger(data.leverage) && typeof data.closing === 'boolean') {

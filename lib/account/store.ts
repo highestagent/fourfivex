@@ -6,6 +6,7 @@
  * loses nothing that a passkey cannot bring back.
  */
 import { useSyncExternalStore } from "react";
+import { parseWatchedWallet, walletKey, type WatchedWallet } from "./portfolio";
 import type { Known } from "./session";
 
 export type Passkey = Known & {
@@ -21,10 +22,11 @@ export type DeviceMemory = {
   current: string | null;
   passkeys: Passkey[];
   names: Record<string, string>;
+  wallets: Record<string, WatchedWallet[]>;
 };
 
 const KEY = "fourfivex.account.v1";
-const EMPTY: DeviceMemory = { current: null, passkeys: [], names: {} };
+const EMPTY: DeviceMemory = { current: null, passkeys: [], names: {}, wallets: {} };
 const listeners = new Set<() => void>();
 let cache: { raw: string | null; value: DeviceMemory } = { raw: null, value: EMPTY };
 
@@ -32,10 +34,17 @@ function parse(raw: string | null): DeviceMemory {
   if (!raw) return EMPTY;
   try {
     const v = JSON.parse(raw) as Partial<DeviceMemory>;
+    const wallets: DeviceMemory["wallets"] = {};
+    for (const [id, list] of Object.entries(v.wallets ?? {})) {
+      if (!/^0x[a-f0-9]{40}$/.test(id) || !Array.isArray(list)) continue;
+      const parsed = list.map(parseWatchedWallet).filter(wallet => wallet !== null);
+      wallets[id] = [...new Map(parsed.map(wallet => [walletKey(wallet), wallet])).values()];
+    }
     return {
       current: typeof v.current === "string" ? v.current : null,
       passkeys: Array.isArray(v.passkeys) ? v.passkeys.filter((p) => p && p.credentialId && p.publicKey && p.accountId) : [],
       names: v.names && typeof v.names === "object" ? v.names : {},
+      wallets,
     };
   } catch {
     return EMPTY;
@@ -101,5 +110,16 @@ export const memory = {
   name(accountId: string, name: string): void {
     const m = read();
     write({ ...m, names: { ...m.names, [accountId]: name } });
+  },
+  watchWallet(accountId: string, wallet: WatchedWallet): void {
+    const m = read();
+    const wallets = m.wallets[accountId] ?? [];
+    if (wallets.some(entry => walletKey(entry) === walletKey(wallet))) return;
+    write({ ...m, wallets: { ...m.wallets, [accountId]: [...wallets, wallet] } });
+  },
+  unwatchWallet(accountId: string, wallet: WatchedWallet): void {
+    const m = read();
+    const wallets = (m.wallets[accountId] ?? []).filter(entry => walletKey(entry) !== walletKey(wallet));
+    write({ ...m, wallets: { ...m.wallets, [accountId]: wallets } });
   },
 };

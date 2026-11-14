@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchHoldings } from "./api";
 import type { Holdings } from "./holdings";
 
-export type HoldingsState = { holdings: Holdings | null; status: "none" | "loading" | "ready" | "error" };
+export type HoldingsState = { holdings: Holdings | null; status: "none" | "loading" | "ready" | "stale" | "error" };
 
 /** The open account's real balances, read from the network and refreshed while the page is open. */
 export function useHoldings(accountId: string | null, refreshKey?: unknown): HoldingsState {
@@ -31,6 +31,6 @@ export function useHoldings(accountId: string | null, refreshKey?: unknown): Hol
 
   if (!accountId) return { holdings: null, status: "none" };
   if (!state || state.id !== accountId) return { holdings: null, status: "loading" };
-  if (state.holdings) return { holdings: state.holdings, status: "ready" };
+  if (state.holdings) return { holdings: state.holdings, status: state.failed ? "stale" : "ready" };
   return { holdings: null, status: state.failed ? "error" : "loading" };
 }
