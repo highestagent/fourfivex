@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type SubmitEvent } from "react";
 import { signPayload } from "@/lib/account/flows";
 import type { Holdings } from "@/lib/account/holdings";
 import { memory } from "@/lib/account/store";
@@ -87,7 +87,7 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
     return () => { active = false; window.clearInterval(timer); };
   }, [latestState, tracked, tracking]);
 
-  async function prepare(event: FormEvent<HTMLFormElement>) {
+  async function prepare(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (step || !selected) return;
     const family = familyOf(selected.blockchain);

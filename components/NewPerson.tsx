@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type SubmitEvent } from "react";
 import { addressProblem, familyOf } from "@/lib/send/address";
 import { people, type Person } from "@/lib/send/people";
 import { NETWORKS, NETWORK_NAME, type Network } from "@/lib/send/types";
@@ -15,7 +15,7 @@ export function NewPerson({ onSave, onCancel }: { onSave: (person: Person) => vo
   const [error, setError] = useState<string | null>(null);
   const networkId = useId();
 
-  const save = (event: FormEvent<HTMLFormElement>) => {
+  const save = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const who = name.trim();
     const destination = address.trim();

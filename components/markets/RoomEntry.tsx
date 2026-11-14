@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { displayName } from "@fourfivex/markets-protocol/protocol";
 import type { Market } from "@fourfivex/markets-protocol/markets";
 import { api } from "./client";
@@ -11,7 +11,7 @@ export const roomJoinedEvent = "fourfivex:markets:room-joined";
 export function RoomEntry({ roomId, token, market, marketName, onJoined }: { roomId?: string; token?: string; market?: Market; marketName?: string; onJoined: (room: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = displayName.safeParse(new FormData(event.currentTarget).get("name"));
     if (!name.success) { setError("Enter a display name up to 32 characters."); return; }

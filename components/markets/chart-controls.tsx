@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type RefObject } from 'react';
+import { useRef, useState, type SubmitEvent, type RefObject } from 'react';
 import { getSupportedIndicators, type CandleType, type Chart, type OverlayMode } from 'klinecharts';
 import { Camera, Ellipsis, LocateFixed, Maximize, Minus, Plus, SlidersHorizontal } from 'lucide-react';
 import { Select } from '@/components/Select';
@@ -108,7 +108,7 @@ export function ChartControls({ chart, preferences, following, onChange, fit, do
     setStudyError('');
   }
 
-  function updateParams(event: FormEvent<HTMLFormElement>, name: string, expected: unknown[]) {
+  function updateParams(event: SubmitEvent<HTMLFormElement>, name: string, expected: unknown[]) {
     event.preventDefault();
     const input = String(new FormData(event.currentTarget).get('parameters'));
     const parts = input.split(',').map(part => part.trim());

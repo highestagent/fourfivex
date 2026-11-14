@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { Select } from "@/components/Select";
 import { Sheet } from "@/components/Sheet";
 import { CopyButton } from "@/components/ui";
@@ -123,7 +123,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
     finally { task.current = false; setBusy(false); }
   }
 
-  function prepare(event: FormEvent<HTMLFormElement>) {
+  function prepare(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const amount = String(data.get("amount")).trim().replace(",", ".");

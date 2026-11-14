@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type SubmitEvent } from "react";
 import { NetworkError } from "@/lib/account/api";
 import { addBackupPasskey, attachPasskey, countPasskeys, createAccount, openAccount, removePasskey, signOut } from "@/lib/account/flows";
 import type { Holdings } from "@/lib/account/holdings";
@@ -65,7 +65,7 @@ function Welcome({ step, setStep }: Progress) {
     }
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     void run("create");
   };

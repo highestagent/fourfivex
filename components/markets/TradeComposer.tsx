@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import dynamic from "next/dynamic";
 import { ChevronDown } from "lucide-react";
 import { defaultInstrument, hyperliquidMarket, marketLabel, type Market } from "@fourfivex/markets-protocol/markets";
@@ -84,7 +84,7 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [market, refresh, accountId, trading]);
 
-  function review(event: FormEvent<HTMLFormElement>) {
+  function review(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!(margin > 0)) {
       const input = event.currentTarget.elements.namedItem("margin");

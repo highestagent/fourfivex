@@ -1,5 +1,5 @@
 import { sha256 } from "@noble/hashes/sha2.js";
-import { base58, base58check, bech32, bech32m } from "@scure/base";
+import { base58, createBase58check, bech32, bech32m } from "@scure/base";
 
 export type Family = "evm" | "sol" | "near" | "btc";
 
@@ -61,7 +61,7 @@ function isBitcoin(a: string): boolean {
   }
   if (/^[13]/.test(a)) {
     try {
-      const raw = base58check(sha256).decode(a);
+      const raw = createBase58check(sha256).decode(a);
       return raw.length === 21 && (raw[0] === 0 || raw[0] === 5);
     } catch {
       return false;
