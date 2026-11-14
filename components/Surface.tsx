@@ -7,6 +7,8 @@ import { useHoldings } from "@/lib/account/useHoldings";
 import { when } from "@/lib/format";
 import { usePrices } from "@/lib/hooks";
 import { sendStatus } from "@/lib/send/api";
+import { describePosition, type TradingEvent } from "@/lib/markets/activity";
+import { useTradingActivity } from "@/lib/markets/useTradingActivity";
 import { sent, useSent, type SentEntry } from "@/lib/send/history";
 import { usePeople } from "@/lib/send/people";
 import { AccountButton } from "./AccountButton";
@@ -111,8 +113,15 @@ export default function Surface() {
   const opener = useRef<HTMLButtonElement>(null);
   const [now, setNow] = useState<number | null>(null);
 
+  const trading = useTradingActivity(accountId, view === "said");
+  const activity: ({ at: number } & ({ entry: SentEntry } | { event: TradingEvent }))[] = [
+    ...history.map((entry) => ({ at: entry.at, entry })),
+    ...trading.events.map((event) => ({ at: event.at, event })),
+  ].sort((a, b) => b.at - a.at);
+
   const pending = history.filter(isPending);
   const deposits = pending.filter((entry) => entry.kind === "add" && !isExpired(entry, now));
+  const standing = deposits.length + trading.positions.length;
   const watch = pending.map(({ id }) => id).join(",");
   useEffect(() => {
     if (!watch) return;
@@ -162,7 +171,7 @@ export default function Surface() {
               onClick={() => setView(key)}
               className={`mono min-h-11 cursor-pointer rounded-full px-4 sm:px-6 ${view === key ? "bg-surface font-semibold text-ink shadow-chip" : "text-ink-2 hover:text-ink"}`}
             >
-              {label}{key === "standing" && deposits.length > 0 && <span className="ml-1.5 text-blue">{deposits.length}</span>}
+              {label}{key === "standing" && standing > 0 && <span className="ml-1.5 text-blue">{standing}</span>}
             </button>
           ))}
         </nav>
@@ -206,7 +215,25 @@ export default function Surface() {
 
         {view === "standing" && (
           <section className="mt-8 sm:mt-11">
-            <h1 className="mb-5 text-[30px] font-medium tracking-[-0.04em]">Pending deposits</h1>
+            <h1 className="sr-only">Standing</h1>
+            {trading.positions.length > 0 && (
+              <>
+                <h2 className="mb-5 text-[30px] font-medium tracking-[-0.04em]">Open positions</h2>
+                <ul className="mb-10 divide-y divide-line rounded-[18px] border border-line">
+                  {trading.positions.map((position) => {
+                    const { text, detail } = describePosition(position);
+                    return (
+                      <li key={position.coin} className="p-5 sm:p-6">
+                        <p className="font-medium">{text}</p>
+                        <p className="mt-1 text-sm text-ink-2 tabular-nums">{detail}</p>
+                        <Link href="/markets" className="mt-3 inline-block text-sm text-blue underline underline-offset-2">Manage in Markets</Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+            <h2 className="mb-5 text-[30px] font-medium tracking-[-0.04em]">Pending deposits</h2>
             {deposits.length ? (
               <ul className="divide-y divide-line rounded-[18px] border border-line">
                 {deposits.map((entry) => <Deposit key={entry.id} entry={entry} />)}
@@ -220,16 +247,25 @@ export default function Surface() {
         {view === "said" && (
           <section className="mt-8 sm:mt-11">
             <h1 className="mb-5 text-[30px] font-medium tracking-[-0.04em]">Activity</h1>
-            {history.length ? (
+            {trading.historyFailed && <p role="status" className="mb-4 text-sm text-ink-2">Trading history is unavailable right now. Retrying…</p>}
+            {activity.length ? (
               <ul className="divide-y divide-line rounded-[18px] border border-line">
-                {history.map((entry) => (
-                  <li key={entry.id} className="p-5">
-                    <p className="font-medium">{entry.state === "done" ? entry.text : entry.waitingText ?? entry.text}</p>
+                {activity.map((item) => "entry" in item ? (
+                  <li key={item.entry.id} className="p-5">
+                    <p className="font-medium">{item.entry.state === "done" ? item.entry.text : item.entry.waitingText ?? item.entry.text}</p>
                     <p className="mt-1.5 text-sm text-ink-2">
-                      {when(entry.at)} · {isExpired(entry, now) ? "Expired" : STATE_LABEL[entry.state]}
+                      {when(item.entry.at)} · {isExpired(item.entry, now) ? "Expired" : STATE_LABEL[item.entry.state]}
                     </p>
-                    {entry.links[0] && (
-                      <a href={entry.links[0].url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-blue underline underline-offset-2">View transaction</a>
+                    {item.entry.links[0] && (
+                      <a href={item.entry.links[0].url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-blue underline underline-offset-2">View transaction</a>
+                    )}
+                  </li>
+                ) : (
+                  <li key={item.event.id} className="p-5">
+                    <p className="font-medium">{item.event.text}</p>
+                    <p className="mt-1.5 text-sm text-ink-2">{when(item.event.at)} · {STATE_LABEL.done}</p>
+                    {item.event.url && (
+                      <a href={item.event.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-blue underline underline-offset-2">View transaction</a>
                     )}
                   </li>
                 ))}
