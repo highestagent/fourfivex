@@ -201,7 +201,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
         <div className="flex flex-wrap gap-2">
           {pending ? <button type="button" className="action action-primary" onClick={() => void check()} disabled={Boolean(busy)}>Check order</button>
             : result ? null
-            : needsCollateral ? <button type="button" className="action action-primary" onClick={onFund}>Add collateral</button>
+            : needsCollateral ? <button type="button" className="action action-primary" onClick={onFund}>Add funds</button>
             : expired || (!quote && error)
             ? <button type="button" className="action action-primary" onClick={reload}>{expired ? "Refresh expired quote" : "Get a new quote"}</button>
             : prepared ? <button type="button" className="action action-primary" disabled={Boolean(busy)} onClick={() => void confirm()}>Confirm with passkey</button>

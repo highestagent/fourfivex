@@ -59,7 +59,7 @@ async function needsLeverage(quote: OrderQuote, user: TradingAddress) {
   if (orders.some(order => order.coin === market.coin)) throw new Error('Cancel existing orders on this market before opening a position.');
   const available = Number(asset.availableToTrade[buy ? 0 : 1]);
   if (!Number.isFinite(available) || available < quote.margin + (quote.fee ?? 0)) {
-    throw new CollateralRequired(`This market needs more ${market.collateral} collateral.`);
+    throw new CollateralRequired(`Your trading account needs more ${market.collateral} for this order.`);
   }
   const update = asset.leverage.type !== 'isolated' || asset.leverage.value !== leverage;
   if (!update && Number(asset.maxTradeSzs[buy ? 0 : 1]) < Number(size)) {

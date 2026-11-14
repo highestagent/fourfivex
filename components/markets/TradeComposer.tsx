@@ -159,7 +159,7 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
         <button ref={fundsButton} type="button" className="action action-secondary" onClick={() => {
           setReturnToReview(false);
           setDialog("fund");
-        }}>Add collateral</button>
+        }}>Add funds</button>
         <button ref={withdrawButton} type="button" className="action action-secondary" onClick={() => setDialog("withdraw")}>Withdraw</button>
       </div>}
       {dialog === "market" && <Dialog title="Choose a market" close={close}>
