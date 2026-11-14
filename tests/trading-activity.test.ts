@@ -17,15 +17,15 @@ const fill = (values: Partial<Fills[number]>) => ({
 describe("fillEvents", () => {
   it("joins the pieces of one order into one event", () => {
     const events = fillEvents([fill({ time: 1_000 }), fill({ time: 2_000, px: "100100" })]);
-    expect(events).toEqual([{ id: "fill:1", at: 2_000, text: "You opened a $200.10 long on bitcoin.", url: `https://app.hyperliquid.xyz/explorer/tx/${HASH}` }]);
+    expect(events).toEqual([{ id: "fill:1", at: 2_000, text: "Opened $200.10 bitcoin long", url: `https://app.hyperliquid.xyz/explorer/tx/${HASH}` }]);
   });
 
   it("words closes with the result after fees, and liquidations plainly", () => {
     expect(fillEvents([fill({ dir: "Close Short", coin: "ETH", px: "2000", sz: "0.5", closedPnl: "-12", fee: "0.5" })])[0].text)
-      .toBe("You closed a $1,000.00 short on ether for a $12.50 loss.");
+      .toBe("Closed $1,000.00 ether short · −$12.50");
     expect(fillEvents([fill({ dir: "Close Long", closedPnl: "20", fee: "1", liquidation: { markPx: "1", method: "market" } })])[0].text)
-      .toBe("Your bitcoin long was liquidated.");
-    expect(fillEvents([fill({ dir: "Long > Short", coin: "HYPE" })])[0].text).toBe("You turned your HYPE position into a short.");
+      .toBe("Bitcoin long liquidated");
+    expect(fillEvents([fill({ dir: "Long > Short", coin: "HYPE" })])[0].text).toBe("HYPE flipped to short");
   });
 
   it("leaves out spot fills", () => {
@@ -44,10 +44,10 @@ describe("ledgerEvents", () => {
       update({ type: "internalTransfer", usdc: "3", user: ME, destination: OTHER, fee: "1" }),
     ], ME);
     expect(events.map(event => event.text)).toEqual([
-      "You added $25.50 to trading.",
-      "You withdrew $10.00 from trading.",
-      "You received $7.00 in trading.",
-      "You sent $3.00 from trading.",
+      "Added $25.50 to trading",
+      "Withdrew $10.00 from trading",
+      "Received $7.00 in trading",
+      "Sent $3.00 from trading",
     ]);
   });
 
@@ -60,14 +60,14 @@ describe("describePosition", () => {
   it("states the position and what to watch", () => {
     const position = { coin: "BTC", szi: "-0.01", positionValue: "1000", unrealizedPnl: "-4.2", leverage: { type: "isolated", value: 5 }, liquidationPx: "118250.5" } as unknown as Position;
     expect(describePosition(position)).toEqual({
-      text: "Your short on bitcoin is worth $1,000.00 at 5×.",
-      detail: "Down $4.20 · closes automatically at $118,250.50",
+      text: "Bitcoin short · $1,000.00",
+      detail: "−$4.20 · 5× · auto-closes at $118,250.50",
     });
   });
 
   it("keeps small prices readable", () => {
     const position = { coin: "PEPE", szi: "100000", positionValue: "1", unrealizedPnl: "0", leverage: { type: "isolated", value: 3 }, liquidationPx: "0.000006834" } as unknown as Position;
-    expect(describePosition(position).detail).toBe("Up $0.00 · closes automatically at $0.000006834");
+    expect(describePosition(position).detail).toBe("+$0.00 · 3× · auto-closes at $0.000006834");
   });
 });
 

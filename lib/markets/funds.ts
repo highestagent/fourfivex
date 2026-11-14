@@ -14,10 +14,10 @@ export function withdrawalProblems(amount: string, destination: string, limit: n
   const value = amount.trim().replace(",", ".");
   const to = destination.trim();
   const problems: { amount?: string; destination?: string } = {};
-  if (!amountFormat.test(value)) problems.amount = "Enter an amount like 25 or 25.50.";
-  else if (Number(value) <= WITHDRAWAL_FEE) problems.amount = "Enter more than $1. Each withdrawal costs $1.";
+  if (!amountFormat.test(value)) problems.amount = "Enter a valid amount.";
+  else if (Number(value) <= WITHDRAWAL_FEE) problems.amount = "Enter more than $1.";
   else if (limit !== undefined && Number(value) > limit) problems.amount = `You can withdraw up to $${limit.toFixed(2)}.`;
-  if (!evmAddress.test(to)) problems.destination = "Enter an Arbitrum address: 0x followed by 40 letters and numbers.";
-  else if (to.toLowerCase() === tradingAddress.toLowerCase()) problems.destination = "Use a wallet you control, not your trading address.";
+  if (!evmAddress.test(to)) problems.destination = "Enter a valid Arbitrum address.";
+  else if (to.toLowerCase() === tradingAddress.toLowerCase()) problems.destination = "That's your trading address.";
   return { value, to, problems };
 }

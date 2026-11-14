@@ -27,15 +27,15 @@ const hyperliquidPortfolio = "https://app.hyperliquid.xyz/portfolio";
 const amountDraft = /^\d{0,7}([.,]\d{0,2})?$/;
 
 const transferProgress: Record<string, string> = {
-  waiting: "Waiting for 1Click to receive your transfer…",
-  seen: "1Click received your transfer.",
-  short: "1Click received less than the quoted amount.",
-  working: "Moving your money to trading…",
+  waiting: "Waiting for your transfer…",
+  seen: "Transfer received…",
+  short: "Less than quoted arrived.",
+  working: "Moving to trading…",
 };
 const transferOutcome: Record<string, Outcome> = {
-  done: { ok: true, text: "Your money arrived in your trading balance." },
-  refunded: { ok: false, text: "The transfer was refunded to your fourfivex balance." },
-  failed: { ok: false, text: "1Click couldn't complete the transfer." },
+  done: { ok: true, text: "Arrived in trading." },
+  refunded: { ok: false, text: "Refunded to your balance." },
+  failed: { ok: false, text: "Transfer failed." },
 };
 
 function saved<T>(key: string): T | null {
@@ -54,10 +54,6 @@ function Callout({ tone, role, children }: { tone: "ok" | "warn" | "error"; role
       <div>{children}</div>
     </div>
   );
-}
-
-function Steps({ children }: { children: ReactNode[] }) {
-  return <ol className="funds-steps">{children.map((step, index) => <li key={index}><span>{step}</span></li>)}</ol>;
 }
 
 function OutLink({ href, primary = false, children }: { href: string; primary?: boolean; children: ReactNode }) {
@@ -131,7 +127,7 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
         const result = await sendStatus(deposit);
         if (!active) return;
         const expired = result.state === "waiting" && Date.now() > expires + 60_000;
-        const ended = expired ? { ok: false, text: "The quote expired before 1Click received the transfer." } : transferOutcome[result.state];
+        const ended = expired ? { ok: false, text: "Quote expired. Nothing was sent." } : transferOutcome[result.state];
         if (ended) {
           localStorage.removeItem(fundKey);
           setFundTransfer(null);
@@ -139,10 +135,10 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
           setOutcome(ended);
           setProgress("");
         } else {
-          setProgress(transferProgress[result.state] ?? "Checking your transfer…");
+          setProgress(transferProgress[result.state] ?? "Checking…");
         }
       } catch {
-        if (active) setProgress("Transfer status is unavailable right now. Checking again shortly…");
+        if (active) setProgress("Status unavailable. Retrying…");
       }
     }
     void update();
@@ -162,8 +158,8 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
         setWithdrawal(null);
         setReview(undefined);
         setOutcome(record
-          ? { ok: true, text: "Your withdrawal was processed. The money should reach your Arbitrum wallet within a few minutes." }
-          : { ok: false, text: "The withdrawal expired before it was processed, so nothing was withdrawn." });
+          ? { ok: true, text: "Sent. Arrives on Arbitrum in a few minutes." }
+          : { ok: false, text: "Expired. Nothing was withdrawn." });
       } catch {}
     }
     void update();
@@ -283,58 +279,44 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
       {doneLabel}
     </button>
   );
-  const methods: { id: Method; title: string; detail: string }[] = [
-    { id: "relay", title: "Another wallet or chain", detail: "Pay with most tokens on most chains, using Relay." },
-    { id: "hyperliquid", title: "A Hyperliquid account", detail: "Send USDC you already hold on Hyperliquid." },
-    ...(trading.funding ? [{ id: "fourfivex" as const, title: "Your fourfivex balance", detail: "Use money already in your fourfivex balance." }] : []),
+  const methods: { id: Method; title: string }[] = [
+    { id: "relay", title: "Another wallet or chain" },
+    { id: "hyperliquid", title: "Hyperliquid" },
+    ...(trading.funding ? [{ id: "fourfivex" as const, title: "Your balance" }] : []),
   ];
   const fourfivexBusy = method === "fourfivex" && (fundTransfer || review);
 
   const fundingView = <>
-    {arrived && <Callout tone="ok" role="status"><strong>{dollars.format(received)} arrived.</strong> You can trade now.</Callout>}
+    {arrived && <Callout tone="ok" role="status"><strong>{dollars.format(received)} arrived.</strong></Callout>}
     {!fourfivexBusy && !outcome && <fieldset className="funds-methods">
-      <legend>Add money from</legend>
+      <legend>From</legend>
       {methods.map(option => (
         <label key={option.id} className="funds-method">
           <input type="radio" name={`${ids}-method`} value={option.id} checked={method === option.id} onChange={() => {
             setMethod(option.id);
             setFailure("");
           }} />
-          <span>
-            <strong>{option.title}</strong>
-            <span>{option.detail}</span>
-          </span>
+          <strong>{option.title}</strong>
         </label>
       ))}
     </fieldset>}
     {method === "relay" && <div className="funds-panel">
-      <Steps>{[
-        "Open Relay and connect the wallet you’re paying from.",
-        <>Choose a token and amount. Relay already has your trading address, <code className="funds-mono">{shortAddress(address)}</code>, as the recipient.</>,
-        "Confirm in your wallet. Funds usually arrive within a few minutes.",
-      ]}</Steps>
+      <p className="funds-note">Pay with any token. Arrives at <code className="funds-mono">{shortAddress(address)}</code>.</p>
       <div className="funds-actions">
         {!arrived && <OutLink primary href={bridge}>Open Relay</OutLink>}
         {doneButton}
       </div>
     </div>}
     {method === "hyperliquid" && <div className="funds-panel">
-      <Steps>{[
-        "On Hyperliquid, open Portfolio and choose Send.",
-        "Pick USDC from your Perps balance, not Spot.",
-        "Paste your trading address below and confirm.",
-      ]}</Steps>
+      <p className="funds-note">Send USDC (Perps) to this address.</p>
       <div className="funds-address">
-        <span id={`${ids}-address`} className="funds-address-label">Your trading address</span>
+        <span id={`${ids}-address`} className="funds-address-label">Trading address</span>
         <div className="funds-address-row">
           <code aria-labelledby={`${ids}-address`} className="funds-mono select-text">{address}</code>
           <CopyButton text={address} label="Copy trading address" />
         </div>
       </div>
-      <Callout tone="warn">
-        Send only on Hyperliquid. USDC sent to this address on Arbitrum, Ethereum or any other network won&rsquo;t reach your trading account.
-      </Callout>
-      <p className="funds-note">Hyperliquid may charge $1 for the first transfer to a new address.</p>
+      <Callout tone="warn">Hyperliquid only. Other networks won&rsquo;t arrive.</Callout>
       <div className="funds-actions">
         {!arrived && <OutLink primary href={hyperliquidPortfolio}>Open Hyperliquid</OutLink>}
         {doneButton}
@@ -350,7 +332,6 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
           <dl className="trade-review-details">
             <div><dt>You send</dt><dd>Up to {review.from} {review.symbol}</dd></div>
             <div><dt>You receive</dt><dd><strong>{dollars.format(Number(review.to))}</strong></dd></div>
-            <div><dt>Arrives in</dt><dd>Your trading balance</dd></div>
           </dl>
           <div className="funds-actions">
             <button type="button" className="action action-primary" disabled={busy} onClick={submit}>Confirm with passkey</button>
@@ -364,30 +345,28 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
               value={selected || parts[0].assetId} onValueChange={setSelected} options={parts.map(part => ({
                 value: part.assetId, label: `${part.symbol} · ${part.network}`,
               }))} />
-          </div> : <p className="funds-note">{status === "loading" ? "Loading your fourfivex balances…" : "Your fourfivex account has no balance to convert."}</p>}
+          </div> : <p className="funds-note">{status === "loading" ? "Loading…" : "No balance to use."}</p>}
           <div className="funds-field">
-            <label htmlFor={`${ids}-fund-amount`}>Amount to add</label>
+            <label htmlFor={`${ids}-fund-amount`}>Amount</label>
             <input id={`${ids}-fund-amount`} name="amount" className="field" inputMode="decimal" autoComplete="off" placeholder="0.00"
               pattern="[0-9]{1,7}([.,][0-9]{1,2})?" required />
           </div>
           <div className="funds-actions">
-            <button className="action action-primary" type="submit" disabled={busy || !parts.length}>Review transfer</button>
+            <button className="action action-primary" type="submit" disabled={busy || !parts.length}>Review</button>
             {doneButton}
           </div>
         </form>}
     </div>}
-    {!arrived && method !== "fourfivex" && <p className="funds-waiting" role="status">Waiting for your deposit. This updates on its own.</p>}
+    {!arrived && method !== "fourfivex" && <p className="funds-waiting" role="status">Waiting for your deposit…</p>}
   </>;
 
   const withdrawView = withdrawal ? <div className="funds-panel">
     <dl className="trade-review-details">
-      <div><dt>Withdrawing</dt><dd>{dollars.format(Number(withdrawal.amount))}</dd></div>
       <div><dt>You receive</dt><dd>{afterFee(withdrawal.amount)}</dd></div>
-      <div><dt>Network</dt><dd>Arbitrum One</dd></div>
-      <div><dt>To</dt><dd className="funds-mono funds-break">{withdrawal.destination}</dd></div>
+      <div><dt>To Arbitrum</dt><dd className="funds-mono funds-break">{withdrawal.destination}</dd></div>
     </dl>
     <p className="funds-waiting" role="status">
-      {withdrawal.submitted ? "Submitted. Waiting for it to be processed…" : "Checking on your withdrawal…"}
+      {withdrawal.submitted ? "Processing…" : "Checking…"}
     </p>
   </div>
     : outcome ? <div className="funds-panel">
@@ -397,19 +376,18 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
     : review && !("payload" in review) ? <div className="funds-panel">
       <dl className="trade-review-details">
         <div><dt>Withdraw</dt><dd>{dollars.format(Number(review.withdrawal.amount))}</dd></div>
-        <div><dt>Withdrawal fee</dt><dd>{dollars.format(WITHDRAWAL_FEE)}</dd></div>
+        <div><dt>Fee</dt><dd>{dollars.format(WITHDRAWAL_FEE)}</dd></div>
         <div><dt>You receive</dt><dd><strong>{afterFee(review.withdrawal.amount)}</strong></dd></div>
-        <div><dt>Network</dt><dd>Arbitrum One</dd></div>
-        <div><dt>To</dt><dd className="funds-mono funds-break">{review.withdrawal.destination}</dd></div>
+        <div><dt>To Arbitrum</dt><dd className="funds-mono funds-break">{review.withdrawal.destination}</dd></div>
       </dl>
-      <p className="funds-note">Check the address. A withdrawal can&rsquo;t be reversed once it&rsquo;s sent.</p>
+      <p className="funds-note">Withdrawals can&rsquo;t be reversed.</p>
       <div className="funds-actions">
         <button type="button" className="action action-primary" disabled={busy} onClick={submit}>Confirm with passkey</button>
         <button type="button" className="action action-secondary" disabled={busy} onClick={edit}>Edit</button>
       </div>
     </div>
     : <form className="funds-form" noValidate onSubmit={prepareWithdrawal}>
-      {!canWithdraw && <p className="funds-note">You need more than $1 available to withdraw.</p>}
+      {!canWithdraw && <p className="funds-note">Nothing to withdraw yet.</p>}
       <div className="funds-field">
         <label htmlFor={`${ids}-amount`}>Amount</label>
         <div className="funds-input">
@@ -429,36 +407,31 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
         </div>
         <p id={`${ids}-amount-help`} className={fieldErrors.amount ? "funds-error" : "funds-note"}>
           {fieldErrors.amount ?? (Number(amount.replace(",", ".")) > WITHDRAWAL_FEE
-            ? `You receive ${afterFee(amount.replace(",", "."))} after the $1 withdrawal fee.`
-            : "Each withdrawal costs $1.")}
+            ? `You receive ${afterFee(amount.replace(",", "."))}`
+            : "$1 fee")}
         </p>
       </div>
       <div className="funds-field">
         <label htmlFor={`${ids}-destination`}>Arbitrum address</label>
         <input id={`${ids}-destination`} name="destination" className="field funds-mono" placeholder="0x…" value={destination}
           autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-          aria-invalid={Boolean(fieldErrors.destination)} aria-describedby={`${ids}-destination-help`}
+          aria-invalid={Boolean(fieldErrors.destination)} aria-describedby={fieldErrors.destination ? `${ids}-destination-help` : undefined}
           onChange={event => {
             setDestination(event.target.value);
             setFieldErrors(errors => ({ ...errors, destination: undefined }));
           }} />
-        <p id={`${ids}-destination-help`} className={fieldErrors.destination ? "funds-error" : "funds-note"}>
-          {fieldErrors.destination ?? "A wallet you control on Arbitrum One. Withdrawals can't be reversed."}
-        </p>
+        {fieldErrors.destination && <p id={`${ids}-destination-help`} className="funds-error">{fieldErrors.destination}</p>}
       </div>
       <div className="funds-actions">
-        <button type="submit" className="action action-primary" disabled={busy || !canWithdraw}>Review withdrawal</button>
+        <button type="submit" className="action action-primary" disabled={busy || !canWithdraw}>Review</button>
         <button type="button" className="action action-secondary" disabled={busy} onClick={close}>Cancel</button>
       </div>
     </form>;
 
   return <Sheet label={funding ? "Add money to trading" : "Withdraw from trading"} showTitle busy={busy} onClose={close}>
     <div className="markets-ui funds">
-      <p className="funds-lead">
-        {funding ? "Trading uses the dollars in your trading balance. It counts toward your balance on the home screen." : "Send dollars from your trading balance to a wallet on Arbitrum."}
-      </p>
       <div className="funds-balance">
-        <span>{funding ? "Available to trade" : "Available to withdraw"}</span>
+        <span>Available</span>
         <strong>
           {balance !== undefined ? dollars.format(Number(balance))
             : balanceFailed ? "Unavailable"

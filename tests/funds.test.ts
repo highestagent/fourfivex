@@ -18,8 +18,8 @@ describe("withdrawalProblems", () => {
   });
 
   it("asks for a well-formed amount above the fee and within the balance", () => {
-    expect(withdrawalProblems("", WALLET, 100, TRADING).problems.amount).toMatch(/like 25/);
-    expect(withdrawalProblems("2.555", WALLET, 100, TRADING).problems.amount).toMatch(/like 25/);
+    expect(withdrawalProblems("", WALLET, 100, TRADING).problems.amount).toBe("Enter a valid amount.");
+    expect(withdrawalProblems("2.555", WALLET, 100, TRADING).problems.amount).toBe("Enter a valid amount.");
     expect(withdrawalProblems("1", WALLET, 100, TRADING).problems.amount).toMatch(/more than \$1/);
     expect(withdrawalProblems("100.01", WALLET, 100, TRADING).problems.amount).toBe("You can withdraw up to $100.00.");
     expect(withdrawalProblems("100", WALLET, 100, TRADING).problems.amount).toBeUndefined();
@@ -27,8 +27,8 @@ describe("withdrawalProblems", () => {
   });
 
   it("asks for an Arbitrum address that isn't the trading address", () => {
-    expect(withdrawalProblems("5", "", 100, TRADING).problems.destination).toMatch(/0x followed by 40/);
-    expect(withdrawalProblems("5", WALLET.slice(0, -1), 100, TRADING).problems.destination).toMatch(/0x followed by 40/);
-    expect(withdrawalProblems("5", TRADING.toUpperCase().replace("0X", "0x"), 100, TRADING).problems.destination).toMatch(/not your trading address/);
+    expect(withdrawalProblems("5", "", 100, TRADING).problems.destination).toBe("Enter a valid Arbitrum address.");
+    expect(withdrawalProblems("5", WALLET.slice(0, -1), 100, TRADING).problems.destination).toBe("Enter a valid Arbitrum address.");
+    expect(withdrawalProblems("5", TRADING.toUpperCase().replace("0X", "0x"), 100, TRADING).problems.destination).toBe("That's your trading address.");
   });
 });

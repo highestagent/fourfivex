@@ -21,7 +21,8 @@ export function explorerLink(hash: string) {
 }
 
 const sideOf = (text: string) => (/short/i.test(text) ? 'short' : 'long');
-const result = (net: number) => `${usd.format(Math.abs(net))} ${net < 0 ? 'loss' : 'gain'}`;
+const signed = (value: number) => `${value < 0 ? '−' : '+'}${usd.format(Math.abs(value))}`;
+const title = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** One event per order: an order that fills in several pieces is still one thing the person did. */
 export function fillEvents(fills: readonly Fill[]): TradingEvent[] {
@@ -37,11 +38,11 @@ export function fillEvents(fills: readonly Fill[]): TradingEvent[] {
     const notional = parts.reduce((sum, part) => sum + Number(part.px) * Number(part.sz), 0);
     const net = parts.reduce((sum, part) => sum + Number(part.closedPnl) - Number(part.fee), 0);
     const at = Math.max(...parts.map(part => part.time));
-    const text = parts.some(part => part.liquidation) ? `Your ${name} ${side} was liquidated.`
-      : first.dir.startsWith('Open') ? `You opened a ${usd.format(notional)} ${side} on ${name}.`
-      : first.dir.startsWith('Close') ? `You closed a ${usd.format(notional)} ${side} on ${name} for a ${result(net)}.`
-      : first.dir.includes('>') ? `You turned your ${name} position into a ${sideOf(first.dir.split('>')[1])}.`
-      : `You traded ${usd.format(notional)} of ${name}.`;
+    const text = parts.some(part => part.liquidation) ? `${title(name)} ${side} liquidated`
+      : first.dir.startsWith('Open') ? `Opened ${usd.format(notional)} ${name} ${side}`
+      : first.dir.startsWith('Close') ? `Closed ${usd.format(notional)} ${name} ${side} · ${signed(net)}`
+      : first.dir.includes('>') ? `${title(name)} flipped to ${sideOf(first.dir.split('>')[1])}`
+      : `Traded ${usd.format(notional)} of ${name}`;
     return { id: `fill:${oid}`, at, text, url: explorerLink(first.hash) };
   });
 }
@@ -56,14 +57,14 @@ export function ledgerEvents(updates: readonly LedgerUpdate[], address: TradingA
   return updates.flatMap((update, index): TradingEvent[] => {
     const { delta } = update;
     const base = { id: `ledger:${update.hash}:${index}`, at: update.time, url: explorerLink(update.hash) };
-    if (delta.type === 'deposit') return [{ ...base, text: `You added ${amount('USDC', delta.usdc)} to trading.` }];
-    if (delta.type === 'withdraw') return [{ ...base, text: `You withdrew ${amount('USDC', delta.usdc)} from trading.` }];
+    if (delta.type === 'deposit') return [{ ...base, text: `Added ${amount('USDC', delta.usdc)} to trading` }];
+    if (delta.type === 'withdraw') return [{ ...base, text: `Withdrew ${amount('USDC', delta.usdc)} from trading` }];
     if (delta.type !== 'send' && delta.type !== 'spotTransfer' && delta.type !== 'internalTransfer') return [];
     const value = delta.type === 'internalTransfer' ? amount('USDC', delta.usdc) : amount(delta.token, delta.amount);
     const incoming = delta.destination.toLowerCase() === self;
     const outgoing = delta.user.toLowerCase() === self;
     if (incoming === outgoing) return [];
-    return [{ ...base, text: incoming ? `You received ${value} in trading.` : `You sent ${value} from trading.` }];
+    return [{ ...base, text: incoming ? `Received ${value} in trading` : `Sent ${value} from trading` }];
   });
 }
 
@@ -83,12 +84,12 @@ export async function readOpenPositions(address: TradingAddress, signal?: AbortS
 /** A position as a standing sentence, with the figures someone checks first. */
 export function describePosition(position: Position) {
   const side = Number(position.szi) > 0 ? 'long' : 'short';
-  const pnl = Number(position.unrealizedPnl);
   return {
-    text: `Your ${side} on ${coinName(position.coin)} is worth ${usd.format(Number(position.positionValue))} at ${position.leverage.value}×.`,
+    text: `${title(coinName(position.coin))} ${side} · ${usd.format(Number(position.positionValue))}`,
     detail: [
-      `${pnl < 0 ? 'Down' : 'Up'} ${usd.format(Math.abs(pnl))}`,
-      position.liquidationPx ? `closes automatically at ${price.format(Number(position.liquidationPx))}` : undefined,
+      signed(Number(position.unrealizedPnl)),
+      `${position.leverage.value}×`,
+      position.liquidationPx ? `auto-closes at ${price.format(Number(position.liquidationPx))}` : undefined,
     ].filter(Boolean).join(' · '),
   };
 }

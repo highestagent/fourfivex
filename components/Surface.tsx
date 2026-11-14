@@ -26,15 +26,15 @@ const VIEWS = [
 ] as const;
 
 const ACTIONS = [
-  { key: "pay", label: "Pay someone", description: "Send USDC to a recipient on their network.", mark: "↗" },
-  { key: "getpaid", label: "Add money", description: "Fund your balance from another wallet.", mark: "+" },
-  { key: "change", label: "Change currency", description: "Swap between assets in your balance.", mark: "⇄" },
+  { key: "pay", label: "Pay someone", description: "Send dollars to anyone.", mark: "↗" },
+  { key: "getpaid", label: "Add money", description: "From another wallet.", mark: "+" },
+  { key: "change", label: "Change currency", description: "Swap what you hold.", mark: "⇄" },
 ] as const;
 
 const PREVIEWS = [
-  { label: "Grow", description: "Earn on assets you set aside.", mark: "↗" },
-  { label: "Borrow", description: "Borrow against your bitcoin.", mark: "−" },
-  { label: "Ask privately", description: "Ask a question in a private chat.", mark: "?" },
+  { label: "Grow", description: "Earn on idle money.", mark: "↗" },
+  { label: "Borrow", description: "Borrow against bitcoin.", mark: "−" },
+  { label: "Ask privately", description: "Ask in private.", mark: "?" },
 ] as const;
 
 const CARD = "grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] content-start items-center gap-x-3 rounded-[18px] border border-line p-4 text-left sm:grid-cols-[1fr_auto] sm:items-start sm:gap-y-4 sm:p-5";
@@ -199,7 +199,7 @@ export default function Surface() {
               ))}
               <Link href="/markets" className={`group ${CARD} hover:bg-card`}>
                 <span aria-hidden="true" className={`${CARD_MARK} bg-blue-4 text-blue`}>⌁</span>
-                <CardCopy label="Markets" description="Explore live charts and share ideas in private rooms." />
+                <CardCopy label="Markets" description="Charts, trading and rooms." />
                 <Arrow size={16} className="text-ink-2 group-hover:text-blue sm:col-start-2 sm:row-start-1 sm:self-center" />
               </Link>
               {PREVIEWS.map(({ label, description, mark }) => (
@@ -226,7 +226,7 @@ export default function Surface() {
                       <li key={position.coin} className="p-5 sm:p-6">
                         <p className="font-medium">{text}</p>
                         <p className="mt-1 text-sm text-ink-2 tabular-nums">{detail}</p>
-                        <Link href="/markets" className="mt-3 inline-block text-sm text-blue underline underline-offset-2">Manage in Markets</Link>
+                        <Link href="/markets" className="mt-3 inline-block text-sm text-blue underline underline-offset-2">Manage</Link>
                       </li>
                     );
                   })}
@@ -247,7 +247,7 @@ export default function Surface() {
         {view === "said" && (
           <section className="mt-8 sm:mt-11">
             <h1 className="mb-5 text-[30px] font-medium tracking-[-0.04em]">Activity</h1>
-            {trading.historyFailed && <p role="status" className="mb-4 text-sm text-ink-2">Trading history is unavailable right now. Retrying…</p>}
+            {trading.historyFailed && <p role="status" className="mb-4 text-sm text-ink-2">Trading history unavailable. Retrying…</p>}
             {activity.length ? (
               <ul className="divide-y divide-line rounded-[18px] border border-line">
                 {activity.map((item) => "entry" in item ? (
@@ -263,7 +263,7 @@ export default function Surface() {
                 ) : (
                   <li key={item.event.id} className="p-5">
                     <p className="font-medium">{item.event.text}</p>
-                    <p className="mt-1.5 text-sm text-ink-2">{when(item.event.at)} · {STATE_LABEL.done}</p>
+                    <p className="mt-1.5 text-sm text-ink-2">{when(item.event.at)}</p>
                     {item.event.url && (
                       <a href={item.event.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-blue underline underline-offset-2">View transaction</a>
                     )}
