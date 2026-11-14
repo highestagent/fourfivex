@@ -1,4 +1,4 @@
-import { base58Decode, base58Encode, base64url } from './passkey';
+import { base58Decode, base58Encode, base64url } from './encoding';
 
 /**
  * The little of NEAR the markets service needs: read a contract, and sign function calls as one account.

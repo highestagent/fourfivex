@@ -1,6 +1,9 @@
 import type { AccountProof } from '@fourfivex/markets-protocol/protocol';
 import type { Env } from './env';
+import { base58Decode, base64url } from './encoding';
 import { HttpError, upstream } from './http';
+
+export { base58Decode, base58Encode, base64url } from './encoding';
 
 /**
  * Proof that whoever creates a room holds a passkey of a fourfivex account.
@@ -12,47 +15,6 @@ import { HttpError, upstream } from './http';
 
 const encoder = new TextEncoder();
 const challengeLife = 2 * 60_000;
-const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-
-export function base58Decode(text: string): Uint8Array {
-  let value = BigInt(0);
-  for (const char of text) {
-    const digit = ALPHABET.indexOf(char);
-    if (digit < 0) throw new Error('Not base58.');
-    value = value * BigInt(58) + BigInt(digit);
-  }
-  const bytes: number[] = [];
-  while (value > BigInt(0)) {
-    bytes.unshift(Number(value % BigInt(256)));
-    value /= BigInt(256);
-  }
-  for (const char of text) {
-    if (char !== '1') break;
-    bytes.unshift(0);
-  }
-  return Uint8Array.from(bytes);
-}
-
-export function base58Encode(bytes: Uint8Array): string {
-  let value = BigInt(0);
-  for (const byte of bytes) value = value * BigInt(256) + BigInt(byte);
-  let text = '';
-  while (value > BigInt(0)) {
-    text = ALPHABET[Number(value % BigInt(58))] + text;
-    value /= BigInt(58);
-  }
-  for (const byte of bytes) {
-    if (byte !== 0) break;
-    text = '1' + text;
-  }
-  return text;
-}
-
-export const base64url = {
-  encode: (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, ''),
-  decode: (text: string) => Uint8Array.from(atob(text.replaceAll('-', '+').replaceAll('_', '/')), char => char.charCodeAt(0)),
-};
-
 const sha256 = async (bytes: Uint8Array) => new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
 const equal = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, index) => byte === b[index]);
 
