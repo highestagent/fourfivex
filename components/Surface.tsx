@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { depositAmount } from "@/lib/account/deposits";
+import { useDeposits } from "@/lib/account/useDeposits";
 import { useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
 import { when } from "@/lib/format";
@@ -13,6 +15,8 @@ import { sent, useSent, type SentEntry } from "@/lib/send/history";
 import { usePeople } from "@/lib/send/people";
 import { AccountButton } from "./AccountButton";
 import { AccountSheet } from "./AccountSheet";
+import { AddMoney } from "./AddMoney";
+import { Sheet } from "./Sheet";
 import { AppNavigation } from "./AppNavigation";
 import { Composer, type ActionKey } from "./Composer";
 import { DemoBalance, PortfolioBalance } from "./PortfolioBalance";
@@ -114,14 +118,19 @@ export default function Surface() {
   const [now, setNow] = useState<number | null>(null);
 
   const trading = useTradingActivity(accountId, view === "said");
+  const bridge = useDeposits(accountId, 30_000);
+  const arriving = bridge.deposits.filter((deposit) => deposit.status === "pending");
+  const added: TradingEvent[] = bridge.deposits.flatMap((deposit) => deposit.status === "done" && deposit.at
+    ? [{ id: `deposit:${deposit.id}`, at: deposit.at, text: `Added ${depositAmount(deposit)}`, url: deposit.url }]
+    : []);
   const activity: ({ at: number } & ({ entry: SentEntry } | { event: TradingEvent }))[] = [
     ...history.map((entry) => ({ at: entry.at, entry })),
-    ...trading.events.map((event) => ({ at: event.at, event })),
+    ...[...trading.events, ...added].map((event) => ({ at: event.at, event })),
   ].sort((a, b) => b.at - a.at);
 
   const pending = history.filter(isPending);
   const deposits = pending.filter((entry) => entry.kind === "add" && !isExpired(entry, now));
-  const standing = deposits.length + trading.positions.length;
+  const standing = deposits.length + arriving.length + trading.positions.length;
   const watch = pending.map(({ id }) => id).join(",");
   useEffect(() => {
     if (!watch) return;
@@ -234,8 +243,14 @@ export default function Surface() {
               </>
             )}
             <h2 className="mb-5 text-[30px] font-medium tracking-[-0.04em]">Pending deposits</h2>
-            {deposits.length ? (
+            {deposits.length || arriving.length ? (
               <ul className="divide-y divide-line rounded-[18px] border border-line">
+                {arriving.map((deposit) => (
+                  <li key={deposit.id} className="p-5 sm:p-6">
+                    <p className="font-medium">{depositAmount(deposit)}</p>
+                    <p className="mt-1 text-sm text-ink-2">Arriving…</p>
+                  </li>
+                ))}
                 {deposits.map((entry) => <Deposit key={entry.id} entry={entry} />)}
               </ul>
             ) : (
@@ -282,7 +297,12 @@ export default function Surface() {
       </footer>
 
       {overlay === "account" && <AccountSheet holdings={holdings.holdings} onClose={close} />}
-      {overlay && overlay !== "account" && (
+      {overlay === "getpaid" && accountId && (
+        <Sheet label="Add money" showTitle onClose={close}>
+          <AddMoney accountId={accountId} onDone={close} />
+        </Sheet>
+      )}
+      {overlay && overlay !== "account" && !(overlay === "getpaid" && accountId) && (
         <Composer
           key={`${overlay}:${accountId ?? "demo"}`}
           action={overlay}

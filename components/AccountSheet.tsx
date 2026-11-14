@@ -8,6 +8,7 @@ import { isLocalDevelopment, PasskeyError, passkeysAvailable } from "@/lib/accou
 import { AccountError } from "@/lib/account/session";
 import { memory, useDeviceMemory } from "@/lib/account/store";
 import { coin, usd } from "@/lib/format";
+import { AddMoney } from "./AddMoney";
 import { Sheet } from "./Sheet";
 import { WalletTransfer } from "./WalletTransfer";
 import { CopyButton, Finger } from "./ui";
@@ -36,7 +37,9 @@ export function AccountSheet({ holdings, onClose }: { holdings: Holdings | null;
     <Sheet label={current ? transfer ? transferLabel : "Account settings" : "Open account"} onClose={onClose} busy={step !== null}
       step={current && transfer ? { title: transferLabel, onBack: goBack, returnFocusId: `account-${transfer}` } : undefined}>
       {current ? transfer
-        ? <WalletTransfer key={`${current}:${transfer}`} mode={transfer} accountId={current} holdings={holdings} step={step} setStep={setStep} back={goBack} />
+        ? transfer === "add"
+          ? <AddMoney key={current} accountId={current} onDone={goBack} />
+          : <WalletTransfer key={`${current}:${transfer}`} mode={transfer} accountId={current} holdings={holdings} step={step} setStep={setStep} back={goBack} />
         : <Settings key={current} accountId={current} holdings={holdings} step={step} setStep={setStep} onClose={onClose} onTransfer={setTransfer} />
         : <Welcome step={step} setStep={setStep} />}
     </Sheet>
