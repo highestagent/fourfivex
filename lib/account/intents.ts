@@ -12,8 +12,11 @@ export const VERIFIER = "intents.near";
 
 export type AuthCall = { intent: "auth_call"; contract_id: string; msg: string; min_gas: string };
 
-/** Moves tokens from the signer to another account inside the verifier, such as a 1Click deposit address. */
-export type Transfer = { intent: "transfer"; receiver_id: string; tokens: Record<string, string> };
+/**
+ * Moves tokens from the signer to another account inside the verifier, such as a 1Click deposit address.
+ * With `msg`, the verifier then calls the receiver's `mt_on_transfer`, and refunds whatever the receiver hands back.
+ */
+export type Transfer = { intent: "transfer"; receiver_id: string; tokens: Record<string, string>; msg?: string; min_gas?: string };
 
 export type Intent =
   | { intent: "add_public_key"; public_key: string }

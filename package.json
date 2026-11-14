@@ -10,7 +10,8 @@
     "test": "vitest run --exclude tests/live.test.ts --exclude 'services/**'",
     "test:live": "LIVE=1 vitest run tests/live.test.ts",
     "dev:markets": "pnpm --filter @fourfivex/markets-worker dev",
-    "test:markets": "pnpm --filter @fourfivex/markets-worker test"
+    "test:markets": "pnpm --filter @fourfivex/markets-worker test",
+    "test:escrow": "vitest run --config services/room-escrow/vitest.config.ts"
   },
   "dependencies": {
     "@cloudflare/realtimekit": "2.0.4",
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "near-sandbox": "0.3.5",
     "tailwindcss": "4.3.3",
     "typescript": "^5",
     "vitest": "^5.1.0"
