@@ -8,6 +8,10 @@ import { tradeActions, tradeDigest, tradePayload, withdrawalPayload, withdrawalR
 import { requestSignatures, signerContract, tradingAddress, tradingConfigured } from './signer';
 import { prepareOrder, readAbstraction, readFunds, readPerpetual, readPosition, readWithdrawable, sharesBalance, transport, type OrderDraft, type OrderQuote, type TradingAddress } from './trade';
 import type { Market } from '@fourfivex/markets-protocol/markets';
+import { signalOrderId, signalProblem } from '@fourfivex/markets-protocol/sessions';
+
+/** A host's fill from a paid session's feed that this order follows. Its order ID ties a resulting fill to the session. */
+export type Signal = { room: string; price: string; time: number };
 
 export type PreparedTrade = { quote: OrderQuote; authorization: TradeAuthorization; ticket: string };
 type Ticket = Omit<PreparedTrade, 'ticket'> & { accountId: string; address: TradingAddress; kind: 'trade' };
@@ -71,13 +75,16 @@ async function needsLeverage(quote: OrderQuote, user: TradingAddress) {
   return update;
 }
 
-export async function prepareTrade(accountId: string, market: Market, draft: OrderDraft, closing: boolean): Promise<PreparedTrade> {
+export async function prepareTrade(accountId: string, market: Market, draft: OrderDraft, closing: boolean, signal?: Signal): Promise<PreparedTrade> {
   if (!executionConfigured()) throw new Error('Trading signer is unavailable.');
   const [address, salt, instrument] = await Promise.all([tradingAddress(accountId), currentSalt(), closing ? readPerpetual(market) : undefined]);
   const position = instrument ? await readPosition(instrument, address) : undefined;
   if (closing && !position) throw new Error('This position is already closed.');
   const quote = await prepareOrder(market, draft, undefined, position);
   if (!closing && quote.market.collateral !== 'USDC') throw new Error('Choose a market that settles in USDC.');
+  // Following a signal: refuse it once it's stale or the price has run away from the host's fill.
+  const problem = signal && (closing ? 'Close positions from the trade screen.' : signalProblem(signal, quote.market.mark));
+  if (problem) throw new Error(problem);
   const [changeLeverage, mode] = await Promise.all([needsLeverage(quote, address), readAbstraction(address)]);
   if (Date.now() >= quote.expires) throw new Error('This quote expired. Review a fresh quote.');
   const exchangeNonce = Date.now() + randomInt(60_000);
@@ -85,7 +92,7 @@ export async function prepareTrade(accountId: string, market: Market, draft: Ord
   const authorization: TradeAuthorization = {
     contract: signerContract()!, nonce: makeNonce(salt, new Date(deadline), crypto.getRandomValues(new Uint8Array(15))),
     deadline, exchangeNonce, expiresAfter: exchangeNonce + 120_000,
-    id: `0x${randomUUID().replaceAll('-', '')}`, changeLeverage,
+    id: signal ? await signalOrderId(signal.room) : `0x${randomUUID().replaceAll('-', '')}`, changeLeverage,
     // The first order turns on one balance for every USDC market. Closing never needs it.
     ...(!closing && !sharesBalance(mode) ? { unify: address } : {}),
   };

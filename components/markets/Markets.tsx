@@ -13,6 +13,7 @@ import { api, ApiError } from "./client";
 import { Dialog } from "./controls";
 import { TradeComposer } from "./TradeComposer";
 import { useMarketCatalog } from "./market-picker";
+import { HostSession } from "./HostSession";
 import { recentRoomKey, RoomEntry, roomJoinedEvent } from "./RoomEntry";
 import { MarketsFooter, MarketsHeader } from "./shell";
 
@@ -20,6 +21,7 @@ export function Markets() {
   const router = useRouter();
   const [market, setMarket] = useState<Market>(defaultMarket);
   const [creating, setCreating] = useState(false);
+  const [kind, setKind] = useState<"free" | "paid">("free");
   const [recent, setRecent] = useState<string>();
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountFromReview, setAccountFromReview] = useState(false);
@@ -87,12 +89,17 @@ export function Markets() {
         setCreating(false);
         requestAnimationFrame(() => createButton.current?.focus());
       }}>
-        <RoomEntry market={market} accountId={accountId} marketName={marketLabel(catalog.instruments.find(item => item.id === market) ?? catalog.instruments[0])}
-          onJoined={room => {
-            sessionStorage.setItem(recentRoomKey, room);
-            setRecent(room);
-            router.push(`/markets/${room}`);
-          }} />
+        <div className="room-kind" role="group" aria-label="Room type">
+          <button type="button" aria-pressed={kind === "free"} onClick={() => setKind("free")}>Free room</button>
+          <button type="button" aria-pressed={kind === "paid"} onClick={() => setKind("paid")}>Paid session</button>
+        </div>
+        {kind === "paid" && accountId ? <HostSession accountId={accountId} market={market} />
+          : <RoomEntry market={market} accountId={accountId} marketName={marketLabel(catalog.instruments.find(item => item.id === market) ?? catalog.instruments[0])}
+            onJoined={room => {
+              sessionStorage.setItem(recentRoomKey, room);
+              setRecent(room);
+              router.push(`/markets/${room}`);
+            }} />}
       </Dialog>}
     </div>
   );

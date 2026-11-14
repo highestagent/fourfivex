@@ -2,9 +2,12 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
-import { ArrowUpRight, ChartNoAxesCombined, Crosshair, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Activity, ArrowUpRight, ChartNoAxesCombined, Crosshair, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { FeedFill } from '@fourfivex/markets-protocol/sessions';
+import { AccountSheet } from '@/components/AccountSheet';
+import { useDeviceMemory } from '@/lib/account/store';
 import { defaultChartView, overlayTools, setupRatio, type ChartPresentation, type ChartSettings, type Item, type Point } from '@fourfivex/markets-protocol/protocol';
-import { defaultMarket, isMarket, marketLabel, marketQuote, type Market, type MarketQuote } from '@fourfivex/markets-protocol/markets';
+import { defaultMarket, isMarket, marketLabel, marketQuote, settlesInUsdc, type Market, type MarketQuote } from '@fourfivex/markets-protocol/markets';
 import type { DrawingItem } from './drawings';
 import { useRoom } from './client';
 import { Dialog } from './controls';
@@ -14,6 +17,7 @@ import { Invite } from './Invite';
 import { CommentForm, IdeaForm, LevelForm } from './room-forms';
 import { RoomHeader } from './RoomHeader';
 import { RoomLoading, ShellMessage } from './shell';
+import { SignalTrade } from './SignalTrade';
 
 // Keeps the opening frame in place if the chart is still downloading; no second message.
 const ChartLoading = () => <div className="chart-panel chart-loading" role="status" aria-label="Loading chart" />;
@@ -24,6 +28,7 @@ type Anchor = Point & { levelId?: string };
 
 type Modal =
   | { type: 'share' | 'market' }
+  | { type: 'signal'; fill: FeedFill; market: Market }
   | ({ type: 'level'; point: Point; level?: Level }
     | { type: 'comment'; point: Anchor }
     | { type: 'idea'; idea?: Idea; initial?: Partial<Idea['data']> }) & { market: Market };
@@ -68,12 +73,18 @@ export function Workspace({ roomId }: { roomId: string }) {
     setPausedFor(presentation?.presenter);
   }
 
-  const [tab, setTab] = useState<'ideas' | 'comments' | 'levels'>('ideas');
+  const { current: accountId } = useDeviceMemory();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [openedAt] = useState(() => Date.now());
+  const [chosenTab, setTab] = useState<'trades' | 'ideas' | 'comments' | 'levels'>();
   const [highlight, setHighlight] = useState('');
   if (ended || removed) return <ShellMessage title={ended ?? 'This room was deleted'}/>;
   if (revoked) return <ShellMessage title="Room access ended" text="Ask the room owner if you need access again."/>;
   if (!room) return <RoomLoading/>;
   const { me, members } = room;
+  const session = room.session;
+  const tab = chosenTab ?? (session ? 'trades' : 'ideas');
+  const fills = session ? [...session.fills].reverse() : [];
   const presenter = members.find(member => member.id === presentation?.presenter);
   const drawings = items.filter((item): item is DrawingItem => (item.kind === 'trendline' || item.kind === 'setup' || item.kind === 'overlay') && item.data !== null);
   const formatPrice = (value: string) => money(value, quote);
@@ -118,11 +129,25 @@ export function Workspace({ roomId }: { roomId: string }) {
         <section className="discussion" aria-labelledby="room-activity">
           <div className="discussion-heading"><h2 id="room-activity">Room activity</h2></div>
           <div className="tabs" role="group" aria-label="Workspace section">
+            {session && <button type="button" aria-pressed={tab === 'trades'} onClick={() => setTab('trades')}>Trades <span>{fills.length}</span></button>}
             <button type="button" aria-pressed={tab === 'ideas'} onClick={() => setTab('ideas')}>Trade ideas <span>{ideas.length}</span></button>
             <button type="button" aria-pressed={tab === 'comments'} onClick={() => setTab('comments')}>Comments <span>{comments.length}</span></button>
             <button type="button" aria-pressed={tab === 'levels'} onClick={() => setTab('levels')}>Drawings <span>{levels.length + drawings.length}</span></button>
           </div>
           <div className="discussion-content">
+            {tab === 'trades' && session && <>
+              {!fills.length && <p className="empty"><Activity size={17} aria-hidden="true"/>{openedAt < session.startsAt
+                ? `${session.host}’s trades show here from ${new Date(session.startsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'No trades yet'}</p>}
+              {fills.map(fill => {
+                const listing = fill.market && catalog.instruments.find(item => item.id === fill.market);
+                const usable = Boolean(fill.opening && listing && settlesInUsdc(listing) && me.role !== 'owner');
+                return <article className="fill-card" key={fill.id}>
+                  <header><strong className={fill.side === 'long' ? 'trade-long' : 'trade-short'}>{fill.dir}</strong><span>{listing ? marketLabel(listing) : fill.coin}</span></header>
+                  <p><span>{fill.size} at {listing ? money(fill.price, listing) : fill.price}</span><span>{timeLabel(Math.floor(fill.time / 1000))}</span></p>
+                  {usable && <button type="button" className="button small" onClick={() => setModal({ type: 'signal', fill, market: fill.market! })}>Use this trade <ArrowUpRight size={14}/></button>}
+                </article>;
+              })}
+            </>}
             {tab === 'ideas' && <>
               {editable && <button className="button full new-idea" onClick={() => setModal({ type: 'idea', market })}><Plus size={16}/> New trade idea</button>}
               {!ideas.length && <p className="empty"><ChartNoAxesCombined size={17} aria-hidden="true"/>No trade ideas yet</p>}
@@ -161,7 +186,12 @@ export function Workspace({ roomId }: { roomId: string }) {
       setHighlight('');
       close();
     }}/></Dialog>}
-    {modal?.type === 'share' && <Dialog title="Manage room" close={close}><Invite roomId={roomId} members={members} me={me} onDeleted={() => setRemoved(true)}/></Dialog>}
+    {modal?.type === 'share' && <Dialog title={session ? 'Manage session' : 'Manage room'} close={close}><Invite roomId={roomId} members={members} me={me} paid={Boolean(session)} onDeleted={() => setRemoved(true)}/></Dialog>}
+    {modal?.type === 'signal' && (() => {
+      const listing = catalog.instruments.find(item => item.id === modal.market);
+      return listing && <SignalTrade roomId={roomId} fill={modal.fill} instrument={listing} accountId={accountId} openAccount={() => setAccountOpen(true)} close={close}/>;
+    })()}
+    {accountOpen && <AccountSheet holdings={null} onClose={() => setAccountOpen(false)}/>}
     {modal?.type === 'level' && <Dialog title={modal.level ? 'Edit price level' : 'Add a price level'} close={close}>{dialogContext}<LevelForm initial={modal.point.price} quote={dialogQuote.quote} label={modal.level?.data?.label} save={(label, price) => {
       edit({ market: modal.market, kind: 'level', id: modal.level?.id ?? crypto.randomUUID(), expected: modal.level?.revision ?? 0, data: { ...modal.point, price, label } }); setTab('levels'); close();
     }}/></Dialog>}

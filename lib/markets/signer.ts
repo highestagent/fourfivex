@@ -94,11 +94,16 @@ export function verifiedSignature(value: unknown, digest: Uint8Array, address: T
   }
 }
 
+/** The account that pays gas for signed intents. Its key can only call `execute_intents` on the verifier. */
+export function relayerAccount() {
+  relayer ??= new Account(process.env.TRADING_RELAYER_ACCOUNT!, provider(), process.env.TRADING_RELAYER_KEY as KeyPairString);
+  return relayer;
+}
+
 export async function requestSignatures(signed: SignedIntent, digests: Uint8Array[], address: TradingAddress) {
   if (!tradingConfigured()) throw new Error('Trading signer is unavailable.');
   await verifySignerDeployment();
-  relayer ??= new Account(process.env.TRADING_RELAYER_ACCOUNT!, provider(), process.env.TRADING_RELAYER_KEY as KeyPairString);
-  const result = await relayer.signAndSendTransaction({
+  const result = await relayerAccount().signAndSendTransaction({
     // Three digests take two signer calls, each with its own 100 Tgas floor, so they get the most a transaction can carry.
     receiverId: VERIFIER, actions: [actions.functionCall('execute_intents', { signed: [signed] }, teraToGas(digests.length > 2 ? 300 : 250))],
     waitUntil: 'FINAL',

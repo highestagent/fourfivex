@@ -1,38 +1,20 @@
 import { hyperliquidMarket, isMarket } from '@fourfivex/markets-protocol/markets';
-import { decodePublicKey, isAccountId } from '@/lib/account/keys';
-import { verifyAssertion } from '@/lib/account/assertion';
-import { b64u } from '@/lib/account/encoding';
-import { challengeFor, type SignedIntent } from '@/lib/account/intents';
-import { base58 } from '@scure/base';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { equal, utf8 } from '@/lib/account/encoding';
-import { CollateralRequired, executeTrade, executeWithdrawal, executionConfigured, prepareTrade, prepareWithdrawal } from '@/lib/markets/execution';
+import { isAccountId } from '@/lib/account/keys';
+import { signedIntent } from '@/lib/account/signed';
+import { CollateralRequired, executeTrade, executeWithdrawal, executionConfigured, prepareTrade, prepareWithdrawal, type Signal } from '@/lib/markets/execution';
 import { tradingAddress } from '@/lib/markets/signer';
 import { readTradingBalance } from '@/lib/markets/trade';
 import { prepareFunding, submitFunding, fundingConfigured } from '@/lib/markets/funding';
 import { isCrossSite } from '@/lib/http/origin';
 
-function signedIntent(value: unknown, origin: string): SignedIntent | undefined {
+const ROOM = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** A paid session's fill that this order follows, if the request names one in the right shape. */
+function signalOf(value: unknown): Signal | undefined {
   if (!value || typeof value !== 'object') return;
-  const signed = value as Record<string, unknown>;
-  if (signed.standard !== 'webauthn') return;
-  for (const key of ['payload', 'public_key', 'signature', 'client_data_json', 'authenticator_data']) {
-    if (typeof signed[key] !== 'string' || signed[key].length > 4000) return;
-  }
-  const envelope = signed as unknown as SignedIntent;
-  try {
-    const client = JSON.parse(envelope.client_data_json);
-    if (client.origin !== origin || client.crossOrigin === true || !envelope.signature.startsWith('p256:')) return;
-    const authenticatorData = b64u.decode(envelope.authenticator_data);
-    if (!equal(authenticatorData.slice(0, 32), sha256(utf8(new URL(origin).hostname)))) return;
-    if (!verifyAssertion(decodePublicKey(envelope.public_key), challengeFor(envelope.payload), {
-      clientDataJSON: envelope.client_data_json, authenticatorData,
-      signature: base58.decode(envelope.signature.slice(5)), credentialId: '', userHandle: null,
-    })) return;
-    return envelope;
-  } catch {
-    return;
-  }
+  const { room, price, time } = value as Record<string, unknown>;
+  if (typeof room === 'string' && ROOM.test(room) && typeof price === 'string' && /^\d{1,9}(\.\d{1,8})?$/.test(price)
+    && typeof time === 'number' && Number.isSafeInteger(time) && time > 0) return { room, price, time };
 }
 
 function reply(value: unknown, status = 200) {
@@ -56,7 +38,7 @@ export async function POST(request: Request) {
     if (data.op === 'prepare' && isMarket(data.market) && hyperliquidMarket(data.market)?.type === 'perp'
       && ['long', 'short'].includes(data.side) && typeof data.margin === 'number' && Number.isFinite(data.margin)
       && data.margin >= 0 && data.margin <= 1_000_000 && Number.isInteger(data.leverage) && typeof data.closing === 'boolean') {
-      return reply(await prepareTrade(accountId, data.market, data, data.closing));
+      return reply(await prepareTrade(accountId, data.market, data, data.closing, signalOf(data.signal)));
     }
     const signed = signedIntent(data.signed, origin);
     if (data.op === 'withdraw-quote' && typeof data.destination === 'string' && typeof data.amount === 'string') {

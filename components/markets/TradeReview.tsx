@@ -30,7 +30,10 @@ function pendingOrder(account: string | null): Pending | undefined {
   } catch {}
 }
 
-export function TradeReview({ market, instrument, draft, accountId, trading, position, openAccount, close, onRefresh }: {
+/** The host's fill a follower is copying, from a paid session's feed. */
+export type TradeSignal = { room: string; price: string; time: number };
+
+export function TradeReview({ market, instrument, draft, accountId, trading, position, openAccount, close, onRefresh, signal }: {
   market: Market;
   instrument: Instrument;
   draft: OrderDraft;
@@ -40,8 +43,12 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
   openAccount: () => void;
   close: () => void;
   onRefresh: () => void;
+  signal?: TradeSignal;
 }) {
   const { side, margin, leverage } = draft;
+  const signalRoom = signal?.room;
+  const signalPrice = signal?.price;
+  const signalTime = signal?.time;
   const [quote, setQuote] = useState<OrderQuote>();
   const [prepared, setPrepared] = useState<PreparedTrade>();
   const [error, setError] = useState("");
@@ -63,7 +70,8 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
     const load = async () => {
       if (accountId && canTrade) {
         try {
-          const review = await tradeApi<PreparedTrade>(accountId, "prepare", { ...draft, market, closing: Boolean(closing) }, controller.signal);
+          const following = signalRoom && signalPrice && signalTime ? { signal: { room: signalRoom, price: signalPrice, time: signalTime } } : {};
+          const review = await tradeApi<PreparedTrade>(accountId, "prepare", { ...draft, market, closing: Boolean(closing), ...following }, controller.signal);
           if (!controller.signal.aborted) {
             setPreparationError(undefined);
             setError("");
@@ -87,7 +95,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
       }
     });
     return () => controller.abort();
-  }, [market, side, margin, leverage, refresh, accountId, canTrade, closing]);
+  }, [market, side, margin, leverage, refresh, accountId, canTrade, closing, signalRoom, signalPrice, signalTime]);
 
   useEffect(() => {
     if (!quote) return;
@@ -192,6 +200,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
         <p className="trade-review-lead">{closing ? "Close the position" : `Open a ${side}`} on {marketLabel(instrument)}.</p>
         {!quote && !error && <p role="status">Getting a mainnet quote…</p>}
         {quote && <dl className="trade-review-details">
+          {signal && <Detail label="Host filled at">{money(signal.price, instrument)} · now {money(quote.market.mark, instrument)}</Detail>}
           {!closing && <Detail label="Margin">{inCollateral(quote.margin, quote.market.collateral)} · {quote.leverage}×</Detail>}
           <Detail label="Order size">{quote.size} {instrument.symbol} · about {money(quote.value, { ...instrument, precision: 2 })}</Detail>
           <Detail label={quote.buy ? "Maximum buy price" : "Minimum sell price"}>{money(quote.limit, instrument)}</Detail>

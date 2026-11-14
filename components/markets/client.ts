@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultMarket, type Market } from '@fourfivex/markets-protocol/markets';
-import { roomDeletedCode, roomEndedCode, type Command, type Interval, type Item, type Mutation, type Point, type Room, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { roomCanceledCode, roomDeletedCode, roomEndedCode, type Command, type Interval, type Item, type Mutation, type Point, type Room, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string, readonly data?: Record<string, unknown>) { super(message); }
@@ -95,6 +95,10 @@ export function useRoom(roomId: string) {
             setRoom(value => value && { ...value, members: event.members });
             break;
           case 'presence': setOnline(event.online); break;
+          case 'fill':
+            setRoom(value => value?.session && !value.session.fills.some(fill => fill.id === event.fill.id)
+              ? { ...value, session: { ...value.session, fills: [...value.session.fills, event.fill].slice(-50) } } : value);
+            break;
           case 'chart-presentation':
             setRoom(value => {
               if (!value) return value;
@@ -133,8 +137,9 @@ export function useRoom(roomId: string) {
         setConnected(false);
         setOnline([]);
         transient.current.clear();
-        if (code === roomDeletedCode || code === roomEndedCode) {
-          setEnded(code === roomDeletedCode ? 'This room was deleted' : 'This room has ended');
+        if (code === roomDeletedCode || code === roomEndedCode || code === roomCanceledCode) {
+          setEnded(code === roomDeletedCode ? 'This room was deleted' : code === roomCanceledCode
+            ? 'This session was canceled. Every seat is refunded' : 'This room has ended');
           return;
         }
         if (code === 1008) {
