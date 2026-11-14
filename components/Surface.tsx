@@ -14,6 +14,7 @@ import { useTradingActivity } from "@/lib/markets/useTradingActivity";
 import { sent, useSent, type SentEntry } from "@/lib/send/history";
 import { usePeople } from "@/lib/send/people";
 import { AccountButton } from "./AccountButton";
+import dynamic from "next/dynamic";
 import { AccountSheet } from "./AccountSheet";
 import { AddMoney } from "./AddMoney";
 import { Address } from "./Address";
@@ -23,6 +24,8 @@ import { Composer, type ActionKey } from "./Composer";
 import { DemoBalance, PortfolioBalance } from "./PortfolioBalance";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { Arrow, CopyButton, Plus } from "./ui";
+
+const Withdraw = dynamic(() => import("./markets/Withdraw").then((module) => module.Withdraw));
 
 const VIEWS = [
   { key: "now", label: "Now" },
@@ -116,6 +119,7 @@ export default function Surface() {
   const people = usePeople();
   const [view, setView] = useState<View>("now");
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   const [now, setNow] = useState<number | null>(null);
 
@@ -192,7 +196,8 @@ export default function Surface() {
         {view === "now" && (
           <>
             {accountId
-              ? <PortfolioBalance key={accountId} accountId={accountId} holdings={holdings} wallets={device.wallets[accountId] ?? NO_WALLETS} />
+              ? <PortfolioBalance key={accountId} accountId={accountId} holdings={holdings} wallets={device.wallets[accountId] ?? NO_WALLETS}
+                  onWithdrawTrading={trading.address ? () => setWithdrawing(true) : undefined} />
               : <DemoBalance bitcoinPrice={prices.btc} />}
 
             <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-3" aria-label="Money actions">
@@ -301,6 +306,7 @@ export default function Surface() {
       </footer>
 
       {overlay === "account" && <AccountSheet holdings={holdings.holdings} onClose={close} />}
+      {withdrawing && accountId && trading.address && <Withdraw accountId={accountId} address={trading.address} close={() => setWithdrawing(false)} />}
       {overlay === "getpaid" && accountId && (
         <Sheet label="Add money" showTitle onClose={close}>
           <AddMoney accountId={accountId} onDone={close} />

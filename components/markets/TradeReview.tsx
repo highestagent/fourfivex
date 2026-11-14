@@ -9,9 +9,16 @@ import { tradePayload } from "@/lib/markets/authorization";
 import type { PreparedTrade, TradeResult } from "@/lib/markets/execution";
 import { signPayload } from "@/lib/account/flows";
 import { memory } from "@/lib/account/store";
+import { Deposit } from "./Deposit";
 import { money } from "./format";
 
 const amount = new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 });
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+/** Dollars for USDC margin, like the rest of the app; other collateral keeps its own symbol. */
+const inCollateral = (value: number, collateral: string) => collateral === "USDC"
+  ? value > 0 && value < 0.01 ? "under 1¢" : usd.format(value)
+  : `${amount.format(value)} ${collateral}`;
 const pendingKey = (account: string) => `fourfivex:markets:pending-order:${account}`;
 type Pending = { id: `0x${string}`; expires: number };
 
@@ -23,7 +30,7 @@ function pendingOrder(account: string | null): Pending | undefined {
   } catch {}
 }
 
-export function TradeReview({ market, instrument, draft, accountId, trading, position, openAccount, close, onRefresh, onFund }: {
+export function TradeReview({ market, instrument, draft, accountId, trading, position, openAccount, close, onRefresh }: {
   market: Market;
   instrument: Instrument;
   draft: OrderDraft;
@@ -33,7 +40,6 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
   openAccount: () => void;
   close: () => void;
   onRefresh: () => void;
-  onFund: () => void;
 }) {
   const { side, margin, leverage } = draft;
   const [quote, setQuote] = useState<OrderQuote>();
@@ -186,13 +192,15 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
         <p className="trade-review-lead">{closing ? "Close the position" : `Open a ${side}`} on {marketLabel(instrument)}.</p>
         {!quote && !error && <p role="status">Getting a mainnet quote…</p>}
         {quote && <dl className="trade-review-details">
-          {!closing && <Detail label="Margin">{amount.format(quote.margin)} {quote.market.collateral} · {quote.leverage}× isolated</Detail>}
+          {!closing && <Detail label="Margin">{inCollateral(quote.margin, quote.market.collateral)} · {quote.leverage}×</Detail>}
           <Detail label="Order size">{quote.size} {instrument.symbol} · about {money(quote.value, { ...instrument, precision: 2 })}</Detail>
           <Detail label={quote.buy ? "Maximum buy price" : "Minimum sell price"}>{money(quote.limit, instrument)}</Detail>
-          <Detail label="Estimated fee">{quote.fee === undefined ? "Unavailable" : `${amount.format(quote.fee)} ${quote.market.collateral}`}</Detail>
+          <Detail label="Fee">{quote.fee === undefined ? "Unavailable" : inCollateral(quote.fee, quote.market.collateral)}</Detail>
         </dl>}
         {accountId && trading && !trading.available && <p className="trade-review-note">Trading is unavailable on this deployment.</p>}
-        {preparationError && <p className="trade-review-note">{preparationError.message}</p>}
+        {preparationError && !needsCollateral && preparationError.message !== error && <p className="trade-review-note">{preparationError.message}</p>}
+        {needsCollateral && accountId && trading?.available && quote && !result && !pending
+          && <Deposit accountId={accountId} trading={trading} required={quote.margin + (quote.fee ?? 0)} onReady={reload} />}
         {prepared && <p className="trade-review-note">Any quantity outside the reviewed price limit is canceled.</p>}
         {busy && <p role="status">{busy}</p>}
         {result && <p role="status">{'message' in result ? result.message
@@ -201,7 +209,7 @@ export function TradeReview({ market, instrument, draft, accountId, trading, pos
         <div className="flex flex-wrap gap-2">
           {pending ? <button type="button" className="action action-primary" onClick={() => void check()} disabled={Boolean(busy)}>Check order</button>
             : result ? null
-            : needsCollateral ? <button type="button" className="action action-primary" onClick={onFund}>Add money</button>
+            : needsCollateral ? <button type="button" className="action action-secondary" onClick={reload}>Try again</button>
             : expired || (!quote && error)
             ? <button type="button" className="action action-primary" onClick={reload}>{expired ? "Refresh expired quote" : "Get a new quote"}</button>
             : prepared ? <button type="button" className="action action-primary" disabled={Boolean(busy)} onClick={() => void confirm()}>Confirm with passkey</button>

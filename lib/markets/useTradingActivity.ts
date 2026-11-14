@@ -72,6 +72,7 @@ export function useTradingActivity(accountId: string | null, withHistory: boolea
   const current = <T,>(loaded: Loaded<T> | undefined) => (address && loaded?.address === address ? loaded : undefined);
   return {
     trading: address !== null,
+    address,
     positions: current(positions)?.value ?? [],
     events: current(history)?.value ?? [],
     historyFailed: current(history)?.failed ?? false,

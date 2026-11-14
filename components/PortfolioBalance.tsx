@@ -97,8 +97,10 @@ function SourceAmount({ value, total, color }: { value: number | null; total: nu
   </span>;
 }
 
-export function PortfolioBalance({ accountId, holdings, wallets }: {
+export function PortfolioBalance({ accountId, holdings, wallets, onWithdrawTrading }: {
   accountId: string; holdings: HoldingsState; wallets: readonly WatchedWallet[];
+  /** Opens Withdraw for the trading balance. */
+  onWithdrawTrading?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const breakdownId = useId();
@@ -120,7 +122,7 @@ export function PortfolioBalance({ accountId, holdings, wallets }: {
   const sources = [
     { label: "NEAR Intents", value: intentsValue ?? 0, color: "bg-blue" },
     { label: "Linked wallets", value: linkedValue ?? 0, color: "bg-ink-2" },
-    { label: "Hyperliquid", value: tradingValue ?? 0, color: "bg-ink" },
+    { label: "Trading", value: tradingValue ?? 0, color: "bg-ink" },
   ];
   const showAllocation = !partial && holdings.status !== "stale" && total !== null && total > 0 &&
     sources.every(source => source.value >= 0) && sources.filter(source => source.value > 0).length > 1;
@@ -203,15 +205,19 @@ export function PortfolioBalance({ accountId, holdings, wallets }: {
               </div>
             </details>
 
-            {(!trading || trading.failed || trading.value) && <Link href="/markets"
-              className="group flex min-h-11 min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg py-3 text-sm hover:text-blue">
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 font-semibold"><Arrow size={16} className="text-ink-2 group-hover:text-blue" />Hyperliquid</p>
-                <p className="mt-1 pl-6 text-xs text-ink-2">{trading?.value ? `${money.format(trading.value.withdrawable)} withdrawable` :
-                  trading?.failed ? "Balance unavailable" : "Checking balance…"}</p>
-              </div>
-              <SourceAmount value={tradingValue} total={allocationTotal} color="bg-ink" />
-            </Link>}
+            {(!trading || trading.failed || trading.value) && <div className="flex min-w-0 items-center gap-3">
+              <Link href="/markets"
+                className="group flex min-h-11 min-w-0 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg py-3 text-sm hover:text-blue">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 font-semibold"><Arrow size={16} className="text-ink-2 group-hover:text-blue" />Trading</p>
+                  <p className="mt-1 pl-6 text-xs text-ink-2">{trading?.value ? `${money.format(trading.value.withdrawable)} withdrawable` :
+                    trading?.failed ? "Balance unavailable" : "Checking balance…"}</p>
+                </div>
+                <SourceAmount value={tradingValue} total={allocationTotal} color="bg-ink" />
+              </Link>
+              {onWithdrawTrading && trading?.value && trading.value.withdrawable > 1 &&
+                <button type="button" className="action action-secondary shrink-0" onClick={onWithdrawTrading}>Withdraw</button>}
+            </div>}
           </div>
         </div>
       </div>

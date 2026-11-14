@@ -12,7 +12,6 @@ import { readPerpetual, readPosition, type OrderDraft, type Perpetual, type Posi
 import { tradeApi, type TradeAccount } from "@/lib/markets/api";
 
 const TradeReview = dynamic(() => import("./TradeReview").then(module => module.TradeReview));
-const TradingFunds = dynamic(() => import("./TradingFunds").then(module => module.TradingFunds));
 const directions = [{ value: "long", label: "long" }, { value: "short", label: "short" }] as const;
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const amountPattern = "[0-9]{1,7}([.,][0-9]{1,2})?";
@@ -29,8 +28,7 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
   const [side, setSide] = useState<Side>("long");
   const [amount, setAmount] = useState("");
   const [leverage, setLeverage] = useState(1);
-  const [dialog, setDialog] = useState<"market" | "review" | "close" | "fund" | "withdraw">();
-  const [returnToReview, setReturnToReview] = useState(false);
+  const [dialog, setDialog] = useState<"market" | "review" | "close">();
   const [tradeAccount, setTradeAccount] = useState<{ id: string; data: TradeAccount }>();
   const [positionData, setPositionData] = useState<{ market: Market; accountId: string; position?: Position }>();
   const [instrumentData, setInstrumentData] = useState<Perpetual>();
@@ -38,8 +36,6 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
   const [refresh, setRefresh] = useState(0);
   const marketButton = useRef<HTMLButtonElement>(null);
   const reviewButton = useRef<HTMLButtonElement>(null);
-  const fundsButton = useRef<HTMLButtonElement>(null);
-  const withdrawButton = useRef<HTMLButtonElement>(null);
 
   const instrument = catalog.instruments.find(item => item.id === market) ?? defaultInstrument;
   const data = instrumentData?.market === market ? instrumentData : undefined;
@@ -98,7 +94,7 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
   }
 
   function close() {
-    const focus = dialog === "market" ? marketButton : dialog === "fund" ? fundsButton : dialog === "withdraw" ? withdrawButton : reviewButton;
+    const focus = dialog === "market" ? marketButton : reviewButton;
     setDialog(undefined);
     requestAnimationFrame(() => focus.current?.focus());
   }
@@ -106,16 +102,13 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
   const marketControl = <button ref={marketButton} type="button" className="trade-field" aria-haspopup="dialog"
     aria-label={`Market: ${marketLabel(instrument)}`} onClick={() => setDialog("market")}>
     <MarketIcon instrument={instrument.id === defaultInstrument.id && !instrument.glyph
-      ? { ...instrument, glyph: defaultInstrument.glyph } : instrument} />
+      ? { ...instrument, glyph: defaultInstrument.glyph } : instrument} eager />
     <span>{marketLabel(instrument)}</span>
     <ChevronDown size={15} aria-hidden="true" className="trade-chevron" />
   </button>;
 
   return (
     <section className="trade-composer" aria-label="Trade perpetuals">
-      <div className="trade-context">
-        <span className="trade-venue">Hyperliquid <span aria-hidden="true">·</span> Mainnet</span>
-      </div>
       {position ? <>
         <p className="trade-sentence">My <strong className={Number(position.szi) > 0 ? "trade-long" : "trade-short"}>{Number(position.szi) > 0 ? "long" : "short"}</strong> position in {marketControl} is worth {usd.format(Number(position.positionValue))} at {position.leverage.value}×.</p>
         <p className="trade-outcome">
@@ -155,13 +148,6 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
         </p>
         <button ref={reviewButton} type="submit" className="action action-primary trade-review-button">Review order</button>
       </form>}
-      {accountId && trading?.available && <div className="flex flex-wrap justify-center gap-2">
-        <button ref={fundsButton} type="button" className="action action-secondary" onClick={() => {
-          setReturnToReview(false);
-          setDialog("fund");
-        }}>Add money</button>
-        <button ref={withdrawButton} type="button" className="action action-secondary" onClick={() => setDialog("withdraw")}>Withdraw money</button>
-      </div>}
       {dialog === "market" && <Dialog title="Choose a market" close={close}>
         <MarketPicker current={market} product="perp" catalog={{ ...catalog, instruments: catalog.instruments.filter(item => {
           const listing = hyperliquidMarket(item.id);
@@ -174,14 +160,7 @@ export function TradeComposer({ market, selectMarket, catalog, accountId, accoun
       </Dialog>}
       {(dialog === "review" || dialog === "close") && !accountOpen && <TradeReview key={accountId} market={market} instrument={instrument} draft={draft}
         accountId={accountId} trading={trading} position={dialog === "close" ? position : undefined} openAccount={openAccount}
-        onFund={() => { setReturnToReview(true); setDialog("fund"); }}
         close={close} onRefresh={() => setRefresh(value => value + 1)} />}
-      {accountId && trading?.available && (dialog === "fund" || dialog === "withdraw") && <TradingFunds key={`${accountId}:${dialog}`} accountId={accountId}
-        trading={trading} mode={dialog} returnToReview={dialog === "fund" && returnToReview} close={() => {
-        setRefresh(value => value + 1);
-        if (dialog === "fund" && returnToReview) setDialog("review");
-        else close();
-      }} />}
     </section>
   );
 }
