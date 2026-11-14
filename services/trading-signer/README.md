@@ -55,7 +55,7 @@ Everything runs under `fourfivex.near`, the operations account. It pays for and 
    near contract call-function as-read-only trading-signer.fourfivex.near version json-args '{}' network-config mainnet now
    near account view-account-summary trading-signer.fourfivex.near network-config mainnet now
    ```
-4. **Delete the signer's key.** The app refuses a signer account that still has a key, so this step is required. It cannot be undone: afterwards nobody can change the contract or move its NEAR.
+4. **Delete the signer's key.** The app refuses a signer account that still has a key, unless `TRADING_SIGNER_ALLOWED_KEY` names that key (see step 6). Deleting it cannot be undone: afterwards nobody can change the contract or move its NEAR.
    ```sh
    near account list-keys trading-signer.fourfivex.near network-config mainnet now
    near account delete-keys trading-signer.fourfivex.near public-keys <the key listed above> network-config mainnet sign-with-keychain send
@@ -79,6 +79,7 @@ Everything runs under `fourfivex.near`, the operations account. It pays for and 
    | `TRADING_SIGNER_CODE_HASH` | `9wWUEB6gSnCnN593SSMrzfvsrNSmM4vzWos5UMA8AU1E` |
    | `TRADING_RELAYER_ACCOUNT` | `trading-relayer.fourfivex.near` |
    | `TRADING_RELAYER_KEY` | The capped key from step 5, Sensitive |
+   | `TRADING_SIGNER_ALLOWED_KEY` | Temporary, for testing before step 4. The one public key the signer may still hold, such as `ed25519:…`. Any other key, or a second key, is still refused. While it is set, whoever holds that key can sign for every trading address. Unset it to require a locked signer again |
    | `TRADING_TICKET_SECRET` | Optional. At least 32 random characters. Without it, the app derives one from the relayer key |
    | `TRADING_NEAR_RPC_URL` | Optional mainnet RPC URL. Defaults to FastNEAR |
    | `TRADING_1CLICK_FUNDING` | Leave unset unless your 1Click agreement covers funding this derivatives integration. See [1Click terms, section 7.12](https://docs.agentsonintents.com/security-compliance/terms-of-service) |

@@ -30,6 +30,17 @@ export function addressFromPoint(point: Uint8Array): TradingAddress {
   return `0x${hex.encode(keccak_256(point).slice(-20))}`;
 }
 
+/**
+ * A locked signer has no keys, so nobody can change its code or sign as it.
+ * While the signer is being tested, TRADING_SIGNER_ALLOWED_KEY lets it keep that one key and no other.
+ * Whoever holds that key can sign for every trading address. Unset it to require a locked signer again.
+ */
+export function signerKeysAccepted(keys: readonly { public_key: string }[], truncated: boolean, allowed: string | undefined) {
+  if (truncated) return false;
+  if (keys.length === 0) return true;
+  return Boolean(allowed) && keys.length === 1 && keys[0].public_key === allowed;
+}
+
 let verifiedDeployment: { contract: string; hash: string; until: number } | undefined;
 
 export async function verifySignerDeployment() {
@@ -43,7 +54,7 @@ export async function verifySignerDeployment() {
     rpc.viewAccessKeyList({ accountId: contract, finalityQuery: { finality: 'final' } }),
     rpc.callFunction<number>({ contractId: contract, method: 'version', args: {}, blockQuery: { finality: 'final' } }),
   ]);
-  if (account.code_hash !== hash || keys.keys.length !== 0 || keys.last_key || version !== 1) {
+  if (account.code_hash !== hash || !signerKeysAccepted(keys.keys, Boolean(keys.last_key), process.env.TRADING_SIGNER_ALLOWED_KEY) || version !== 1) {
     throw new Error('Trading signer is unavailable.');
   }
   verifiedDeployment = { contract, hash, until: Date.now() + 60_000 };
