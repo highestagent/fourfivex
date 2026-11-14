@@ -12,7 +12,7 @@ import { memory } from "@/lib/account/store";
 import { money } from "./format";
 
 const amount = new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 });
-const pendingKey = (account: string) => `intuite:markets:pending-order:${account}`;
+const pendingKey = (account: string) => `fourfivex:markets:pending-order:${account}`;
 type Pending = { id: `0x${string}`; expires: number };
 
 function pendingOrder(account: string | null): Pending | undefined {

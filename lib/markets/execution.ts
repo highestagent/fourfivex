@@ -24,7 +24,7 @@ export function executionConfigured() {
 function ticketMac(data: string) {
   const secret = process.env.TRADING_TICKET_SECRET;
   const key = secret && secret.length >= 32 ? secret : Buffer.from(hkdfSync(
-    'sha256', process.env.TRADING_RELAYER_KEY!, '', 'intuite:trading-review:v1', 32,
+    'sha256', process.env.TRADING_RELAYER_KEY!, '', 'fourfivex:trading-review:v1', 32,
   ));
   return createHmac('sha256', key).update(data).digest('base64url');
 }

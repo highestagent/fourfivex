@@ -32,8 +32,8 @@ export function TradingFunds({ accountId, trading, mode, returnToReview, close }
   close: () => void;
 }) {
   const funding = mode === "fund";
-  const fundKey = `intuite:markets:funding:${accountId}`;
-  const withdrawKey = `intuite:markets:withdrawal:${accountId}`;
+  const fundKey = `fourfivex:markets:funding:${accountId}`;
+  const withdrawKey = `fourfivex:markets:withdrawal:${accountId}`;
   const { address } = trading;
   const bridge = `https://relay.link/bridge/hyperliquid?${new URLSearchParams({ toAddress: address, toCurrency: "0x00000000000000000000000000000000" })}`;
   const { holdings, status } = useHoldings(funding && trading.funding ? accountId : null);
