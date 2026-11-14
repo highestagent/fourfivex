@@ -7,13 +7,11 @@ import type { Holdings, Part as Held } from "./account/holdings";
 import { ASSETS, HOLDINGS, type AssetKey, type Prices } from "./assets";
 import { coin, cost, pct, usd, usd0, wait } from "./format";
 import type { QuoteAsk, QuoteOk } from "./oneclick";
-import { addressProblem } from "./send/address";
-import { PAY_IN, payInOf } from "./send/payin";
 import { pickSource } from "./send/source";
 import type { Person } from "./send/people";
 import { NETWORK_NAME, type Prepared, type SendAsk } from "./send/types";
 
-export type VerbKey = "pay" | "getpaid" | "change" | "grow" | "borrow" | "ask";
+export type VerbKey = "pay" | "change" | "grow" | "borrow" | "ask";
 export type Vals = Record<string, string | number>;
 export type Tone = "ok" | "warn" | "stop";
 export type Row = { k: string; v: string; sub?: string; tone?: Tone };
@@ -77,12 +75,8 @@ export type RealVariant = {
   /** The dry quote to show while editing. */
   ask: (v: Vals, c: Ctx) => QuoteAsk | null;
   out: (v: Vals, c: Ctx) => Outcome;
-  /** Shown as the sheet title for a real account, when it differs from the verb's. */
-  title?: string;
   /** Null when it cannot be sent right now. Present when the variant signs. */
   plan?: (v: Vals, c: Ctx) => SendPlan | null;
-  /** Null when it cannot be asked for right now. Present when the variant asks for an address instead of signing. */
-  request?: (v: Vals, c: Ctx) => Extract<SendAsk, { kind: "add" }> | null;
 };
 
 export type Verb = {
@@ -412,73 +406,6 @@ const payReal: RealVariant = {
   },
 };
 
-const addReal: RealVariant = {
-  title: "Add money to your account",
-  parts: ["Add ", slot("amt"), " to my account, paid with ", slot("with"), "."],
-  slots: {
-    amt: { cap: "Amount", kind: "amount", opts: () => [] },
-    with: { cap: "Paid with", opts: () => PAY_IN.map((p) => ({ v: p.id, label: p.label })) },
-  },
-  def: () => ({ amt: 20, with: PAY_IN[0].id, refund: "" }),
-  ask(v) {
-    const amt = Number(v.amt);
-    if (tooSmall(amt)) return null;
-    const p = payInOf(v.with);
-    const payer = p.word === "dollars" ? "eth" : p.family === "sol" ? "sol" : p.family === "btc" ? "btc" : "eth";
-    return { kind: "getpaid", payer, usd: amt, payAssetId: p.assetId };
-  },
-  out(v, c) {
-    const raw = Number(v.amt);
-    const amt = tooSmall(raw) ? 1 : raw;
-    const p = payInOf(v.with);
-    const refund = String(v.refund ?? "");
-    const q = c.quote.status === "live" ? c.quote.data : null;
-    const inUsd = q ? q.amountInUsd : amt * 1.012;
-    const sends = q ? q.amountIn : p.word === "dollars" ? inUsd : inUsd / (c.prices[p.family === "sol" ? "sol" : p.family === "btc" ? "btc" : "eth"] || 1);
-
-    let blocked: string | undefined;
-    const problem = refund.trim() ? addressProblem(p.family, refund) : null;
-    if (tooSmall(raw)) blocked = MIN_AMOUNT;
-    else if (!refund.trim()) blocked = "Add the address you are sending from.";
-    else if (problem) blocked = problem;
-    else if (c.quote.status === "no-offer") blocked = NO_OFFER;
-    else if (c.quote.status !== "live") blocked = "Getting a price…";
-
-    return {
-      rows: [
-        { k: "You get", v: `${usd(amt)} exactly, as dollars`, sub: "in your account", tone: "ok" },
-        {
-          k: "You send",
-          v: `about ${coin(sends)} ${p.word}`,
-          sub: `about ${usd(inUsd)} · ${p.symbol} on ${p.networkName} · cost ${cost(Math.max(0, inUsd - amt))}`,
-        },
-        { k: "Reaches you", v: `${wait(q ? q.seconds : 45)} after you send it` },
-        { k: "Sent back if", v: "it is too little or too late", sub: "to the address you gave above", tone: "warn" },
-      ],
-      status: quoteStatus(c.quote),
-      cta: "Get my address",
-      hold: 0,
-      steps: ["Getting your address"],
-      doneLabel: `Added ${usd(amt)}`,
-      past: `You added ${usd(amt)}.`,
-      waiting: `Waiting for ${p.word} to add ${usd(amt)}.`,
-      fail: "Nothing was added.",
-      why: "The money did not arrive in time, or it was less than asked for.",
-      blocked,
-    };
-  },
-  request(v, c) {
-    if (addReal.out(v, c).blocked || !c.accountId) return null;
-    return {
-      kind: "add",
-      accountId: c.accountId,
-      payAssetId: payInOf(v.with).assetId,
-      usd: Number(v.amt),
-      refundTo: String(v.refund).trim(),
-    };
-  },
-};
-
 export const VERBS: Record<VerbKey, Verb> = {
   pay: {
     key: "pay",
@@ -568,66 +495,6 @@ export const VERBS: Record<VerbKey, Verb> = {
         fail: `${isNew ? "The address" : n} was not paid. Nothing left your account.`,
         why: "No one would deliver at the price you were shown.",
         blocked: tooSmall(raw) ? MIN_AMOUNT : c.quote.status === "no-offer" ? NO_OFFER : undefined,
-      };
-    },
-  },
-
-  getpaid: {
-    key: "getpaid",
-    title: "Get paid in anything",
-    blurb:
-      "Share one link. They pay with whatever they hold, on any of thirty networks, and it reaches you as dollars.",
-    parts: ["Ask ", slot("who"), " for ", slot("amt"), " in dollars."],
-    slots: {
-      who: {
-        cap: "From",
-        opts: () => [
-          { v: "any", label: "anyone with the link" },
-          { v: "maya", label: "Maya" },
-        ],
-      },
-      amt: { cap: "Amount", kind: "amount", opts: () => [] },
-    },
-    def: { who: "any", amt: 120, payer: "eth" },
-    real: addReal,
-    ask: (v) => (tooSmall(Number(v.amt)) ? null : { kind: "getpaid", payer: v.payer as AssetKey, usd: Number(v.amt) }),
-    out(v, c) {
-      const raw = Number(v.amt);
-      const amt = tooSmall(raw) ? 1 : raw;
-      const payer = v.payer as AssetKey;
-      const P = ASSETS[payer];
-      const who = v.who === "any" ? "anyone with the link" : "Maya";
-      const q = c.quote.status === "live" ? c.quote.data : null;
-      const inUsd = q ? q.amountInUsd : amt * 1.012;
-      const sends = q ? q.amountIn : inUsd / c.prices[payer];
-      return {
-        rows: [
-          { k: "You get", v: `${usd(amt)} exactly, as dollars`, tone: "ok" },
-          {
-            k: `Paying with ${P.name}`,
-            v: `they send ${q ? "" : "about "}${coin(sends)} ${P.name}`,
-            sub: `about ${usd(inUsd)} · they cover the ${cost(Math.max(0, inUsd - amt))} cost`,
-          },
-          { k: "Reaches you", v: `${wait(q ? q.seconds : 45)} after they pay` },
-          { k: "The link", v: "works once, for 24 hours" },
-          { k: "If nobody pays", v: "the link expires", sub: "nothing else happens" },
-        ],
-        status: quoteStatus(c.quote),
-        cta: "Create the request",
-        hold: 0,
-        steps: ["Writing the request"],
-        doneLabel: "Request ready to share",
-        past: `You asked ${who} for ${usd(amt)}.`,
-        after: "The request waits under Standing until it is paid.",
-        fail: "The request was not created. Nothing was sent or received.",
-        why: "The service that issues request links did not answer.",
-        blocked: tooSmall(raw) ? MIN_AMOUNT : undefined,
-        standing: {
-          t: `Waiting for ${usd(amt)} from ${who}.`,
-          m: "Expires in 24 hours",
-          stop: "Cancel",
-          ended: `You cancelled a request for ${usd(amt)}.`,
-        },
       };
     },
   },

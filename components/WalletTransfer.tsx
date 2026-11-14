@@ -12,12 +12,11 @@ import { sent, useSent } from "@/lib/send/history";
 import type { Prepared, SendStatus, TransferAsset } from "@/lib/send/types";
 import { when } from "@/lib/format";
 import { Select } from "./Select";
-import { CopyButton } from "./ui";
 
 const states: Record<SendStatus["state"], string> = {
-  waiting: "Waiting for funds",
+  waiting: "Checking withdrawal status…",
   seen: "Transfer detected",
-  short: "Deposit amount was short",
+  short: "Amount was short",
   working: "Transfer processing",
   done: "Transfer complete",
   refunded: "Funds refunded",
@@ -26,15 +25,14 @@ const states: Record<SendStatus["state"], string> = {
 
 type Transfer = { quote: Prepared; destination: string };
 
-export function WalletTransfer({ mode, accountId, holdings, step, setStep, back }: {
-  mode: "add" | "withdraw";
+/** Withdraws from the account to an address on another network. */
+export function WalletTransfer({ accountId, holdings, step, setStep, back }: {
   accountId: string;
   holdings: Holdings | null;
   step: string | null;
   setStep: (step: string | null) => void;
   back: () => void;
 }) {
-  const deposit = mode === "add";
   const [catalog, setCatalog] = useState<TransferAsset[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -45,12 +43,11 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
   const [amount, setAmount] = useState("");
   const [transfer, setTransfer] = useState<Transfer>();
   const [tracking, setTracking] = useState("");
-  const [checkedAt, setCheckedAt] = useState(0);
   const [error, setError] = useState("");
   const history = useSent(accountId);
   const latest = history.find(entry => entry.id === tracking);
   const latestState = latest?.state;
-  const pending = history.filter(entry => entry.kind === mode && ["waiting", "seen", "working", "short"].includes(entry.state));
+  const pending = history.filter(entry => entry.kind === "withdraw" && ["waiting", "seen", "working", "short"].includes(entry.state));
   const tracked = tracking || pending.map(entry => entry.id).join(",");
   const parts = holdings?.parts ?? [];
   const networks = [...new Set(catalog.map(item => item.blockchain))]
@@ -76,9 +73,7 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
     function poll() {
       for (const id of tracked.split(",")) {
         void sendStatus(id).then(status => {
-          if (!active) return;
-          setCheckedAt(Date.now());
-          sent.update(id, { state: status.state, links: status.links });
+          if (active) sent.update(id, { state: status.state, links: status.links });
         }).catch(() => {});
       }
     }
@@ -89,7 +84,7 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
 
   async function prepare(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (step || !selected) return;
+    if (step || !selected || !from) return;
     const family = familyOf(selected.blockchain);
     const destination = address.trim();
     const problem = family && addressProblem(family, destination);
@@ -98,25 +93,11 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
     setError("");
     setStep("Getting a quote…");
     try {
-      const quote = deposit
-        ? await prepareSend({ kind: "add", accountId, payAssetId: selected.assetId, usd: Number(value), refundTo: destination })
-        : from && await prepareSend({ kind: "withdraw", accountId, fromAssetId: from.assetId, assetId: selected.assetId, amount: value, address: destination });
-      if (memory.get().current !== accountId || !quote) return;
-      if (deposit ? quote.leaves.assetId !== selected.assetId
-        : quote.leaves.assetId !== from?.assetId || quote.arrives.assetId !== selected.assetId
-          || quote.arrives.units !== withdrawalUnits(value, quote.arrives.decimals)) throw new Error("The quote changed. Review a new transfer.");
+      const quote = await prepareSend({ kind: "withdraw", accountId, fromAssetId: from.assetId, assetId: selected.assetId, amount: value, address: destination });
+      if (memory.get().current !== accountId) return;
+      if (quote.leaves.assetId !== from.assetId || quote.arrives.assetId !== selected.assetId
+        || quote.arrives.units !== withdrawalUnits(value, quote.arrives.decimals)) throw new Error("The quote changed. Review a new transfer.");
       setTransfer({ quote, destination });
-      if (deposit) {
-        const { depositAddress, depositMemo, leaves, arrives, deadline } = quote;
-        sent.add({
-          id: depositAddress, accountId, kind: "add", state: "waiting", links: [], deadline,
-          text: `Added ${displayUnits(arrives.units, arrives.decimals)} ${arrives.symbol}`,
-          waitingText: `Adding ${displayUnits(arrives.units, arrives.decimals)} ${arrives.symbol}`,
-          deposit: { address: depositAddress, memo: depositMemo, amount: displayUnits(leaves.units, leaves.decimals),
-            word: leaves.symbol, symbol: leaves.symbol, networkName: networkName(leaves.network) },
-        });
-        setTracking(depositAddress);
-      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not get a quote.");
     } finally { setStep(null); }
@@ -148,33 +129,21 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
   }
 
   const quote = transfer?.quote;
-  const expiredDeposit = deposit && quote && latestState === "waiting" && checkedAt >= Date.parse(quote.deadline);
 
   return <div className="grid gap-4">
-    <h2 className="hidden text-xl font-semibold sm:block">{deposit ? "Add money" : "Withdraw money"}</h2>
+    <h2 className="hidden text-xl font-semibold sm:block">Withdraw money</h2>
     {quote ? <>
       <dl className="rounded-[18px] border border-line bg-surface px-4">
-        <div className="detail-row"><dt>{deposit ? "Send exactly" : "From balance"}</dt>
+        <div className="detail-row"><dt>From balance</dt>
           <dd>{displayUnits(quote.leaves.units, quote.leaves.decimals)} {quote.leaves.symbol} · {networkName(quote.leaves.network)}</dd></div>
-        <div className="detail-row"><dt>{deposit ? "Receive in fourfivex" : "Receive"}</dt>
-          <dd>{displayUnits(quote.arrives.units, quote.arrives.decimals)} {quote.arrives.symbol}{!deposit && ` · ${networkName(quote.arrives.network)}`}</dd></div>
-        {!expiredDeposit && <div className="detail-row"><dt>{deposit ? "Deposit address" : "To address"}</dt>
-          <dd className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className={`font-mono text-sm wrap-anywhere ${deposit ? "select-text" : ""}`}>{deposit ? quote.depositAddress : transfer.destination}</span>
-            {deposit && <CopyButton text={quote.depositAddress} label="Copy deposit address" />}
-          </dd></div>}
-        {deposit && !expiredDeposit && quote.depositMemo && <div className="detail-row"><dt>Required memo</dt>
-          <dd className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-mono text-sm wrap-anywhere select-text">{quote.depositMemo}</span>
-            <CopyButton text={quote.depositMemo} label="Copy deposit memo" />
-          </dd></div>}
-        <div className="detail-row"><dt>{deposit ? "Send by" : "Quote expires"}</dt><dd>{when(quote.deadline)}</dd></div>
+        <div className="detail-row"><dt>Receive</dt>
+          <dd>{displayUnits(quote.arrives.units, quote.arrives.decimals)} {quote.arrives.symbol} · {networkName(quote.arrives.network)}</dd></div>
+        <div className="detail-row"><dt>To address</dt>
+          <dd className="font-mono text-sm wrap-anywhere">{transfer.destination}</dd></div>
+        <div className="detail-row"><dt>Quote expires</dt><dd>{when(quote.deadline)}</dd></div>
       </dl>
-      {latest && <p role="status" className="text-sm text-ink-2">
-        {expiredDeposit ? "Deposit quote expired." : latest.state === "waiting" && !deposit ? "Checking withdrawal status…" : states[latest.state]}
-      </p>}
-      {expiredDeposit && <button className="action action-secondary justify-self-start" type="button" onClick={() => { setTransfer(undefined); setTracking(""); }}>Get a new quote</button>}
-      {!deposit && !tracking && <div className="flex flex-wrap gap-2">
+      {latest && <p role="status" className="text-sm text-ink-2">{states[latest.state]}</p>}
+      {!tracking && <div className="flex flex-wrap gap-2">
         <button className="action action-primary" type="button" disabled={Boolean(step)} onClick={() => void confirm()}>Confirm with passkey</button>
         <button className="action action-secondary" type="button" disabled={Boolean(step)} onClick={() => { setTransfer(undefined); setError(""); }}>Edit withdrawal</button>
       </div>}
@@ -183,49 +152,33 @@ export function WalletTransfer({ mode, accountId, holdings, step, setStep, back 
         <p role="status" className="text-sm text-ink-2">The asset list is temporarily unavailable.</p>
         <button className="action action-secondary" type="button" onClick={() => { setLoaded(false); setAttempt(value => value + 1); }}>Retry</button>
       </div>
-      : !deposit && !from ? <p className="text-sm text-ink-2">{holdings ? "Your fourfivex balance is empty." : "Your fourfivex balance is currently unavailable."}</p>
+      : !from ? <p className="text-sm text-ink-2">{holdings ? "Your fourfivex balance is empty." : "Your fourfivex balance is currently unavailable."}</p>
       : <form className="grid gap-4" onSubmit={prepare}>
-        {!deposit && <div className="grid gap-1"><span className="text-sm">From balance</span>
-          <Select label="Source balance" pickerTitle="Source balance" className="action action-secondary" value={from?.assetId ?? ""}
+        <div className="grid gap-1"><span className="text-sm">From balance</span>
+          <Select label="Source balance" pickerTitle="Source balance" className="action action-secondary" value={from.assetId}
             onValueChange={setSource} options={parts.map(part => ({ value: part.assetId, label: `${part.symbol} · ${networkName(part.network)}` }))} />
-        </div>}
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid min-w-0 gap-1"><span className="text-sm">{deposit ? "Sending network" : "Destination network"}</span>
-            <Select label={deposit ? "Sending network" : "Destination network"} pickerTitle="Choose a network" className="action action-secondary"
+          <div className="grid min-w-0 gap-1"><span className="text-sm">Destination network</span>
+            <Select label="Destination network" pickerTitle="Choose a network" className="action action-secondary"
               value={chain ?? ""} onValueChange={value => { setNetwork(value); setAsset(""); setAddress(""); }} options={networks} />
           </div>
-          <div className="grid min-w-0 gap-1"><span className="text-sm">{deposit ? "Asset to send" : "Asset to receive"}</span>
-            <Select label={deposit ? "Asset to send" : "Asset to receive"} pickerTitle="Choose an asset" className="action action-secondary"
+          <div className="grid min-w-0 gap-1"><span className="text-sm">Asset to receive</span>
+            <Select label="Asset to receive" pickerTitle="Choose an asset" className="action action-secondary"
               value={selected?.assetId ?? ""} onValueChange={setAsset} options={assets.map(item => ({ value: item.assetId, label: item.symbol }))} />
           </div>
         </div>
-        <label className="grid gap-1 text-sm">{deposit ? "Refund wallet address" : "Destination wallet address"}
+        <label className="grid gap-1 text-sm">Destination wallet address
           <input className="field" value={address} onChange={event => setAddress(event.target.value)} required autoComplete="off" spellCheck={false} />
         </label>
-        <label className="grid gap-1 text-sm">{deposit ? "Amount to receive in USD" : `Amount to receive in ${selected?.symbol ?? ""}`}
-          <input className="field" inputMode="decimal" pattern={deposit ? "[0-9]{1,7}([.,][0-9]{1,2})?" : "[0-9]{1,12}([.,][0-9]{1,24})?"}
+        <label className="grid gap-1 text-sm">{`Amount to receive in ${selected?.symbol ?? ""}`}
+          <input className="field" inputMode="decimal" pattern="[0-9]{1,12}([.,][0-9]{1,24})?"
             value={amount} onChange={event => setAmount(event.target.value)} required />
         </label>
-        <button className="action action-primary justify-self-start" type="submit" disabled={Boolean(step) || !selected}>
-          {deposit ? "Get deposit address" : "Review withdrawal"}
-        </button>
+        <button className="action action-primary justify-self-start" type="submit" disabled={Boolean(step) || !selected}>Review withdrawal</button>
       </form>}
     {!quote && pending.length > 0 && <ul className="grid gap-2 text-sm text-ink-2">{pending.map(entry =>
-      <li key={entry.id} className="grid gap-1 rounded-[14px] border border-line p-3">
-        <span>{entry.waitingText ?? entry.text} · {entry.state === "waiting" && entry.deposit && entry.deadline && checkedAt >= Date.parse(entry.deadline) ? "Quote expired" : states[entry.state]}</span>
-        {entry.state === "waiting" && entry.deposit && entry.deadline && checkedAt > 0 && checkedAt < Date.parse(entry.deadline) && <details>
-          <summary className="cursor-pointer">Deposit instructions</summary>
-          <p>Send {entry.deposit.amount} {entry.deposit.symbol ?? entry.deposit.word} on {entry.deposit.networkName} by {when(entry.deadline)}.</p>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-mono wrap-anywhere select-text">{entry.deposit.address}</span>
-            <CopyButton text={entry.deposit.address} label="Copy deposit address" />
-          </div>
-          {entry.deposit.memo && <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="wrap-anywhere">Required memo <span className="select-text">{entry.deposit.memo}</span></span>
-            <CopyButton text={entry.deposit.memo} label="Copy deposit memo" />
-          </div>}
-        </details>}
-      </li>)}</ul>}
+      <li key={entry.id} className="rounded-[14px] border border-line p-3">{entry.waitingText ?? entry.text} · {states[entry.state]}</li>)}</ul>}
     {step && <p role="status" className="text-sm text-ink-2">{step}</p>}
     {error && <p role="alert" className="text-sm text-rose">{error}</p>}
     <button className="action action-secondary hidden justify-self-start sm:inline-flex" type="button" disabled={Boolean(step)} onClick={back}>Back to account</button>

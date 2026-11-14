@@ -39,7 +39,7 @@ export function AccountSheet({ holdings, onClose }: { holdings: Holdings | null;
       {current ? transfer
         ? transfer === "add"
           ? <AddMoney key={current} accountId={current} onDone={goBack} />
-          : <WalletTransfer key={`${current}:${transfer}`} mode={transfer} accountId={current} holdings={holdings} step={step} setStep={setStep} back={goBack} />
+          : <WalletTransfer key={current} accountId={current} holdings={holdings} step={step} setStep={setStep} back={goBack} />
         : <Settings key={current} accountId={current} holdings={holdings} step={step} setStep={setStep} onClose={onClose} onTransfer={setTransfer} />
         : <Welcome step={step} setStep={setStep} />}
     </Sheet>

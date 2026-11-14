@@ -56,7 +56,7 @@ const STATE_LABEL: Record<SentEntry["state"], string> = {
 };
 
 type View = (typeof VIEWS)[number]["key"];
-type Overlay = ActionKey | "account" | null;
+type Overlay = ActionKey | "getpaid" | "account" | null;
 
 function isPending(entry: SentEntry): boolean {
   return entry.state === "waiting" || entry.state === "seen" || entry.state === "working" || entry.state === "short";
@@ -196,7 +196,7 @@ export default function Surface() {
                 <button
                   key={key}
                   type="button"
-                  onClick={(event) => open(key, event)}
+                  onClick={(event) => open(key === "getpaid" && !accountId ? "account" : key, event)}
                   className={`group ${CARD} cursor-pointer hover:bg-card`}
                 >
                   <span aria-hidden="true" className={`${CARD_MARK} bg-blue-4 text-blue`}>
@@ -302,7 +302,7 @@ export default function Surface() {
           <AddMoney accountId={accountId} onDone={close} />
         </Sheet>
       )}
-      {overlay && overlay !== "account" && !(overlay === "getpaid" && accountId) && (
+      {(overlay === "pay" || overlay === "change") && (
         <Composer
           key={`${overlay}:${accountId ?? "demo"}`}
           action={overlay}
@@ -311,7 +311,6 @@ export default function Surface() {
           holdings={holdings.holdings}
           people={people}
           accountId={accountId}
-          now={now}
           onClose={close}
           onOpenAccount={() => setOverlay("account")}
         />

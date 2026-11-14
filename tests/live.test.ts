@@ -6,6 +6,7 @@
 import { p256 } from "@noble/curves/nist.js";
 import { base58 } from "@scure/base";
 import { describe, expect, it } from "vitest";
+import { depositAddress, recentDeposits } from "../lib/account/deposits";
 import { balancesOf, ContractError, currentSalt, hasPublicKey, publicKeysOf, simulate } from "../lib/account/chain";
 import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent } from "../lib/account/intents";
 import { accountIdOf, encodePublicKey } from "../lib/account/keys";
@@ -107,17 +108,13 @@ describe.runIf(process.env.LIVE === "1")("the live verifier contract", () => {
     expect((await status(depositAddress)).state).toBe("waiting");
   });
 
-  it("prepares a deposit for adding money, with nothing to sign", async () => {
+  it("gives a passkey account one lasting deposit address per network, shared across EVM networks", async () => {
     const accountId = accountIdOf(makeAuthenticator().publicKey);
-    const prepared = await prepare({
-      kind: "add",
-      accountId,
-      payAssetId: "nep141:eth.omft.near",
-      usd: 120,
-      refundTo: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
-    });
-    expect(prepared.depositAddress).toBeTruthy();
-    expect(prepared.payload).toBeUndefined();
+    const [ethereum, base, solana] = await Promise.all(["eth:1", "eth:8453", "sol:mainnet"].map((chain) => depositAddress(accountId, chain)));
+    expect(ethereum).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    expect(base).toBe(ethereum);
+    expect(solana).toMatch(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
+    expect(await recentDeposits(accountId)).toEqual([]);
   });
 
   it("lists every way to add money in the live token list, with the same decimals", async () => {

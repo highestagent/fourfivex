@@ -42,17 +42,6 @@ async function askFrom(b: Record<string, unknown>): Promise<SendAsk | string> {
     if (reason) return reason;
     return { kind: "pay", accountId, fromAssetId: b.fromAssetId, usd, to: { address: to.address, network } };
   }
-  if (b.kind === "add") {
-    if (!text(b.payAssetId)) return "We don't know that kind of money.";
-    const token = await findToken(b.payAssetId);
-    if (!token) return "We don't know that kind of money.";
-    const family = familyOf(token.blockchain);
-    if (!family) return "We can't take money from that network yet.";
-    if (!text(b.refundTo, 100)) return "Add the address the money is coming from.";
-    const reason = addressProblem(family, b.refundTo);
-    if (reason) return reason;
-    return { kind: "add", accountId, payAssetId: b.payAssetId, usd, refundTo: b.refundTo };
-  }
   return "That request wasn't valid.";
 }
 

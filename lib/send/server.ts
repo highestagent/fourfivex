@@ -62,7 +62,7 @@ async function askProblem(ask: SendAsk): Promise<string | null> {
   } else if (ask.kind === "pay") {
     if (!(await findToken(ask.fromAssetId))) return "We don't know that kind of money.";
     if (!(await usdcOn(ask.to.network))) return "We can't pay on that network yet.";
-  } else if (!(await findToken(ask.payAssetId))) return "We don't know that kind of money.";
+  }
   return null;
 }
 
@@ -104,8 +104,6 @@ export async function prepare(ask: SendAsk): Promise<Prepared> {
       seconds: Number(q.timeEstimate),
       deadline: q.deadline,
     };
-    if (ask.kind === "add") return prepared;
-
     if (ask.kind === "withdraw") {
       if (q.amountOut !== withdrawalUnits(ask.amount, arrives.decimals)) throw new SendError("The quote changed. Review a new withdrawal.");
       const [available] = await balancesOf(ask.accountId, [q.originAsset]);
