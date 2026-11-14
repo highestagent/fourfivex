@@ -16,9 +16,17 @@ export type Instrument = MarketQuote & {
   id: Market; name: string; category: AssetClass; icon?: string; glyph?: string; keywords?: string[];
 };
 export type MarketCatalog = { instruments: Instrument[]; unavailable: Product[] };
+/** Asset logos, from the same service the market catalog reads its icons from. */
+export const assetIconOrigin = 'https://flare.mcxross.xyz';
+
+/** The logo for a plain ticker, such as BTC. Undefined for symbols that can't name a logo file. */
+export function assetIcon(symbol: string): string | undefined {
+  return /^[a-z0-9]+$/i.test(symbol) ? `${assetIconOrigin}/assets/${symbol.toLowerCase()}.svg` : undefined;
+}
+
 export const defaultInstrument: Instrument = {
   id: defaultMarket, type: 'perp', symbol: 'BTC', quote: 'USD', precision: 2,
-  venue: 'Hyperliquid', name: 'Bitcoin', category: 'crypto', glyph: '₿',
+  venue: 'Hyperliquid', name: 'Bitcoin', category: 'crypto', glyph: '₿', icon: assetIcon('BTC'),
 };
 
 export function hyperliquidMarket(id: string): { type: Product; coin: string } | undefined {

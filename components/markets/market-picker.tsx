@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Search } from 'lucide-react';
-import { categories, defaultInstrument, marketLabel, marketQuote, type AssetClass, type Instrument,
+import { assetIcon, categories, defaultInstrument, marketLabel, marketQuote, type AssetClass, type Instrument,
   type Market, type MarketCatalog, type Product } from '@fourfivex/markets-protocol/markets';
 import { api } from './client';
 
@@ -28,12 +28,13 @@ export function useMarketCatalog() {
   return { ...catalog, status, retry: () => setRequest(value => value + 1) };
 }
 
-export function MarketIcon({ instrument }: { instrument: Instrument }) {
+/** The asset's logo: the catalog's, or one from the logo service by ticker. Letters only if neither loads. */
+export function MarketIcon({ instrument, eager = false }: { instrument: Instrument; eager?: boolean }) {
+  const src = instrument.icon ?? assetIcon(instrument.symbol);
   const [failedUrl, setFailedUrl] = useState<string>();
   return <span className="coin market-icon" aria-hidden="true">
-    {instrument.icon && failedUrl !== instrument.icon
-      ? <Image src={instrument.icon} alt="" width={30} height={30} unoptimized
-          onError={() => setFailedUrl(instrument.icon)}/>
+    {src && failedUrl !== src
+      ? <Image src={src} alt="" width={30} height={30} unoptimized loading={eager ? "eager" : "lazy"} onError={() => setFailedUrl(src)}/>
       : (instrument.glyph ?? instrument.symbol.slice(0, 2))}
   </span>;
 }
