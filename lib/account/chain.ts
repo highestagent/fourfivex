@@ -21,7 +21,7 @@ export type Simulation = {
 async function view<T>(method: string, args: unknown): Promise<T> {
   const body = JSON.stringify({
     jsonrpc: "2.0",
-    id: "intuite",
+    id: "fourfivex",
     method: "query",
     params: {
       request_type: "call_function",

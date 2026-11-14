@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { id } from "@intuite/markets-protocol/protocol";
-import { RoomGate } from "@/components/markets/Markets";
+import { id } from "@fourfivex/markets-protocol/protocol";
+import { RoomGate } from "@/components/markets/RoomGate";
 import { ShellMessage } from "@/components/markets/shell";
 
 async function Room({ params }: { params: Promise<{ roomId: string }> }) {

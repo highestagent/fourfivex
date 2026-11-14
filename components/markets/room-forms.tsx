@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { price, type Item } from '@intuite/markets-protocol/protocol';
+import { price, type Item } from '@fourfivex/markets-protocol/protocol';
 
 type TradeIdea = Extract<Item, { kind: 'idea' }>;
 

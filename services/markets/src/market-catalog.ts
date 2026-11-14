@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { isMarket, type AssetClass, type Instrument, type MarketCatalog, type Product } from '@intuite/markets-protocol/markets';
-import { hyperliquidCandle, hyperliquidIntervals, type Interval } from '@intuite/markets-protocol/protocol';
+import { isMarket, type AssetClass, type Instrument, type MarketCatalog, type Product } from '@fourfivex/markets-protocol/markets';
+import { hyperliquidCandle, hyperliquidIntervals, type Interval } from '@fourfivex/markets-protocol/protocol';
 import { HttpError, upstream } from './http';
 
 const decimals = z.number().int().nonnegative();

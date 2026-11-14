@@ -17,7 +17,7 @@ export class PasskeyError extends Error {
   }
 }
 
-const RP_NAME = "Intuite";
+const RP_NAME = "fourfivex";
 const ES256 = -7;
 const TIMEOUT = 120_000;
 

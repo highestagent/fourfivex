@@ -3,7 +3,7 @@ import { getSupportedIndicators, type CandleType, type Chart, type OverlayMode }
 import { Camera, Ellipsis, LocateFixed, Maximize, Minus, Plus, SlidersHorizontal } from 'lucide-react';
 import { Select } from '@/components/Select';
 import { Dialog } from './controls';
-import { intervals, type Interval } from '@intuite/markets-protocol/protocol';
+import { intervals, type Interval } from '@fourfivex/markets-protocol/protocol';
 
 const indicators = getSupportedIndicators().filter(name => name !== 'AVP').sort();
 const indicatorNames: Record<string, string> = {

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Part } from "../lib/account/holdings";
 import { challengeFor, signedIntent } from "../lib/account/intents";
 import { accountIdOf } from "../lib/account/keys";
+import { displayUnits, withdrawalUnits } from "../lib/send/amount";
 import { PriceMoved, send, type SendDeps } from "../lib/send/flow";
 import type { Leg, Prepared, SendStatus } from "../lib/send/types";
 import { makeAuthenticator } from "./virtual-authenticator";
@@ -188,5 +189,18 @@ describe("send", () => {
     const d = deps(prepared(), [new Error("down"), { state: "done", links: [] }]);
     const r = await run(change, d).result;
     expect(r.state).toBe("done");
+  });
+});
+describe("wallet withdrawal amounts", () => {
+  it("preserves exact units for both the quote and its review", () => {
+    const input = "987654321098.012345678901234567890123";
+    const units = withdrawalUnits(input, 24);
+    expect(units).toBe("987654321098012345678901234567890123");
+    expect(displayUnits(units!, 24)).toBe(input);
+    expect(displayUnits("30000", 8)).toBe("0.0003");
+  });
+
+  it.each(["0", "-1", "1e2", "1.0000001"])("rejects %s for a six-decimal token", input => {
+    expect(withdrawalUnits(input, 6)).toBeUndefined();
   });
 });

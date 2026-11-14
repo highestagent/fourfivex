@@ -23,6 +23,7 @@ export function setupRatio(entry: string, stop: string, target: string) {
 }
 
 const marketId = z.custom<Market>(isMarket);
+export const roomCreation = z.object({ name: displayName, market: marketId.optional() });
 const key = { id, expected: z.number().int().nonnegative(), market: marketId };
 const trendline = z.object({ start: point, end: point });
 const setup = z.object({ entry: point, stop: price, target: price })

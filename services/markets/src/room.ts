@@ -1,14 +1,16 @@
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
-import { command, defaultChartView, displayName, id, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@intuite/markets-protocol/protocol';
-import { isMarket } from '@intuite/markets-protocol/markets';
+import { command, defaultChartView, displayName, id, roomCreation, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { isMarket } from '@fourfivex/markets-protocol/markets';
 import type { Env } from './env';
 import { body, digest, errorResponse, HttpError, json } from './http';
+import { RoomVoice } from './voice';
 
 type SocketData = { identity: string; member: string; expires: number; lastTransient?: number; lastCamera?: number; lastSettledCamera?: number };
 
 export class TradingRoom extends DurableObject<Env> {
   private sql = this.ctx.storage.sql;
+  private voice: RoomVoice;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.sql.exec(`
@@ -18,6 +20,11 @@ export class TradingRoom extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS operations (member TEXT, op TEXT, PRIMARY KEY(member, op));
       CREATE TABLE IF NOT EXISTS chart_view (slot INTEGER PRIMARY KEY CHECK (slot = 1), payload TEXT NOT NULL);
     `);
+    this.voice = new RoomVoice(ctx.storage, env);
+  }
+
+  async alarm() {
+    await this.voice.retryRevocations();
   }
 
   private member(identity: string) {
@@ -103,12 +110,16 @@ export class TradingRoom extends DurableObject<Env> {
 
   private async route(request: Request) {
     const path = new URL(request.url).pathname;
-    const identity = request.headers.get('x-intuite-identity');
+    const identity = request.headers.get('x-fourfivex-identity');
     if (!identity) throw new HttpError(401, 'Session required.');
     if (path === '/create') {
-      const { name } = await body(request, z.object({ name: displayName }));
+      const { name, market } = await body(request, roomCreation);
       if (this.sql.exec('SELECT 1 FROM members LIMIT 1').toArray().length) throw new HttpError(409, 'Room already exists.');
-      this.sql.exec('INSERT INTO members (identity, id, name, role) VALUES (?, ?, ?, ?)', identity, crypto.randomUUID(), name, 'owner');
+      const owner = crypto.randomUUID();
+      this.ctx.storage.transactionSync(() => {
+        this.sql.exec('INSERT INTO members (identity, id, name, role) VALUES (?, ?, ?, ?)', identity, owner, name, 'owner');
+        if (market) this.savePresentation({ presenter: owner, view: { ...defaultChartView, market } });
+      });
       return json({ ok: true });
     }
     if (path === '/join') {
@@ -130,16 +141,20 @@ export class TradingRoom extends DurableObject<Env> {
     const me = this.member(identity);
     if (!me) throw new HttpError(403, 'You need a room invite.');
     if (path === '/membership') return json(me);
+    if (path === '/voice') {
+      const expires = Number(request.headers.get('x-fourfivex-expires'));
+      return json(await this.voice.issue(() => this.member(identity), expires));
+    }
     if (path === '/socket') {
       if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') throw new HttpError(426, 'WebSocket required.');
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
       this.ctx.acceptWebSocket(server, [me.id]);
-      server.serializeAttachment({ identity, member: me.id, expires: Number(request.headers.get('x-intuite-expires')) } satisfies SocketData);
+      server.serializeAttachment({ identity, member: me.id, expires: Number(request.headers.get('x-fourfivex-expires')) } satisfies SocketData);
       const items = this.sql.exec('SELECT payload FROM items ORDER BY rowid').toArray().map(row => JSON.parse(String(row.payload)) as Item)
         .filter(item => item.data !== null && isMarket(item.market));
       this.send(server, { type: 'snapshot', room: { me, members: this.members(), items, presentation: this.presentation() } });
-      if (request.headers.get('x-intuite-reconnect') === '1') console.log('room_reconnected');
+      if (request.headers.get('x-fourfivex-reconnect') === '1') console.log('room_reconnected');
       this.presence();
       return new Response(null, { status: 101, webSocket: client });
     }
@@ -175,7 +190,7 @@ export class TradingRoom extends DurableObject<Env> {
         this.savePresentation(updated);
         this.broadcast({ type: 'chart-presentation', presentation: updated });
       }
-      return json({ ok: true });
+      return json({ ok: true, voicePending: !(await this.voice.revoke(member)) });
     }
     throw new HttpError(404, 'Unknown room endpoint.');
   }

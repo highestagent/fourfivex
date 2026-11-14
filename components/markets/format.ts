@@ -1,4 +1,4 @@
-import type { MarketQuote } from '@intuite/markets-protocol/markets';
+import type { MarketQuote } from '@fourfivex/markets-protocol/markets';
 
 const priceFormats = new Map<number, Intl.NumberFormat>();
 export function money(value: number | string, { precision, quote }: MarketQuote) {

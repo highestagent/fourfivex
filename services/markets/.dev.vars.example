@@ -1,1 +1,8 @@
 SESSION_SECRET=
+CF_ACCOUNT_ID=
+REALTIME_APP_ID=
+REALTIME_API_TOKEN=
+# Optional overrides. The defaults reuse Zik’s existing Voice presets.
+# VOICE_OWNER_PRESET=zik_owner
+# VOICE_EDITOR_PRESET=zik_editor
+# VOICE_VIEWER_PRESET=zik_viewer

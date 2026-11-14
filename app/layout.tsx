@@ -7,7 +7,7 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const mono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Intuite",
+  title: "fourfivex",
   description: "Say what you want, see what will happen, sign. One surface over NEAR.",
 };
 

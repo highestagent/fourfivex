@@ -1,6 +1,6 @@
 import type { Chart, KLineData, Period } from 'klinecharts';
-import { hyperliquidMarket, type Market } from '@intuite/markets-protocol/markets';
-import { hyperliquidCandle, hyperliquidIntervals, type Candle, type Interval } from '@intuite/markets-protocol/protocol';
+import { hyperliquidMarket, type Market } from '@fourfivex/markets-protocol/markets';
+import { hyperliquidCandle, hyperliquidIntervals, type Candle, type Interval } from '@fourfivex/markets-protocol/protocol';
 
 export type FeedStatus = 'connecting' | 'live' | 'offline';
 export const hyperliquidSocket = 'wss://api.hyperliquid.xyz/ws';

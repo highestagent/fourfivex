@@ -9,7 +9,10 @@ export const NETWORK_NAME: Record<Network, string> = { base: "Base", eth: "Ether
 export type SendAsk =
   | { kind: "change"; accountId: string; fromAssetId: string; to: AssetKey; usd: number }
   | { kind: "pay"; accountId: string; fromAssetId: string; usd: number; to: { address: string; network: Network } }
-  | { kind: "add"; accountId: string; payAssetId: string; usd: number; refundTo: string };
+  | { kind: "add"; accountId: string; payAssetId: string; usd: number; refundTo: string }
+  | { kind: "withdraw"; accountId: string; fromAssetId: string; assetId: string; amount: string; address: string };
+
+export type TransferAsset = { assetId: string; symbol: string; blockchain: string };
 
 /** One side of a send. */
 export type Leg = {

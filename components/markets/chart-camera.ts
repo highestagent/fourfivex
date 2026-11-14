@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import type { Chart } from 'klinecharts';
-import type { Market } from '@intuite/markets-protocol/markets';
-import type { ChartCamera, Command, Interval } from '@intuite/markets-protocol/protocol';
+import type { Market } from '@fourfivex/markets-protocol/markets';
+import type { ChartCamera, Command, Interval } from '@fourfivex/markets-protocol/protocol';
 import { pricePane } from './drawings';
 
 const pane = { paneId: pricePane };

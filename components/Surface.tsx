@@ -10,10 +10,11 @@ import { usePrices } from "@/lib/hooks";
 import { sendStatus } from "@/lib/send/api";
 import { sent, useSent, type SentEntry } from "@/lib/send/history";
 import { usePeople } from "@/lib/send/people";
+import { AccountButton } from "./AccountButton";
 import { AccountSheet } from "./AccountSheet";
 import { Composer, type ActionKey } from "./Composer";
 import { ThemeSwitcher } from "./ThemeSwitcher";
-import { Arrow, Chevron, CopyButton, Dot, Finger, IntuiteBrand, Plus } from "./ui";
+import { Arrow, CopyButton, Dot, FourfivexBrand, Plus } from "./ui";
 
 const VIEWS = [
   { key: "now", label: "Now" },
@@ -133,7 +134,6 @@ export default function Surface() {
   }, [watch]);
 
   const demo = accountId === null;
-  const name = accountId ? (device.names[accountId] ?? "My account") : null;
   const balance = demo ? HOLDINGS.usd + HOLDINGS.btc * prices.btc : holdings.holdings?.total;
   const groups = holdings.holdings?.groups;
   const open = (next: Overlay, event: MouseEvent<HTMLButtonElement>) => {
@@ -149,18 +149,10 @@ export default function Surface() {
     <div className="min-h-dvh bg-page pb-12 sm:pb-20">
       <header className="border-b border-line">
         <div className="shell flex h-16 items-center justify-between gap-4 sm:h-[72px]">
-          <button type="button" onClick={() => setView("now")} className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg" aria-label="Intuite home">
-            <IntuiteBrand />
+          <button type="button" onClick={() => setView("now")} className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg" aria-label="fourfivex home">
+            <FourfivexBrand />
           </button>
-          <button
-            type="button"
-            onClick={(event) => open("account", event)}
-            className={`action ${demo ? "action-primary" : "action-secondary"} min-w-0`}
-          >
-            {demo ? <Finger size={16} className="shrink-0" /> : <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-ink text-[10px] font-semibold uppercase text-inverse">{name?.slice(0, 1)}</span>}
-            <span className="truncate">{name ?? (device.passkeys.length ? "Sign in" : "Open account")}</span>
-            {!demo && <Chevron size={14} className="shrink-0 text-ink-2" />}
-          </button>
+          <AccountButton onClick={(event) => open("account", event)} />
         </div>
       </header>
 

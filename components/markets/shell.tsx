@@ -1,14 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Arrow, IntuiteBrand } from "@/components/ui";
+import { Arrow, FourfivexBrand } from "@/components/ui";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 export function MarketsHeader({ showMarketsLink = true, actions }: { showMarketsLink?: boolean; actions?: ReactNode }) {
   return (
     <header className={actions ? "market-page-header" : "border-b border-line"}>
       <div className="markets-container flex min-h-14 items-center gap-3 sm:min-h-[60px] sm:gap-4">
-        <Link href="/" className="flex min-h-11 items-center gap-2.5 rounded-lg" aria-label="Intuite wallet">
-          <IntuiteBrand />
+        <Link href="/" className="flex min-h-11 items-center gap-2.5 rounded-lg" aria-label="fourfivex wallet">
+          <FourfivexBrand />
         </Link>
         {showMarketsLink && <nav aria-label="Markets" className="flex items-center gap-3 sm:gap-4">
           <span aria-hidden="true" className="h-4 w-px rotate-[18deg] bg-field-line" />

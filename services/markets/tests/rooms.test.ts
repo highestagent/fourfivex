@@ -1,13 +1,13 @@
-import { runInDurableObject } from 'cloudflare:test';
+import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
 import { describe, expect, test, vi } from 'vitest';
-import { defaultMarket } from '@intuite/markets-protocol/markets';
+import { defaultMarket } from '@fourfivex/markets-protocol/markets';
 import type { Env } from '../src/env';
-import type { RoomEvent } from '@intuite/markets-protocol/protocol';
+import type { RoomEvent } from '@fourfivex/markets-protocol/protocol';
 
 const worker = (exports as unknown as { default: Fetcher }).default;
 
-const origin = 'https://intuite.test';
+const origin = 'https://fourfivex.test';
 function request(path: string, payload?: object, cookie?: string) {
   return worker.fetch(origin + '/api/markets' + path, {
     method: payload ? 'POST' : 'GET',
@@ -21,6 +21,91 @@ async function create() {
   const { roomId } = await response.json<{ roomId: string }>();
   return { path: '/rooms/' + roomId, roomId, cookie: response.headers.get('Set-Cookie')!.split(';')[0] };
 }
+
+test('opens a new room on the selected market and keeps the draft private', async () => {
+  const market = 'hyperliquid:perp:ETH';
+  const response = await request('/rooms', { name: 'Owner', market, margin: 123, leverage: 20 });
+  expect(response.status).toBe(201);
+  const { roomId } = await response.json<{ roomId: string }>();
+  const stub = (env as unknown as Env).ROOMS.getByName(roomId);
+  await runInDurableObject(stub, (_, state) => {
+    const { payload } = state.storage.sql.exec<{ payload: string }>('SELECT payload FROM chart_view').one();
+    const presentation = JSON.parse(payload);
+    expect(presentation.view.market).toBe(market);
+    expect(presentation.view).not.toHaveProperty('margin');
+    expect(presentation.view).not.toHaveProperty('leverage');
+  });
+  expect((await request('/rooms', { name: 'Owner', market: 'other:perp:ETH' })).status).toBe(400);
+});
+
+test('scopes voice tokens to room members and retries provider revocation', async () => {
+  const { path, roomId, cookie } = await create();
+  const outsider = await create();
+  const { token } = await (await request(path + '/invite', { role: 'viewer' }, cookie)).json<{ token: string }>();
+  const joined = await request(path + '/join', { name: 'Listener', token });
+  const listenerCookie = joined.headers.get('Set-Cookie')!.split(';')[0];
+  const { id: member } = await (await request(path + '/membership', undefined, listenerCookie)).json<{ id: string }>();
+  expect((await request(path + '/voice', {})).status).toBe(401);
+  expect((await request(path + '/voice', {}, outsider.cookie)).status).toBe(403);
+  const stub = (env as unknown as Env).ROOMS.getByName(roomId);
+  const internal = (action: string, session: string, body?: object) => new Request(origin + action, {
+    method: 'POST',
+    headers: {
+      'x-fourfivex-identity': session.split('=')[1].split('.')[0],
+      'x-fourfivex-expires': String(Date.now() + 30 * 60_000),
+      'Content-Type': 'application/json',
+    },
+    body: body && JSON.stringify(body),
+  });
+
+  await runInDurableObject(stub, async room => {
+    const calls = vi.fn(async (url: string, init: RequestInit) => {
+      const target = new URL(url).pathname;
+      const payload = JSON.parse(String(init.body ?? '{}'));
+      if (target.endsWith('/meetings')) {
+        expect(payload.record_on_start).toBe(false);
+        return Response.json({ success: true, data: { id: 'test-meeting' } });
+      }
+      if (target.endsWith('/participants')) {
+        expect(payload).toMatchObject({ custom_participant_id: member, preset_name: 'zik_viewer' });
+        expect(Date.parse(payload.token.expires_on)).toBeLessThanOrEqual(Date.now() + 15 * 60_000);
+        return Response.json({ success: true, data: { id: 'test-participant', token: 'initial', expires_on: payload.token.expires_on } });
+      }
+      if (target.endsWith('/token')) {
+        return Response.json({ success: true, data: { token: 'refreshed', expires_on: payload.expires_on } });
+      }
+      expect(target).toMatch(/\/participants\/test-participant$/);
+      expect(init.method).toBe('DELETE');
+      return new Response(null, { status: 502 });
+    });
+    vi.stubGlobal('fetch', calls);
+    try {
+      const [first, second] = await Promise.all([
+        room.fetch(internal('/voice', listenerCookie)),
+        room.fetch(internal('/voice', listenerCookie)),
+      ]);
+      expect(await first.json()).toEqual({ token: 'initial' });
+      expect(await second.json()).toEqual({ token: 'refreshed' });
+      expect(first.headers.get('Cache-Control')).toBe('no-store');
+      expect(await (await room.fetch(internal('/members/revoke', cookie, { member }))).json()).toMatchObject({ voicePending: true });
+      expect((await room.fetch(internal('/voice', listenerCookie))).status).toBe(403);
+      expect(calls).toHaveBeenCalledTimes(4);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  const retry = vi.fn(async (_url: string, init: RequestInit) => {
+    expect(init.method).toBe('DELETE');
+    return new Response(null, { status: 204 });
+  });
+  vi.stubGlobal('fetch', retry);
+  try {
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect(retry).toHaveBeenCalledOnce();
+    await runInDurableObject(stub, (_, state) => {
+      expect(state.storage.sql.exec('SELECT member FROM voice_participants').toArray()).toEqual([]);
+    });
+  } finally { vi.unstubAllGlobals(); }
+});
 async function connect(path: string, cookie: string) {
   const response = await worker.fetch(origin + '/api/markets' + path + '/socket', { headers: { Origin: origin, Cookie: cookie, Upgrade: 'websocket' } });
   expect(response.status).toBe(101);

@@ -11,7 +11,7 @@ export type SentEntry = {
   /** The deposit address. */
   id: string;
   accountId: string;
-  kind: "change" | "pay" | "add";
+  kind: "change" | "pay" | "add" | "withdraw";
   /** Past tense, for when it is done. */
   text: string;
   /** Shown while it is still in progress. */
@@ -111,11 +111,15 @@ export function useSent(accountId: string | null): SentEntry[] {
 }
 
 export const sent = {
-  add(entry: SentEntry): void {
-    write(trim([...read().filter((e) => e.id !== entry.id), entry]));
+  add(entry: Omit<SentEntry, "at"> & { at?: number }): void {
+    write(trim([...read().filter((e) => e.id !== entry.id), { ...entry, at: entry.at ?? Date.now() }]));
   },
   update(id: string, patch: Partial<Omit<SentEntry, "id">>): void {
-    write(read().map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    const all = read();
+    const entry = all.find((item) => item.id === id);
+    if (!entry) return;
+    const next = { ...entry, ...patch };
+    if (JSON.stringify(next) !== JSON.stringify(entry)) write(all.map((item) => item.id === id ? next : item));
   },
   remove(id: string): void {
     write(read().filter((e) => e.id !== id));

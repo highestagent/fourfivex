@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { ArrowUpRight, ChartNoAxesCombined, Crosshair, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react';
-import { defaultChartView, overlayTools, setupRatio, type ChartPresentation, type ChartSettings, type Item, type Point } from '@intuite/markets-protocol/protocol';
-import { defaultMarket, isMarket, marketLabel, marketQuote, type Market, type MarketQuote } from '@intuite/markets-protocol/markets';
+import { defaultChartView, overlayTools, setupRatio, type ChartPresentation, type ChartSettings, type Item, type Point } from '@fourfivex/markets-protocol/protocol';
+import { defaultMarket, isMarket, marketLabel, marketQuote, type Market, type MarketQuote } from '@fourfivex/markets-protocol/markets';
 import type { DrawingItem } from './drawings';
 import { useRoom } from './client';
 import { Dialog } from './controls';
@@ -89,7 +89,7 @@ export function Workspace({ roomId }: { roomId: string }) {
   const pin = (point: Anchor) => setModal({ type: 'comment', market, point });
 
   return <div className="markets-ui room-page">
-    <RoomHeader me={me} members={members} presenter={presenter} online={online} connected={connected} following={following}
+    <RoomHeader roomId={roomId} me={me} members={members} presenter={presenter} online={online} connected={connected} following={following}
       onInvite={() => setModal({ type: 'share' })}
       onToggleFollowing={following ? pauseFollowing : () => setPausedFor(undefined)}
       onPresenterChange={member => send({ type: 'chart-presenter', member })} />

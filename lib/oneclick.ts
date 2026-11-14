@@ -7,6 +7,7 @@
  */
 import { ASSETS, USDC_ON_BASE, type AssetKey, type Prices } from "./assets";
 import { familyOf } from "./send/address";
+import { withdrawalUnits } from "./send/amount";
 import { NETWORKS, type Network, type SendAsk, type SendState } from "./send/types";
 
 const BASE = "https://1click.chaindefuser.com/v0";
@@ -54,7 +55,7 @@ export type Token = { assetId: string; symbol: string; blockchain: string; decim
 function headers(json = false): Record<string, string> {
   const h: Record<string, string> = {};
   if (json) h["Content-Type"] = "application/json";
-  if (process.env.NEAR_INTENTS_API_KEY) h["X-API-Key"] = process.env.NEAR_INTENTS_API_KEY;
+  if (process.env.NEAR_INTENTS_API_KEY) h.Authorization = `Bearer ${process.env.NEAR_INTENTS_API_KEY}`;
   return h;
 }
 
@@ -312,6 +313,22 @@ export async function realQuote(ask: SendAsk): Promise<RealQuote> {
       recipient: ask.accountId,
       recipientType: "INTENTS",
     };
+  } else if (ask.kind === "withdraw") {
+    const destination = await findToken(ask.assetId);
+    const amount = destination && withdrawalUnits(ask.amount, destination.decimals);
+    if (!amount) throw new OneClickError("Invalid withdrawal amount", 400);
+    request = {
+      ...common,
+      swapType: "EXACT_OUTPUT",
+      originAsset: ask.fromAssetId,
+      depositType: "INTENTS",
+      destinationAsset: ask.assetId,
+      amount,
+      refundTo: ask.accountId,
+      refundType: "INTENTS",
+      recipient: ask.address,
+      recipientType: "DESTINATION_CHAIN",
+    };
   } else if (ask.kind === "pay") {
     const usdc = await usdcOn(ask.to.network);
     if (!usdc) throw new OneClickError("No dollars on that network", 400);
@@ -341,13 +358,17 @@ export async function realQuote(ask: SendAsk): Promise<RealQuote> {
       recipientType: "INTENTS",
     };
   }
+  return requestRealQuote(request as Record<string, unknown> & { originAsset: string; destinationAsset: string });
+}
+
+export async function requestRealQuote(request: Record<string, unknown> & { originAsset: string; destinationAsset: string }): Promise<RealQuote> {
   const data = await call<{ quote?: Omit<RealQuote, "originAsset" | "destinationAsset"> }>("/quote", {
     method: "POST",
     headers: headers(true),
     body: JSON.stringify(request),
   });
   if (!data.quote?.depositAddress) throw new OneClickError("No deposit address in the quote", 502);
-  return { ...data.quote, originAsset: String(request.originAsset), destinationAsset: String(request.destinationAsset) };
+  return { ...data.quote, originAsset: request.originAsset, destinationAsset: request.destinationAsset };
 }
 
 /** The unsigned payload a passkey must sign to move the origin token to a deposit address. */

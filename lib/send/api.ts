@@ -2,7 +2,7 @@
 
 import { NetworkError } from "../account/api";
 import type { SignedIntent } from "../account/intents";
-import type { Prepared, SendAsk, SendStatus } from "./types";
+import type { Prepared, SendAsk, SendStatus, TransferAsset } from "./types";
 
 async function post<T>(body: Record<string, unknown>): Promise<T> {
   let res: Response;
@@ -21,6 +21,8 @@ async function post<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 export const prepareSend = async (ask: SendAsk) => (await post<{ prepared: Prepared }>({ op: "prepare", ...ask })).prepared;
+
+export const fetchTransferAssets = async () => (await post<{ assets: TransferAsset[] }>({ op: "assets" })).assets;
 
 export const submitSend = async (depositAddress: string, signed: SignedIntent) =>
   (await post<{ intentHash: string }>({ op: "submit", depositAddress, signed })).intentHash;

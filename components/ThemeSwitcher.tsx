@@ -9,7 +9,7 @@ const OPTIONS = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ] as const;
-const THEME_CHANGE = "intuite:theme-change";
+const THEME_CHANGE = "fourfivex:theme-change";
 
 function getTheme(): Theme {
   return themeFrom(document.documentElement.getAttribute("data-theme"));

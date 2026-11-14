@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { ChartNoAxesCombined, ChevronDown, MonitorUp, Pause, Play, UserPlus, Users, WifiOff } from 'lucide-react';
-import type { Member } from '@intuite/markets-protocol/protocol';
+import type { Member } from '@fourfivex/markets-protocol/protocol';
 import { Select } from '@/components/Select';
-import { IntuiteBrand } from '@/components/ui';
+import { FourfivexBrand } from '@/components/ui';
+import { RoomAudio } from './RoomAudio';
 
 type Props = {
+  roomId: string;
   me: Member;
   members: Member[];
   presenter?: Member;
@@ -16,7 +18,7 @@ type Props = {
   onPresenterChange: (member: string) => void;
 };
 
-export function RoomHeader({ me, members, presenter, online, connected, following, onInvite, onToggleFollowing, onPresenterChange }: Props) {
+export function RoomHeader({ roomId, me, members, presenter, online, connected, following, onInvite, onToggleFollowing, onPresenterChange }: Props) {
   const owner = me.role === 'owner';
   const presenting = presenter?.id === me.id;
   const presenterOptions = owner ? members.filter(member => member.role !== 'viewer').map(member => ({
@@ -33,7 +35,7 @@ export function RoomHeader({ me, members, presenter, online, connected, followin
   return (
     <header className="markets-container room-header">
       <nav className="room-navigation" aria-label="Room navigation">
-        <Link href="/" className="room-icon" aria-label="Intuite wallet" title="Intuite wallet"><IntuiteBrand markOnly /></Link>
+        <Link href="/" className="room-icon room-brand-icon" aria-label="fourfivex wallet" title="fourfivex wallet"><FourfivexBrand markOnly /></Link>
         <Link href="/markets" className="room-icon" aria-label="Back to Markets" title="Back to Markets">
           <ChartNoAxesCombined size={18} aria-hidden="true" />
         </Link>
@@ -55,6 +57,7 @@ export function RoomHeader({ me, members, presenter, online, connected, followin
             triggerIcon={<><MonitorUp size={17} aria-hidden="true" /><ChevronDown size={10} aria-hidden="true" /></>}
             onValueChange={onPresenterChange} />
           : presenting && <span className="room-icon room-presenter" title={viewStatus} aria-hidden="true"><MonitorUp size={17} /></span>}
+        <RoomAudio key={roomId} roomId={roomId} member={me} />
         {owner && <button className="room-icon room-invite" type="button" aria-label="Invite traders" title="Invite traders" aria-haspopup="dialog" onClick={onInvite}>
           <UserPlus size={17} aria-hidden="true" />
         </button>}

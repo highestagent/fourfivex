@@ -6,8 +6,11 @@ export default defineConfig({
     wrangler: { configPath: './wrangler.jsonc' },
     miniflare: {
       bindings: {
-        APP_ORIGIN: 'https://intuite.test',
+        APP_ORIGIN: 'https://fourfivex.test',
         SESSION_SECRET: 'unit-test-cookie-signing-key-not-for-deployment',
+        CF_ACCOUNT_ID: 'test-account',
+        REALTIME_APP_ID: 'test-app',
+        REALTIME_API_TOKEN: 'test-token',
       },
     },
   })],

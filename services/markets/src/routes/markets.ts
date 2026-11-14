@@ -1,5 +1,5 @@
-import { intervals } from '@intuite/markets-protocol/protocol';
-import { defaultMarket, hyperliquidMarket } from '@intuite/markets-protocol/markets';
+import { intervals } from '@fourfivex/markets-protocol/protocol';
+import { defaultMarket, hyperliquidMarket } from '@fourfivex/markets-protocol/markets';
 import type { Env } from '../env';
 import { HttpError, json, limit } from '../http';
 import { hyperliquidHistory, marketCatalog } from '../market-catalog';

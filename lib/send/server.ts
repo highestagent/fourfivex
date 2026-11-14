@@ -2,11 +2,12 @@
  * The server side of a real send. The route stays thin; the rules live here.
  * Nothing here holds a key: it forwards only what a passkey signed, and only after checking it.
  */
-import { ContractError, simulate } from "../account/chain";
+import { balancesOf, ContractError, simulate } from "../account/chain";
 import type { SignedIntent } from "../account/intents";
 import { isAccountId } from "../account/keys";
 import {
   findToken,
+  getTokens,
   generateIntent,
   OneClickError,
   realQuote,
@@ -20,10 +21,16 @@ import {
 } from "../oneclick";
 import { ASSETS } from "../assets";
 import { payloadProblem } from "./guard";
+import { addressProblem, familyOf } from "./address";
+import { withdrawalUnits } from "./amount";
 import type { Leg, Prepared, SendAsk, SendStatus } from "./types";
 
 /** Its message is written for the person. */
 export class SendError extends Error {}
+
+export async function transferAssets() {
+  return (await getTokens()).filter(token => familyOf(token.blockchain)).map(({ assetId, symbol, blockchain }) => ({ assetId, symbol, blockchain }));
+}
 
 function leg(token: Token | undefined, assetId: string, units: string, amount: string, usd: string): Leg {
   if (!token) throw new SendError("We don't know that kind of money.");
@@ -40,6 +47,13 @@ function leg(token: Token | undefined, assetId: string, units: string, amount: s
 
 async function askProblem(ask: SendAsk): Promise<string | null> {
   if (!isAccountId(ask.accountId)) return "That account isn't valid.";
+  if (ask.kind === "withdraw") {
+    const [source, destination] = await Promise.all([findToken(ask.fromAssetId), findToken(ask.assetId)]);
+    const family = destination && familyOf(destination.blockchain);
+    if (!source || !destination || !family) return "Choose a supported source and destination asset.";
+    if (!withdrawalUnits(ask.amount, destination.decimals)) return `Enter a positive amount with up to ${destination.decimals} decimal places.`;
+    return addressProblem(family, ask.address);
+  }
   if (!Number.isFinite(ask.usd) || ask.usd < 1 || ask.usd > 1_000_000) return "Pick an amount between $1 and $1,000,000.";
   if (ask.kind === "change") {
     if (!(ask.to in ASSETS)) return "We can't change into that.";
@@ -79,7 +93,8 @@ export async function prepare(ask: SendAsk): Promise<Prepared> {
     const problem = await askProblem(ask);
     if (problem) throw new SendError(problem);
     const q = await realQuote(ask);
-    const [leaves, arrives] = legsOf(q, await findToken(q.originAsset), await findToken(q.destinationAsset));
+    const [from, to] = await Promise.all([findToken(q.originAsset), findToken(q.destinationAsset)]);
+    const [leaves, arrives] = legsOf(q, from, to);
     const prepared: Prepared = {
       kind: ask.kind,
       depositAddress: q.depositAddress,
@@ -91,6 +106,11 @@ export async function prepare(ask: SendAsk): Promise<Prepared> {
     };
     if (ask.kind === "add") return prepared;
 
+    if (ask.kind === "withdraw") {
+      if (q.amountOut !== withdrawalUnits(ask.amount, arrives.decimals)) throw new SendError("The quote changed. Review a new withdrawal.");
+      const [available] = await balancesOf(ask.accountId, [q.originAsset]);
+      if (BigInt(available) < BigInt(q.amountIn)) throw new SendError("Your balance cannot cover this withdrawal.");
+    }
     const payload = await generateIntent(q.depositAddress, ask.accountId);
     const bad = payloadProblem(payload, {
       accountId: ask.accountId,

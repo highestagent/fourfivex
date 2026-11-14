@@ -1,14 +1,14 @@
 import { registerOverlay, type OverlayCreate, type OverlayFigure, type Point as KPoint } from 'klinecharts';
 import measure from '@klinecharts/extension/overlays/measure';
 import rect from '@klinecharts/extension/overlays/rect';
-import { setupRatio, type Item, type Mutation, type Point } from '@intuite/markets-protocol/protocol';
+import { setupRatio, type Item, type Mutation, type Point } from '@fourfivex/markets-protocol/protocol';
 import { chartPalette } from './chart-theme';
 
 export type DrawingItem = Extract<Item, { kind: 'trendline' | 'setup' | 'overlay' }>;
 export type Drawing = Extract<Mutation, { kind: 'trendline' | 'setup' | 'overlay' }>;
 export type DrawingHandle = { name: string; point: Point; movesInTime: boolean };
 export const pricePane = 'candle_pane';
-export const setupOverlay = 'intuiteTradeSetup';
+export const setupOverlay = 'fourfivexTradeSetup';
 
 export function drawingHandles(item: Drawing): DrawingHandle[] {
   if (!item.data || item.kind === 'overlay') return [];

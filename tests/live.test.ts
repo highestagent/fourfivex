@@ -49,6 +49,22 @@ describe.runIf(process.env.LIVE === "1")("the live verifier contract", () => {
     expect(result.logs.join("\n")).toContain("public_key_added");
   });
 
+  it("accepts a backup passkey authorizing a contract call for the same account", async () => {
+    const owner = makeAuthenticator();
+    const backup = makeAuthenticator();
+    const accountId = accountIdOf(owner.publicKey);
+    const salt = await currentSalt();
+    const add = await sign(owner, [{ intent: "add_public_key", public_key: encodePublicKey(backup.publicKey) }], salt);
+    const deadline = new Date(Date.now() + 60_000);
+    const payload = buildPayload({ signerId: accountId, deadline, nonce: makeNonce(salt, deadline, random15()), intents: [{
+      intent: "auth_call", contract_id: "v1.signer", msg: "{}", min_gas: "100000000000000",
+    }] });
+    const signed = signedIntent(payload, backup.publicKey, backup.assert(challengeFor(payload)));
+    await expect(simulate([signed])).rejects.toBeInstanceOf(ContractError);
+    const result = await simulate([add, signed]);
+    expect(result.intents_executed.map(intent => intent.account_id)).toEqual([accountId, accountId]);
+  });
+
   it("refuses the same intent signed by someone else's passkey", async () => {
     const owner = makeAuthenticator();
     const thief = makeAuthenticator();

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check, Copy, Link2, Shield } from 'lucide-react';
-import type { Member } from '@intuite/markets-protocol/protocol';
+import type { Member } from '@fourfivex/markets-protocol/protocol';
 import { api } from './client';
 import { Select } from '@/components/Select';
 
@@ -52,7 +52,8 @@ export function Invite({ roomId, members, me }: { roomId: string; members: Membe
       })}>Revoke</button></div>)}</div>}
     <div className="invite-members"><h3>Members</h3>{members.map(member => <div key={member.id}><span>{member.name}<small className="capitalize">{member.role}</small></span>
       {member.id === me.id ? <Shield size={16}/> : <button className="button small danger" disabled={busy} onClick={() => void action(async () => {
-        await api(roomPath + '/members/revoke', { member: member.id });
+        const { voicePending } = await api<{ voicePending?: boolean }>(roomPath + '/members/revoke', { member: member.id });
+        if (voicePending) setMessage('Room access removed. Audio removal is retrying.');
       })}>Remove</button>}</div>)}</div>
     {message && <p role="status" className="notice">{message}</p>}
   </div>;

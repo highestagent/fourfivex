@@ -2,13 +2,13 @@
 
 import { useState, type ReactNode, type SVGProps } from "react";
 
-export function IntuiteBrand({ markOnly = false }: { markOnly?: boolean }) {
+export function FourfivexBrand({ markOnly = false }: { markOnly?: boolean }) {
   return (
     <>
       <span aria-hidden="true" className="grid size-7 place-items-end rounded-[8px] bg-ink p-[6px]">
         <span className="h-[3px] w-full rounded-full bg-inverse" />
       </span>
-      {!markOnly && <span className="text-[17px] font-semibold tracking-[-0.035em]">Intuite</span>}
+      {!markOnly && <span className="text-[17px] font-semibold tracking-[-0.035em]">fourfivex</span>}
     </>
   );
 }

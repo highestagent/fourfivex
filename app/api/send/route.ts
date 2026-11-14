@@ -2,7 +2,7 @@ import { isAccountId } from "@/lib/account/keys";
 import { ASSETS, type AssetKey } from "@/lib/assets";
 import { findToken } from "@/lib/oneclick";
 import { addressProblem, familyOf } from "@/lib/send/address";
-import { prepare, SendError, status, submit } from "@/lib/send/server";
+import { prepare, SendError, status, submit, transferAssets } from "@/lib/send/server";
 import { NETWORKS, type Network, type SendAsk } from "@/lib/send/types";
 
 /**
@@ -18,6 +18,10 @@ const text = (v: unknown, max = 200): v is string => typeof v === "string" && v.
 async function askFrom(b: Record<string, unknown>): Promise<SendAsk | string> {
   if (!text(b.accountId) || !isAccountId(b.accountId)) return "That account isn't valid.";
   const accountId = b.accountId;
+  if (b.kind === "withdraw") {
+    if (!text(b.fromAssetId) || !text(b.assetId) || !text(b.amount, 40) || !text(b.address, 100)) return "Complete the withdrawal details.";
+    return { kind: "withdraw", accountId, fromAssetId: b.fromAssetId, assetId: b.assetId, amount: b.amount, address: b.address };
+  }
   const usd = b.usd;
   if (typeof usd !== "number" || !Number.isFinite(usd) || usd < 1 || usd > 1_000_000)
     return "Pick an amount between $1 and $1,000,000.";
@@ -62,6 +66,8 @@ export async function POST(request: Request) {
 
   try {
     switch (body.op) {
+      case "assets":
+        return Response.json({ ok: true, assets: await transferAssets() });
       case "prepare": {
         const ask = await askFrom(body);
         if (typeof ask === "string") return bad(ask);

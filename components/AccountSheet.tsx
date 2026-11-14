@@ -9,6 +9,7 @@ import { AccountError } from "@/lib/account/session";
 import { memory, useDeviceMemory } from "@/lib/account/store";
 import { coin, usd } from "@/lib/format";
 import { Sheet } from "./Sheet";
+import { WalletTransfer } from "./WalletTransfer";
 import { CopyButton, Finger } from "./ui";
 
 const subscribeBrowser = () => () => {};
@@ -23,11 +24,20 @@ function message(error: unknown): string {
 export function AccountSheet({ holdings, onClose }: { holdings: Holdings | null; onClose: () => void }) {
   const { current } = useDeviceMemory();
   const [step, setStep] = useState<string | null>(null);
+  const [transfer, setTransfer] = useState<"add" | "withdraw">();
+  const transferLabel = transfer === "add" ? "Add money" : "Withdraw money";
+  const goBack = () => {
+    if (step) return;
+    setTransfer(undefined);
+    requestAnimationFrame(() => document.getElementById(`account-${transfer}`)?.focus());
+  };
 
   return (
-    <Sheet label={current ? "Account settings" : "Open account"} onClose={onClose} busy={step !== null}>
-      {current
-        ? <Settings key={current} accountId={current} holdings={holdings} step={step} setStep={setStep} onClose={onClose} />
+    <Sheet label={current ? transfer ? transferLabel : "Account settings" : "Open account"} onClose={onClose} busy={step !== null}
+      step={current && transfer ? { title: transferLabel, onBack: goBack, returnFocusId: `account-${transfer}` } : undefined}>
+      {current ? transfer
+        ? <WalletTransfer key={`${current}:${transfer}`} mode={transfer} accountId={current} holdings={holdings} step={step} setStep={setStep} back={goBack} />
+        : <Settings key={current} accountId={current} holdings={holdings} step={step} setStep={setStep} onClose={onClose} onTransfer={setTransfer} />
         : <Welcome step={step} setStep={setStep} />}
     </Sheet>
   );
@@ -98,17 +108,18 @@ function Welcome({ step, setStep }: Progress) {
       </div>
       {step && <p role="status" className="text-sm text-ink-2">{step}</p>}
       {error && <p role="alert" className="text-sm text-rose">{error}</p>}
-      {!supported && <p className="text-sm text-ink-2">Open Intuite in a browser that supports passkeys.</p>}
+      {!supported && <p className="text-sm text-ink-2">Open fourfivex in a browser that supports passkeys.</p>}
     </form>
   );
 }
 
 type KeyList = Awaited<ReturnType<typeof countPasskeys>>;
 
-function Settings({ accountId, holdings, step, setStep, onClose }: Progress & {
+function Settings({ accountId, holdings, step, setStep, onClose, onTransfer }: Progress & {
   accountId: string;
   holdings: Holdings | null;
   onClose: () => void;
+  onTransfer: (mode: "add" | "withdraw") => void;
 }) {
   const { names, passkeys } = useDeviceMemory();
   const name = names[accountId] ?? "My account";
@@ -157,6 +168,10 @@ function Settings({ accountId, holdings, step, setStep, onClose }: Progress & {
   return (
     <div className="grid gap-6">
       <h1 className="sentence">Account settings</h1>
+      <div className="flex flex-wrap gap-2">
+        <button id="account-add" className="action action-primary" type="button" disabled={step !== null} onClick={() => onTransfer("add")}>Add money</button>
+        <button id="account-withdraw" className="action action-secondary" type="button" disabled={step !== null} onClick={() => onTransfer("withdraw")}>Withdraw money</button>
+      </div>
       <form onSubmit={(event) => { event.preventDefault(); saveName(); }}>
         <label className="grid gap-2 text-sm font-medium">
           Account name

@@ -10,9 +10,12 @@ import { encodePublicKey, encodeSignature, type RawPublicKey } from "./keys";
 
 export const VERIFIER = "intents.near";
 
+export type AuthCall = { intent: "auth_call"; contract_id: string; msg: string; min_gas: string };
+
 export type Intent =
   | { intent: "add_public_key"; public_key: string }
-  | { intent: "remove_public_key"; public_key: string };
+  | { intent: "remove_public_key"; public_key: string }
+  | AuthCall;
 
 export type SignedIntent = {
   standard: "webauthn";

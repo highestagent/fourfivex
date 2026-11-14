@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { defaultMarket, type Market } from '@intuite/markets-protocol/markets';
-import type { Command, Interval, Item, Mutation, Point, Room, RoomEvent } from '@intuite/markets-protocol/protocol';
+import { defaultMarket, type Market } from '@fourfivex/markets-protocol/markets';
+import type { Command, Interval, Item, Mutation, Point, Room, RoomEvent } from '@fourfivex/markets-protocol/protocol';
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string) { super(message); }

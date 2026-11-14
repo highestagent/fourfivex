@@ -1,5 +1,5 @@
 {
-  "name": "@intuite/markets-protocol",
+  "name": "@fourfivex/markets-protocol",
   "private": true,
   "type": "module",
   "exports": {
