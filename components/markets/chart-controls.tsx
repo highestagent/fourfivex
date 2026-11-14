@@ -31,7 +31,7 @@ export type ChartPreferences = {
   interval: Interval; candle: keyof typeof candleTypes; scale: keyof typeof scales; snap: OverlayMode; studies: Study[];
 };
 const defaults: ChartPreferences = { interval: 15, candle: 'candle_solid', scale: 'normal', snap: 'normal', studies: [{ name: 'VOL' }] };
-const storageKey = 'intuite:markets:chart-preferences:v1';
+const storageKey = 'fourfivex:markets:chart-preferences:v1';
 
 function validParameter(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 1000;

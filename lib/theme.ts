@@ -1,4 +1,4 @@
-export const THEME_KEY = "intuite.theme";
+export const THEME_KEY = "fourfivex.theme";
 export const DARK_SCHEME = "(prefers-color-scheme: dark)";
 export const THEME_COLORS = { light: "#ffffff", dark: "#080808" };
 

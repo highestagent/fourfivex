@@ -32,7 +32,7 @@ export function Workspace({ roomId }: { roomId: string }) {
   const [modal, setModal] = useState<Modal>();
   const [pausedFor, setPausedFor] = useState<string>();
   const [localView, setLocalView] = useState<ChartPresentation['view']>(() => {
-    const saved = sessionStorage.getItem('intuite:markets:view:' + roomId) ?? '';
+    const saved = sessionStorage.getItem('fourfivex:markets:view:' + roomId) ?? '';
     return { ...defaultChartView, market: isMarket(saved) ? saved : defaultMarket };
   });
   const presentation = room?.presentation;
@@ -58,7 +58,7 @@ export function Workspace({ roomId }: { roomId: string }) {
     const next = { ...view, ...settings };
     if (next.market !== view.market || next.interval !== view.interval) next.camera = null;
     setLocalView(next);
-    sessionStorage.setItem('intuite:markets:view:' + roomId, next.market);
+    sessionStorage.setItem('fourfivex:markets:view:' + roomId, next.market);
   }
 
   function pauseFollowing() {

@@ -6,7 +6,7 @@ import type { Network } from "./types";
 
 export type Person = { id: string; name: string; address: string; network: Network };
 
-const KEY = "intuite.people.v1";
+const KEY = "fourfivex.people.v1";
 const EMPTY: Person[] = [];
 const listeners = new Set<() => void>();
 let cache: { raw: string | null; value: Person[] } = { raw: null, value: EMPTY };

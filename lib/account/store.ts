@@ -23,7 +23,7 @@ export type DeviceMemory = {
   names: Record<string, string>;
 };
 
-const KEY = "intuite.account.v1";
+const KEY = "fourfivex.account.v1";
 const EMPTY: DeviceMemory = { current: null, passkeys: [], names: {} };
 const listeners = new Set<() => void>();
 let cache: { raw: string | null; value: DeviceMemory } = { raw: null, value: EMPTY };

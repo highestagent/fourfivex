@@ -5,7 +5,7 @@ import { displayName } from "@fourfivex/markets-protocol/protocol";
 import type { Market } from "@fourfivex/markets-protocol/markets";
 import { api } from "./client";
 
-export const recentRoomKey = "intuite:markets:recent-room";
+export const recentRoomKey = "fourfivex:markets:recent-room";
 export const roomJoinedEvent = "fourfivex:markets:room-joined";
 
 export function RoomEntry({ roomId, token, market, marketName, onJoined }: { roomId?: string; token?: string; market?: Market; marketName?: string; onJoined: (room: string) => void }) {

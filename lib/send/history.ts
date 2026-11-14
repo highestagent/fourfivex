@@ -25,7 +25,7 @@ export type SentEntry = {
   deposit?: { address: string; memo?: string; amount: string; word: string; symbol?: string; networkName: string };
 };
 
-const KEY = "intuite.sent.v1";
+const KEY = "fourfivex.sent.v1";
 const PER_ACCOUNT = 200;
 const EMPTY: SentEntry[] = [];
 const listeners = new Set<() => void>();
