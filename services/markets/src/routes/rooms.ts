@@ -1,11 +1,12 @@
 import { z } from 'zod';
-import { displayName, id, roomCreation } from '@fourfivex/markets-protocol/protocol';
+import { displayName, id, roomCreation, roomLifetime } from '@fourfivex/markets-protocol/protocol';
 import { identity, issueSocketTicket, socketIdentity, type Identity } from '../auth';
+import { issueChallenge, verifyAccountProof } from '../passkey';
 import type { Env } from '../env';
 import { body, HttpError, json, limit } from '../http';
 
-export function roomRequest(request: Request, auth: Identity, path: string, payload?: object) {
-  const headers = new Headers();
+export function roomRequest(request: Request, auth: Identity, path: string, payload?: object, extra: Record<string, string> = {}) {
+  const headers = new Headers(extra);
   headers.set('x-fourfivex-identity', auth.id);
   headers.set('x-fourfivex-expires', String(auth.expires));
   if (request.headers.has('Upgrade')) headers.set('Upgrade', request.headers.get('Upgrade')!);
@@ -32,14 +33,32 @@ const roomActions = {
 
 export async function roomsRoutes(request: Request, env: Env, url: URL) {
   const path = url.pathname;
+  if (path === '/api/markets/rooms/challenge' && request.method === 'POST') {
+    await limit(request, env, 'room-create');
+    const { accountId } = await body(request, z.object({ accountId: z.string().regex(/^0x[0-9a-f]{40}$/) }));
+    return json(await issueChallenge(env, accountId));
+  }
+
   if (path === '/api/markets/rooms' && request.method === 'POST') {
     await limit(request, env, 'room-create');
-    const payload = await body(request, roomCreation);
+    const { proof, ...setup } = await body(request, roomCreation);
+    const { accountId, nonce, nonceExpires } = await verifyAccountProof(env, proof);
     const auth = (await identity(request, env, true))!;
     const roomId = crypto.randomUUID();
-    const result = await env.ROOMS.getByName(roomId).fetch(roomRequest(request, auth, '/create', payload));
-    if (!result.ok) return result;
-    return json({ roomId }, 201, auth.cookie ? { 'Set-Cookie': auth.cookie } : undefined);
+    const endsAt = Date.now() + roomLifetime;
+    // One open room per account: the account's own object decides, one request at a time.
+    const owner = env.OWNERS.getByName(accountId);
+    const claim = await owner.claim(nonce, nonceExpires, roomId, endsAt);
+    if (!claim.ok && claim.reason === 'used') throw new HttpError(401, 'This approval was already used. Try again.');
+    if (!claim.ok) return json({ error: 'You already have a room open.', roomId: claim.roomId, endsAt: claim.endsAt }, 409);
+    const result = await env.ROOMS.getByName(roomId).fetch(roomRequest(request, auth, '/create', setup, {
+      'x-fourfivex-room': roomId, 'x-fourfivex-account': accountId, 'x-fourfivex-ends': String(endsAt),
+    }));
+    if (!result.ok) {
+      await owner.release(roomId);
+      return result;
+    }
+    return json({ roomId, endsAt }, 201, auth.cookie ? { 'Set-Cookie': auth.cookie } : undefined);
   }
 
   const roomMatch = /^\/api\/markets\/rooms\/([^/]+)\/(.+)$/.exec(path);

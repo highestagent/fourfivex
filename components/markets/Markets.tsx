@@ -7,7 +7,7 @@ import { defaultMarket, marketLabel, type Market } from "@fourfivex/markets-prot
 import { id } from "@fourfivex/markets-protocol/protocol";
 import { AccountButton } from "@/components/AccountButton";
 import { AccountSheet } from "@/components/AccountSheet";
-import { useDeviceMemory } from "@/lib/account/store";
+import { memory, useDeviceMemory } from "@/lib/account/store";
 import { useHoldings } from "@/lib/account/useHoldings";
 import { api, ApiError } from "./client";
 import { Dialog } from "./controls";
@@ -23,6 +23,8 @@ export function Markets() {
   const [recent, setRecent] = useState<string>();
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountFromReview, setAccountFromReview] = useState(false);
+  // Creating a room needs an account; signing in for it carries straight on to the room form.
+  const [roomAfterSignIn, setRoomAfterSignIn] = useState(false);
   const { current: accountId } = useDeviceMemory();
   const { holdings } = useHoldings(accountOpen ? accountId : null);
   const accountButton = useRef<HTMLButtonElement>(null);
@@ -59,7 +61,10 @@ export function Markets() {
     <div className="markets-ui market-page trade-page">
       <MarketsHeader current="markets" actions={<>
         {recent && <Link className="market-return" href={`/markets/${recent}`}>Return to room</Link>}
-        <button ref={createButton} type="button" className="action action-secondary" onClick={() => setCreating(true)}>Create room</button>
+        <button ref={createButton} type="button" className="action action-secondary" onClick={() => {
+          if (accountId) setCreating(true);
+          else { setRoomAfterSignIn(true); setAccountOpen(true); }
+        }}>Create room</button>
         <AccountButton buttonRef={accountButton} onClick={() => setAccountOpen(true)} />
       </>} />
       <main className="trade-main markets-container">
@@ -73,14 +78,16 @@ export function Markets() {
       <MarketsFooter />
       {accountOpen && <AccountSheet holdings={holdings} onClose={() => {
         setAccountOpen(false);
-        if (!accountFromReview) requestAnimationFrame(() => accountButton.current?.focus());
+        if (roomAfterSignIn && memory.get().current) setCreating(true);
+        else if (!accountFromReview) requestAnimationFrame(() => accountButton.current?.focus());
         setAccountFromReview(false);
+        setRoomAfterSignIn(false);
       }} />}
       {creating && <Dialog title="Create room" close={() => {
         setCreating(false);
         requestAnimationFrame(() => createButton.current?.focus());
       }}>
-        <RoomEntry market={market} marketName={marketLabel(catalog.instruments.find(item => item.id === market) ?? catalog.instruments[0])}
+        <RoomEntry market={market} accountId={accountId} marketName={marketLabel(catalog.instruments.find(item => item.id === market) ?? catalog.instruments[0])}
           onJoined={room => {
             sessionStorage.setItem(recentRoomKey, room);
             setRecent(room);

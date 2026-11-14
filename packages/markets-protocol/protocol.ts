@@ -23,9 +23,30 @@ export function setupRatio(entry: string, stop: string, target: string) {
 }
 
 const marketId = z.custom<Market>(isMarket);
-export const roomCreation = z.object({ name: displayName, market: marketId.optional() });
+const base64url = z.string().regex(/^[A-Za-z0-9_-]+$/);
+/**
+ * A passkey's signature over a one-time challenge from the markets service, proving the person creating a room
+ * holds a passkey of `accountId`. Fields are as the browser returns them; `publicKey` is in the contract's spelling.
+ */
+export const accountProof = z.object({
+  accountId: z.string().regex(/^0x[0-9a-f]{40}$/),
+  publicKey: z.string().regex(/^p256:[1-9A-HJ-NP-Za-km-z]{40,100}$/),
+  challenge: z.string().max(200),
+  authenticatorData: base64url.max(1024),
+  clientDataJSON: z.string().max(2048),
+  signature: base64url.max(128),
+});
+export type AccountProof = z.infer<typeof accountProof>;
+/** What the room itself needs. */
+export const roomSetup = z.object({ name: displayName, market: marketId.optional() });
+/** What creating a room takes: the room, and proof of the account opening it. */
+export const roomCreation = roomSetup.extend({ proof: accountProof });
+/** How long a room stays open. Each account can have one open at a time. */
+export const roomLifetime = 60 * 60_000;
 /** The close code a room's sockets get when its owner deletes it, so every member sees why it ended. */
 export const roomDeletedCode = 4410;
+/** The close code a room's sockets get when its hour is up. */
+export const roomEndedCode = 4408;
 const key = { id, expected: z.number().int().nonnegative(), market: marketId };
 const trendline = z.object({ start: point, end: point });
 const setup = z.object({ entry: point, stop: price, target: price })
@@ -78,7 +99,7 @@ export type Idea = z.infer<typeof idea>;
 type Revision = { revision: number; author: string; updatedAt: number };
 export type Item = Mutation & Revision;
 export type Member = { id: string; name: string; role: Role };
-export type Room = { me: Member; members: Member[]; items: Item[]; presentation?: ChartPresentation };
+export type Room = { me: Member; members: Member[]; items: Item[]; presentation?: ChartPresentation; endsAt: number };
 export type RoomEvent =
   | { type: 'snapshot'; room: Room }
   | { type: 'members'; members: Member[] }

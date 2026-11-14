@@ -1,4 +1,5 @@
-import { ChevronDown, MonitorUp, Pause, Play, UserPlus, Users, WifiOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, MonitorUp, Pause, Play, Timer, UserPlus, Users, WifiOff } from 'lucide-react';
 import type { Member } from '@fourfivex/markets-protocol/protocol';
 import { AppNavigation } from '@/components/AppNavigation';
 import { Select } from '@/components/Select';
@@ -12,12 +13,27 @@ type Props = {
   online: string[];
   connected: boolean;
   following: boolean;
+  endsAt: number;
   onInvite: () => void;
   onToggleFollowing: () => void;
   onPresenterChange: (member: string) => void;
 };
 
-export function RoomHeader({ roomId, me, members, presenter, online, connected, following, onInvite, onToggleFollowing, onPresenterChange }: Props) {
+/** Minutes until the room closes. Rooms last an hour; the last five minutes turn amber. */
+function TimeLeft({ endsAt }: { endsAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+  const minutes = Math.max(0, Math.ceil((endsAt - now) / 60_000));
+  const closes = new Date(endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return <span className="room-presence room-time" data-ending={minutes <= 5} title={`Closes at ${closes}`}>
+    <Timer size={15} aria-hidden="true" />{minutes}m<span className="sr-only"> left, closes at {closes}</span>
+  </span>;
+}
+
+export function RoomHeader({ roomId, me, members, presenter, online, connected, following, endsAt, onInvite, onToggleFollowing, onPresenterChange }: Props) {
   const owner = me.role === 'owner';
   const presenting = presenter?.id === me.id;
   const presenterOptions = owner ? members.filter(member => member.role !== 'viewer').map(member => ({
@@ -38,6 +54,7 @@ export function RoomHeader({ roomId, me, members, presenter, online, connected, 
       <h1 className="room-title" aria-label="Trading room"><span className="room-title-prefix">Trading </span>room</h1>
       <div className="room-actions">
         <span className="sr-only" role="status">{presence}{viewStatus && ` · ${viewStatus}`}</span>
+        <TimeLeft endsAt={endsAt} />
         <span className="room-presence" data-connected={connected} title={presence} aria-hidden="true">
           {connected ? <><Users size={15} />{online.length}</> : <WifiOff size={16} />}
         </span>

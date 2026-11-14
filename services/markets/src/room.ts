@@ -1,10 +1,13 @@
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
-import { command, defaultChartView, displayName, id, roomCreation, roomDeletedCode, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { command, defaultChartView, displayName, id, roomDeletedCode, roomEndedCode, roomSetup, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
 import { isMarket } from '@fourfivex/markets-protocol/markets';
 import type { Env } from './env';
 import { body, digest, errorResponse, HttpError, json } from './http';
 import { RoomVoice } from './voice';
+
+type Ending = 'deleted' | 'expired';
+type Meta = { room: string; account: string; ends_at: number; ended: Ending | null };
 
 type SocketData = { identity: string; member: string; expires: number; lastTransient?: number; lastCamera?: number; lastSettledCamera?: number };
 
@@ -19,18 +22,60 @@ export class TradingRoom extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, payload TEXT);
       CREATE TABLE IF NOT EXISTS operations (member TEXT, op TEXT, PRIMARY KEY(member, op));
       CREATE TABLE IF NOT EXISTS chart_view (slot INTEGER PRIMARY KEY CHECK (slot = 1), payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS room_state (slot INTEGER PRIMARY KEY CHECK (slot = 1), deleted_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS room_meta (slot INTEGER PRIMARY KEY CHECK (slot = 1), room TEXT NOT NULL, account TEXT NOT NULL,
+        ends_at INTEGER NOT NULL, ended TEXT);
     `);
     this.voice = new RoomVoice(ctx.storage, env);
   }
 
   async alarm() {
     await this.voice.retryRevocations();
+    const meta = this.meta();
+    if (!await this.ending() && meta) await this.endAt(meta.ends_at);
   }
 
-  /** A deleted room keeps only this mark, so its link says it was deleted rather than asking for an invite. */
-  private deleted() {
-    return this.sql.exec('SELECT 1 FROM room_state WHERE slot = 1').toArray().length > 0;
+  private meta() {
+    return this.sql.exec<Meta>('SELECT room, account, ends_at, ended FROM room_meta WHERE slot = 1').toArray()[0];
+  }
+
+  /** Keeps an alarm set for the room's end. A voice retry may set an earlier one; this runs again after it. */
+  private async endAt(endsAt: number) {
+    const current = await this.ctx.storage.getAlarm();
+    if (current === null || current > endsAt) await this.ctx.storage.setAlarm(endsAt);
+  }
+
+  /**
+   * Why the room is over, if it is, ending it first if its hour is up. A room made before rooms had an hour
+   * has no end time and ends the first time anyone reaches it.
+   */
+  private async ending(): Promise<Ending | undefined> {
+    const meta = this.meta();
+    if (meta?.ended) return meta.ended;
+    if (!this.sql.exec('SELECT 1 FROM members LIMIT 1').toArray().length) return;
+    if (meta && meta.ends_at > Date.now()) return;
+    await this.end('expired');
+    return 'expired';
+  }
+
+  /**
+   * Ends the room for everyone. Everything people made goes. Member rows stay, nameless and revoked, only so a
+   * voice removal that fails can be retried by the alarm; nobody can use them, because every request gets a 410.
+   */
+  private async end(reason: Ending) {
+    const meta = this.meta();
+    const everyone = this.members().map(member => member.id);
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec("INSERT INTO room_meta VALUES (1, '', '', 0, ?) ON CONFLICT(slot) DO UPDATE SET ended = excluded.ended", reason);
+      for (const table of ['items', 'operations', 'invites', 'chart_view']) this.sql.exec(`DELETE FROM ${table}`);
+      this.sql.exec("UPDATE members SET revoked = 1, name = ''");
+    });
+    for (const socket of this.ctx.getWebSockets()) {
+      socket.close(reason === 'deleted' ? roomDeletedCode : roomEndedCode, reason === 'deleted' ? 'Room deleted' : 'Room ended');
+    }
+    // Frees the account to open another room. If this fails, the account waits until the hour is up instead.
+    if (meta?.account) await this.env.OWNERS.getByName(meta.account).release(meta.room).catch(() => {});
+    const removed = await Promise.all(everyone.map(member => this.voice.revoke(member)));
+    return { voicePending: removed.includes(false) };
   }
 
   private member(identity: string) {
@@ -118,15 +163,22 @@ export class TradingRoom extends DurableObject<Env> {
     const path = new URL(request.url).pathname;
     const identity = request.headers.get('x-fourfivex-identity');
     if (!identity) throw new HttpError(401, 'Session required.');
-    if (this.deleted()) throw new HttpError(410, 'This room was deleted.');
+    const over = await this.ending();
+    if (over) throw new HttpError(410, over === 'deleted' ? 'This room was deleted' : 'This room has ended');
     if (path === '/create') {
-      const { name, market } = await body(request, roomCreation);
-      if (this.sql.exec('SELECT 1 FROM members LIMIT 1').toArray().length) throw new HttpError(409, 'Room already exists.');
+      const { name, market } = await body(request, roomSetup);
+      const room = request.headers.get('x-fourfivex-room');
+      const account = request.headers.get('x-fourfivex-account');
+      const endsAt = Number(request.headers.get('x-fourfivex-ends'));
+      if (!room || !account || !(endsAt > Date.now())) throw new HttpError(400, 'Room details are missing.');
+      if (this.meta() || this.sql.exec('SELECT 1 FROM members LIMIT 1').toArray().length) throw new HttpError(409, 'Room already exists.');
       const owner = crypto.randomUUID();
       this.ctx.storage.transactionSync(() => {
+        this.sql.exec('INSERT INTO room_meta VALUES (1, ?, ?, ?, NULL)', room, account, endsAt);
         this.sql.exec('INSERT INTO members (identity, id, name, role) VALUES (?, ?, ?, ?)', identity, owner, name, 'owner');
         if (market) this.savePresentation({ presenter: owner, view: { ...defaultChartView, market } });
       });
+      await this.endAt(endsAt);
       return json({ ok: true });
     }
     if (path === '/join') {
@@ -160,7 +212,7 @@ export class TradingRoom extends DurableObject<Env> {
       server.serializeAttachment({ identity, member: me.id, expires: Number(request.headers.get('x-fourfivex-expires')) } satisfies SocketData);
       const items = this.sql.exec('SELECT payload FROM items ORDER BY rowid').toArray().map(row => JSON.parse(String(row.payload)) as Item)
         .filter(item => item.data !== null && isMarket(item.market));
-      this.send(server, { type: 'snapshot', room: { me, members: this.members(), items, presentation: this.presentation() } });
+      this.send(server, { type: 'snapshot', room: { me, members: this.members(), items, presentation: this.presentation(), endsAt: this.meta()!.ends_at } });
       if (request.headers.get('x-fourfivex-reconnect') === '1') console.log('room_reconnected');
       this.presence();
       const protocol = request.headers.get('Sec-WebSocket-Protocol');
@@ -186,19 +238,7 @@ export class TradingRoom extends DurableObject<Env> {
       this.sql.exec('DELETE FROM invites WHERE hash = ?', inviteId);
       return json({ ok: true });
     }
-    if (path === '/delete') {
-      const everyone = this.members().map(member => member.id);
-      // Everything people made goes. Member rows stay, nameless and revoked, only so a voice removal that
-      // fails can be retried by the alarm; nobody can use them, because every request now gets a 410.
-      this.ctx.storage.transactionSync(() => {
-        this.sql.exec('INSERT INTO room_state VALUES (1, ?)', Date.now());
-        for (const table of ['items', 'operations', 'invites', 'chart_view']) this.sql.exec(`DELETE FROM ${table}`);
-        this.sql.exec("UPDATE members SET revoked = 1, name = ''");
-      });
-      for (const socket of this.ctx.getWebSockets()) socket.close(roomDeletedCode, 'Room deleted');
-      const removed = await Promise.all(everyone.map(member => this.voice.revoke(member)));
-      return json({ ok: true, voicePending: removed.includes(false) });
-    }
+    if (path === '/delete') return json({ ok: true, ...await this.end('deleted') });
     if (path === '/members/revoke') {
       const { member } = await body(request, z.object({ member: id }));
       if (member === me.id) throw new HttpError(400, 'The owner cannot be removed.');
@@ -216,8 +256,9 @@ export class TradingRoom extends DurableObject<Env> {
     throw new HttpError(404, 'Unknown room endpoint.');
   }
 
-  webSocketMessage(socket: WebSocket, data: string | ArrayBuffer) {
+  async webSocketMessage(socket: WebSocket, data: string | ArrayBuffer) {
     if (typeof data !== 'string' || data.length > 4096) { socket.close(1009, 'Message too large'); return; }
+    if (await this.ending()) return;
     const attachment = socket.deserializeAttachment() as SocketData;
     const me = this.member(attachment.identity);
     if (!me || attachment.expires <= Date.now()) { socket.close(1008, 'Room access ended'); return; }

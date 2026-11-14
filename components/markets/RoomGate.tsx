@@ -11,7 +11,7 @@ import { MarketsFooter, MarketsHeader, RoomLoading, ShellMessage } from "./shell
 const preloadChart = () => void import("./chart").catch(() => {});
 
 export function RoomGate({ roomId }: { roomId: string }) {
-  const [result, setResult] = useState<{ status: "joined" | "missing" | "deleted" | "error"; token?: string; error?: string }>();
+  const [result, setResult] = useState<{ status: "joined" | "missing" | "ended" | "error"; token?: string; error?: string }>();
   const [attempt, setAttempt] = useState(0);
   const markJoined = () => {
     sessionStorage.setItem(recentRoomKey, roomId);
@@ -34,7 +34,7 @@ export function RoomGate({ roomId }: { roomId: string }) {
       if (!active) return;
       if (err instanceof ApiError && err.status === 410) {
         if (sessionStorage.getItem(recentRoomKey) === roomId) sessionStorage.removeItem(recentRoomKey);
-        setResult({ status: "deleted" });
+        setResult({ status: "ended", error: err.message });
         return;
       }
       setResult(err instanceof ApiError && (err.status === 401 || err.status === 403)
@@ -45,7 +45,7 @@ export function RoomGate({ roomId }: { roomId: string }) {
   }, [roomId, attempt]);
 
   if (!result) return <RoomLoading />;
-  if (result.status === "deleted") return <ShellMessage title="This room was deleted" />;
+  if (result.status === "ended") return <ShellMessage title={result.error ?? "This room has ended"} />;
   if (result.status === "joined") return <><Workspace roomId={roomId} /><MarketsFooter /></>;
   if (result.status === "error") return <ShellMessage title="Room unavailable" text={result.error}
     actions={<button className="action action-primary" type="button" onClick={() => { setResult(undefined); setAttempt(value => value + 1); }}>Retry</button>} />;

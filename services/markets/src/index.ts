@@ -3,6 +3,7 @@ import { errorResponse, HttpError } from './http';
 import { marketsRoutes } from './routes/markets';
 import { roomsRoutes } from './routes/rooms';
 
+export { RoomOwner } from './owner';
 export { TradingRoom } from './room';
 
 export default {

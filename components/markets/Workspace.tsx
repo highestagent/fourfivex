@@ -29,7 +29,7 @@ type Modal =
     | { type: 'idea'; idea?: Idea; initial?: Partial<Idea['data']> }) & { market: Market };
 
 export function Workspace({ roomId }: { roomId: string }) {
-  const { room, online, connected, revoked, deleted, error, edit, send, transient } = useRoom(roomId);
+  const { room, online, connected, revoked, ended, error, edit, send, transient } = useRoom(roomId);
   const [modal, setModal] = useState<Modal>();
   const [removed, setRemoved] = useState(false);
   const [pausedFor, setPausedFor] = useState<string>();
@@ -70,7 +70,7 @@ export function Workspace({ roomId }: { roomId: string }) {
 
   const [tab, setTab] = useState<'ideas' | 'comments' | 'levels'>('ideas');
   const [highlight, setHighlight] = useState('');
-  if (deleted || removed) return <ShellMessage title="This room was deleted"/>;
+  if (ended || removed) return <ShellMessage title={ended ?? 'This room was deleted'}/>;
   if (revoked) return <ShellMessage title="Room access ended" text="Ask the room owner if you need access again."/>;
   if (!room) return <RoomLoading/>;
   const { me, members } = room;
@@ -92,7 +92,7 @@ export function Workspace({ roomId }: { roomId: string }) {
   const pin = (point: Anchor) => setModal({ type: 'comment', market, point });
 
   return <div className="markets-ui room-page">
-    <RoomHeader roomId={roomId} me={me} members={members} presenter={presenter} online={online} connected={connected} following={following}
+    <RoomHeader roomId={roomId} me={me} members={members} presenter={presenter} online={online} connected={connected} following={following} endsAt={room.endsAt}
       onInvite={() => setModal({ type: 'share' })}
       onToggleFollowing={following ? pauseFollowing : () => setPausedFor(undefined)}
       onPresenterChange={member => send({ type: 'chart-presenter', member })} />

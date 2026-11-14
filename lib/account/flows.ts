@@ -7,6 +7,7 @@
 import { verifyAssertion } from "./assertion";
 import { accountsUsed, fetchKeys, fetchSalt, hasKey, intentStatus, NetworkError, publishIntent } from "./api";
 import { founderHandle, memberHandle } from "./handle";
+import { b64u } from "./encoding";
 import { buildPayload, challengeFor, makeNonce, signedIntent, type Intent, type SignedIntent } from "./intents";
 import { accountIdOf, decodePublicKey, encodePublicKey } from "./keys";
 import { createPasskey, askPasskey } from "./passkey";
@@ -74,6 +75,27 @@ export async function signPayload(accountId: string, payload: string): Promise<S
   if (!signer || !verifyAssertion(decodePublicKey(signer.publicKey), challenge, assertion))
     throw new NetworkError("That passkey's signature did not check out. Nothing was sent.");
   return signedIntent(payload, decodePublicKey(signer.publicKey), assertion);
+}
+
+/**
+ * Proves to a service that this device holds a passkey of the account, by signing the service's one-time
+ * challenge. The service checks the signature, and asks the contract whether the key belongs to the account.
+ */
+export async function proveAccount(accountId: string, challenge: string) {
+  const signers = signersOf(accountId);
+  const signed = challengeFor(challenge);
+  const assertion = await askPasskey(signed, signers.map((p) => p.credentialId));
+  const signer = signers.find((p) => p.credentialId === assertion.credentialId);
+  if (!signer || !verifyAssertion(decodePublicKey(signer.publicKey), signed, assertion))
+    throw new NetworkError("That passkey's signature did not check out. Nothing was sent.");
+  return {
+    accountId,
+    publicKey: signer.publicKey,
+    challenge,
+    authenticatorData: b64u.encode(assertion.authenticatorData),
+    clientDataJSON: assertion.clientDataJSON,
+    signature: b64u.encode(assertion.signature),
+  };
 }
 
 /** Has a passkey of this account sign one key-management intent, sends it, and waits for it to land. */

@@ -3,7 +3,8 @@ import { env, exports } from 'cloudflare:workers';
 import { describe, expect, test, vi } from 'vitest';
 import { defaultMarket } from '@fourfivex/markets-protocol/markets';
 import type { Env } from '../src/env';
-import { roomDeletedCode, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { roomDeletedCode, roomEndedCode, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { base58Encode, base64url } from '../src/passkey';
 
 const worker = (exports as unknown as { default: Fetcher }).default;
 
@@ -15,8 +16,49 @@ function request(path: string, payload?: object, cookie?: string) {
     body: payload ? JSON.stringify(payload) : undefined,
   });
 }
-async function create() {
-  const response = await request('/rooms', { name: 'Owner' });
+const nearRpc = 'https://near-rpc.test';
+const sha256 = async (bytes: Uint8Array) => new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+const utf8 = (text: string) => new TextEncoder().encode(text);
+
+/** A passkey account as a browser would hold it: a P-256 key whose public half the contract lists for the account. */
+async function passkeyAccount() {
+  const keys = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const raw = new Uint8Array(await crypto.subtle.exportKey('raw', keys.publicKey)).slice(1);
+  const accountId = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(20)), byte => byte.toString(16).padStart(2, '0')).join('');
+  return { accountId, publicKey: 'p256:' + base58Encode(raw), privateKey: keys.privateKey };
+}
+type Account = Awaited<ReturnType<typeof passkeyAccount>>;
+
+/** Signs the service's challenge the way WebAuthn does: over the authenticator data and the client data's hash. */
+async function prove(account: Account, overrides: { origin?: string; flags?: number } = {}) {
+  const challenge = (await (await request('/rooms/challenge', { accountId: account.accountId })).json<{ challenge: string }>()).challenge;
+  const clientDataJSON = JSON.stringify({ type: 'webauthn.get', challenge: base64url.encode(await sha256(utf8(challenge))), origin: overrides.origin ?? origin });
+  const authenticatorData = new Uint8Array([...await sha256(utf8('fourfivex.test')), overrides.flags ?? 0x05, 0, 0, 0, 1]);
+  const signature = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, account.privateKey,
+    new Uint8Array([...authenticatorData, ...await sha256(utf8(clientDataJSON))])));
+  return { accountId: account.accountId, publicKey: account.publicKey, challenge, clientDataJSON,
+    authenticatorData: base64url.encode(authenticatorData), signature: base64url.encode(signature) };
+}
+
+/** Answers the contract's has_public_key for `owned` keys only, while `work` runs. */
+async function withContract<T>(owned: Account[], work: () => Promise<T>) {
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+    expect(url).toBe(nearRpc);
+    const { params } = JSON.parse(String(init.body));
+    const args = JSON.parse(atob(params.args_base64));
+    const has = params.method_name === 'has_public_key' && owned.some(account => account.accountId === args.account_id && account.publicKey === args.public_key);
+    return Response.json({ result: { result: Array.from(utf8(String(has))) } });
+  });
+  try { return await work(); } finally { vi.unstubAllGlobals(); }
+}
+
+async function open(account: Account, setup: object = { name: 'Owner' }) {
+  const proof = await prove(account);
+  return withContract([account], () => request('/rooms', { ...setup, proof }));
+}
+
+async function create(account?: Account) {
+  const response = await open(account ?? await passkeyAccount());
   expect(response.status).toBe(201);
   const { roomId } = await response.json<{ roomId: string }>();
   return { path: '/rooms/' + roomId, roomId, cookie: response.headers.get('Set-Cookie')!.split(';')[0] };
@@ -49,7 +91,7 @@ test('only room members receive a short-lived ticket for their room socket', asy
 
 test('opens a new room on the selected market and keeps the draft private', async () => {
   const market = 'hyperliquid:perp:ETH';
-  const response = await request('/rooms', { name: 'Owner', market, margin: 123, leverage: 20 });
+  const response = await open(await passkeyAccount(), { name: 'Owner', market, margin: 123, leverage: 20 });
   expect(response.status).toBe(201);
   const { roomId } = await response.json<{ roomId: string }>();
   const stub = (env as unknown as Env).ROOMS.getByName(roomId);
@@ -60,7 +102,7 @@ test('opens a new room on the selected market and keeps the draft private', asyn
     expect(presentation.view).not.toHaveProperty('margin');
     expect(presentation.view).not.toHaveProperty('leverage');
   });
-  expect((await request('/rooms', { name: 'Owner', market: 'other:perp:ETH' })).status).toBe(400);
+  expect((await open(await passkeyAccount(), { name: 'Owner', market: 'other:perp:ETH' })).status).toBe(400);
 });
 
 test('scopes voice tokens to room members and retries provider revocation', async () => {
@@ -233,7 +275,7 @@ describe('trading rooms', () => {
     for (const session of [cookie, editorCookie]) {
       const response = await request(path + '/membership', undefined, session);
       expect(response.status).toBe(410);
-      expect(await response.json()).toMatchObject({ error: 'This room was deleted.' });
+      expect(await response.json()).toMatchObject({ error: 'This room was deleted' });
     }
     expect((await request(path + '/join', { name: 'Late', token: spare })).status).toBe(410);
     expect((await request(path + '/socket-ticket', {}, cookie)).status).toBe(410);
@@ -242,6 +284,63 @@ describe('trading rooms', () => {
         expect(state.storage.sql.exec(`SELECT COUNT(*) AS count FROM ${table}`).one().count).toBe(0);
       }
       expect(state.storage.sql.exec("SELECT COUNT(*) AS count FROM members WHERE name != '' OR revoked = 0").one().count).toBe(0);
+    });
+  });
+
+  test('opens a room only for a passkey that belongs to the account, and only once per approval', async () => {
+    const account = await passkeyAccount();
+    const stranger = await passkeyAccount();
+    const attempt = async (proof: object, owned = [account]) => withContract(owned, () => request('/rooms', { name: 'Owner', proof }));
+    expect((await attempt(await prove(account), [])).status).toBe(401);
+    expect((await attempt(await prove(account, { origin: 'https://other.test' }))).status).toBe(401);
+    expect((await attempt(await prove(account, { flags: 0x01 }))).status).toBe(401);
+    expect((await attempt({ ...await prove(account), publicKey: stranger.publicKey }, [account, stranger])).status).toBe(401);
+    const proof = await prove(account);
+    expect((await attempt({ ...proof, accountId: stranger.accountId }, [account, stranger])).status).toBe(401);
+    expect((await attempt(proof)).status).toBe(201);
+    const replay = await attempt(proof);
+    expect(replay.status).toBe(401);
+    expect(await replay.json()).toMatchObject({ error: 'This approval was already used. Try again.' });
+  });
+
+  test('keeps one open room per account until it is deleted', async () => {
+    const account = await passkeyAccount();
+    const first = await create(account);
+    const second = await open(account);
+    expect(second.status).toBe(409);
+    expect(await second.json()).toMatchObject({ error: 'You already have a room open.', roomId: first.roomId });
+    expect((await request(first.path + '/delete', {}, first.cookie)).status).toBe(200);
+    expect((await open(account)).status).toBe(201);
+  });
+
+  test('ends a room after its hour, frees the account, and ends rooms made before the hour rule', async () => {
+    const account = await passkeyAccount();
+    const { path, roomId, cookie } = await create(account);
+    const stub = (env as unknown as Env).ROOMS.getByName(roomId);
+    const member = await connect(path, cookie);
+    expect(member.events[0]).toMatchObject({ room: { endsAt: expect.any(Number) } });
+    await runInDurableObject(stub, async (_, state) => {
+      const { ends_at } = state.storage.sql.exec<{ ends_at: number }>('SELECT ends_at FROM room_meta').one();
+      expect(ends_at - Date.now()).toBeGreaterThan(59 * 60_000);
+      expect(await state.storage.getAlarm()).toBe(ends_at);
+      state.storage.sql.exec('UPDATE room_meta SET ends_at = ?', Date.now() - 1);
+    });
+    const closed = new Promise<number>(resolve => member.socket.addEventListener('close', event => resolve(event.code)));
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect(await closed).toBe(roomEndedCode);
+    const ended = await request(path + '/membership', undefined, cookie);
+    expect(ended.status).toBe(410);
+    expect(await ended.json()).toMatchObject({ error: 'This room has ended' });
+    expect((await open(account)).status).toBe(201);
+
+    const legacy = (env as unknown as Env).ROOMS.getByName(crypto.randomUUID());
+    await runInDurableObject(legacy, (_, state) => {
+      state.storage.sql.exec("INSERT INTO members (identity, id, name, role) VALUES ('someone', ?, 'Old owner', 'owner')", crypto.randomUUID());
+    });
+    const response = await legacy.fetch(new Request(origin + '/membership', { headers: { 'x-fourfivex-identity': 'someone' } }));
+    expect(response.status).toBe(410);
+    await runInDurableObject(legacy, (_, state) => {
+      expect(state.storage.sql.exec("SELECT COUNT(*) AS count FROM members WHERE name != ''").one().count).toBe(0);
     });
   });
 

@@ -7,6 +7,7 @@ export default defineConfig({
     miniflare: {
       bindings: {
         APP_ORIGIN: 'https://fourfivex.test',
+        NEAR_RPC_URL: 'https://near-rpc.test',
         SESSION_SECRET: 'unit-test-cookie-signing-key-not-for-deployment',
         CF_ACCOUNT_ID: 'test-account',
         REALTIME_APP_ID: 'test-app',

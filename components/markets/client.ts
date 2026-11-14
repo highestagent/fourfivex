@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultMarket, type Market } from '@fourfivex/markets-protocol/markets';
-import { roomDeletedCode, type Command, type Interval, type Item, type Mutation, type Point, type Room, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { roomDeletedCode, roomEndedCode, type Command, type Interval, type Item, type Mutation, type Point, type Room, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
 
 export class ApiError extends Error {
-  constructor(readonly status: number, message: string) { super(message); }
+  constructor(readonly status: number, message: string, readonly data?: Record<string, unknown>) { super(message); }
 }
 
 export async function api<T>(path: string, payload?: object): Promise<T> {
@@ -11,7 +11,9 @@ export async function api<T>(path: string, payload?: object): Promise<T> {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
   });
   const result = await response.json().catch(() => null) as (T & { error?: string }) | null;
-  if (!response.ok || result === null) throw new ApiError(response.status, result?.error ?? 'The request could not be completed.');
+  if (!response.ok || result === null) {
+    throw new ApiError(response.status, result?.error ?? 'The request could not be completed.', result ?? undefined);
+  }
   return result as T;
 }
 
@@ -32,7 +34,8 @@ export function useRoom(roomId: string) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
   const [revoked, setRevoked] = useState(false);
-  const [deleted, setDeleted] = useState(false);
+  /** Set when the room is over: why, in the words the screen shows. */
+  const [ended, setEnded] = useState<string>();
   const transient = useRef(new Map<string, Transient>());
   const socket = useRef<WebSocket | null>(null);
   const queued = useRef(new Map<string, Command>());
@@ -71,7 +74,7 @@ export function useRoom(roomId: string) {
         connection = new WebSocket(url, ticket ? ['fourfivex', ticket] : undefined);
       } catch (failure) {
         if (disposed) return;
-        if (failure instanceof ApiError && failure.status === 410) setDeleted(true);
+        if (failure instanceof ApiError && failure.status === 410) setEnded(failure.message);
         else if (failure instanceof ApiError && [401, 403].includes(failure.status)) setRevoked(true);
         else retry();
         return;
@@ -130,8 +133,8 @@ export function useRoom(roomId: string) {
         setConnected(false);
         setOnline([]);
         transient.current.clear();
-        if (code === roomDeletedCode) {
-          setDeleted(true);
+        if (code === roomDeletedCode || code === roomEndedCode) {
+          setEnded(code === roomDeletedCode ? 'This room was deleted' : 'This room has ended');
           return;
         }
         if (code === 1008) {
@@ -144,5 +147,5 @@ export function useRoom(roomId: string) {
     void connect();
     return () => { disposed = true; clearTimeout(timer); socket.current?.close(); socket.current = null; };
   }, [roomId, send]);
-  return { room, online, connected, error, revoked, deleted, transient, edit, send };
+  return { room, online, connected, error, revoked, ended, transient, edit, send };
 }

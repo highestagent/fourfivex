@@ -126,7 +126,8 @@
     color: var(--green);
     font: 550 12px var(--mono);
   }
-  .room-presence[data-connected="false"] { color: var(--color-amber); }
+  .room-time { color: var(--muted); }
+  .room-presence[data-connected="false"], .room-time[data-ending="true"] { color: var(--color-amber); }
 
   @media (width < 28rem) {
     .room-header { column-gap: 4px; }
