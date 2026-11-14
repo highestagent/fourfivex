@@ -179,6 +179,8 @@ describe('NEAR Intents transfer with a message (the payment primitive)', () => {
     expect(logged[1].data).toEqual({ payer: second.accountId, reason: 'sold_out' });
     expect(await seat(id, second.accountId)).toBeNull();
     expect(await balance(second.accountId)).toBe(BigInt(FEE) * BigInt(4));
+    const seats = await viewOf<[string, { state: string }][]>(ESCROW, 'seats', { session: id });
+    expect(seats.map(([payer, held]) => [payer, held.state])).toEqual([[first.accountId, 'paid']]);
   });
 
   test('two separate transactions racing for the last seat end the same way', async () => {

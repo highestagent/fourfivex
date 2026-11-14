@@ -1,12 +1,18 @@
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
-import { command, defaultChartView, displayName, id, roomDeletedCode, roomEndedCode, roomSetup, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
-import { isMarket } from '@fourfivex/markets-protocol/markets';
+import { command, defaultChartView, displayName, id, roomCanceledCode, roomDeletedCode, roomEndedCode, roomSetup, type ChartPresentation, type Command, type Item, type Member, type Mutation, type RoomEvent } from '@fourfivex/markets-protocol/protocol';
+import { isMarket, type Market } from '@fourfivex/markets-protocol/markets';
 import type { Env } from './env';
 import { body, digest, errorResponse, HttpError, json } from './http';
+import { RoomBooking, type NewBooking } from './booking';
 import { RoomVoice } from './voice';
 
-type Ending = 'deleted' | 'expired';
+type Ending = 'deleted' | 'expired' | 'canceled';
+const endings = {
+  deleted: { code: roomDeletedCode, reason: 'Room deleted', message: 'This room was deleted' },
+  expired: { code: roomEndedCode, reason: 'Room ended', message: 'This room has ended' },
+  canceled: { code: roomCanceledCode, reason: 'Session canceled', message: 'This session was canceled. Every seat is refunded' },
+} as const;
 type Meta = { room: string; account: string; ends_at: number; ended: Ending | null };
 
 type SocketData = { identity: string; member: string; expires: number; lastTransient?: number; lastCamera?: number; lastSettledCamera?: number };
@@ -14,6 +20,7 @@ type SocketData = { identity: string; member: string; expires: number; lastTrans
 export class TradingRoom extends DurableObject<Env> {
   private sql = this.ctx.storage.sql;
   private voice: RoomVoice;
+  private booking: RoomBooking;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.sql.exec(`
@@ -24,21 +31,40 @@ export class TradingRoom extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS chart_view (slot INTEGER PRIMARY KEY CHECK (slot = 1), payload TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS room_meta (slot INTEGER PRIMARY KEY CHECK (slot = 1), room TEXT NOT NULL, account TEXT NOT NULL,
         ends_at INTEGER NOT NULL, ended TEXT);
+      CREATE TABLE IF NOT EXISTS devices (identity TEXT PRIMARY KEY, member TEXT NOT NULL);
     `);
+    // A member of a paid session is an account, which can come back on any device it signs in on.
+    if (!this.sql.exec("SELECT 1 FROM pragma_table_info('members') WHERE name = 'account'").toArray().length) {
+      this.sql.exec('ALTER TABLE members ADD COLUMN account TEXT');
+    }
     this.voice = new RoomVoice(ctx.storage, env);
+    this.booking = new RoomBooking(ctx.storage, env, {
+      hostOnline: () => {
+        const owner = this.owner();
+        return Boolean(owner) && this.ctx.getWebSockets(owner!).some(socket => socket.readyState === WebSocket.OPEN);
+      },
+      broadcast: event => this.broadcast(event),
+      cancelRoom: async () => { await this.end('canceled'); },
+    });
   }
 
   async alarm() {
     await this.voice.retryRevocations();
     const meta = this.meta();
     if (!await this.ending() && meta) await this.endAt(meta.ends_at);
+    const next = await this.booking.tick(Date.now());
+    if (next !== undefined) await this.endAt(next);
+  }
+
+  private owner() {
+    return this.sql.exec<{ id: string }>("SELECT id FROM members WHERE role = 'owner' AND revoked = 0").toArray()[0]?.id;
   }
 
   private meta() {
     return this.sql.exec<Meta>('SELECT room, account, ends_at, ended FROM room_meta WHERE slot = 1').toArray()[0];
   }
 
-  /** Keeps an alarm set for the room's end. A voice retry may set an earlier one; this runs again after it. */
+  /** Keeps an alarm set for the earliest thing the room has to do: its end, a voice retry, or a session step. */
   private async endAt(endsAt: number) {
     const current = await this.ctx.storage.getAlarm();
     if (current === null || current > endsAt) await this.ctx.storage.setAlarm(endsAt);
@@ -66,12 +92,10 @@ export class TradingRoom extends DurableObject<Env> {
     const everyone = this.members().map(member => member.id);
     this.ctx.storage.transactionSync(() => {
       this.sql.exec("INSERT INTO room_meta VALUES (1, '', '', 0, ?) ON CONFLICT(slot) DO UPDATE SET ended = excluded.ended", reason);
-      for (const table of ['items', 'operations', 'invites', 'chart_view']) this.sql.exec(`DELETE FROM ${table}`);
+      for (const table of ['items', 'operations', 'invites', 'chart_view', 'fills']) this.sql.exec(`DELETE FROM ${table}`);
       this.sql.exec("UPDATE members SET revoked = 1, name = ''");
     });
-    for (const socket of this.ctx.getWebSockets()) {
-      socket.close(reason === 'deleted' ? roomDeletedCode : roomEndedCode, reason === 'deleted' ? 'Room deleted' : 'Room ended');
-    }
+    for (const socket of this.ctx.getWebSockets()) socket.close(endings[reason].code, endings[reason].reason);
     // Frees the account to open another room. If this fails, the account waits until the hour is up instead.
     if (meta?.account) await this.env.OWNERS.getByName(meta.account).release(meta.room).catch(() => {});
     const removed = await Promise.all(everyone.map(member => this.voice.revoke(member)));
@@ -79,8 +103,15 @@ export class TradingRoom extends DurableObject<Env> {
   }
 
   private member(identity: string) {
-    const row = this.sql.exec('SELECT id, name, role FROM members WHERE identity = ? AND revoked = 0', identity).toArray()[0];
+    const row = this.sql.exec(`SELECT id, name, role FROM members WHERE revoked = 0 AND (identity = ?
+      OR id = (SELECT member FROM devices WHERE identity = ?))`, identity, identity).toArray()[0];
     return row as Member | undefined;
+  }
+
+  /** The account behind a device, even after the room ended, for a buyer reporting a problem. */
+  private accountOf(identity: string) {
+    return this.sql.exec<{ account: string }>(`SELECT account FROM members WHERE account IS NOT NULL AND (identity = ?
+      OR id = (SELECT member FROM devices WHERE identity = ?))`, identity, identity).toArray()[0]?.account;
   }
 
   private members() {
@@ -163,8 +194,32 @@ export class TradingRoom extends DurableObject<Env> {
     const path = new URL(request.url).pathname;
     const identity = request.headers.get('x-fourfivex-identity');
     if (!identity) throw new HttpError(401, 'Session required.');
+    // A paid session's booking outlives its room: the link shows how it settled, and buyers can report a problem.
+    if (path === '/booking') return json(await this.booking.view(request.headers.get('x-fourfivex-account') ?? undefined));
+    if (path === '/report') {
+      const { text } = await body(request, z.object({ text: z.string().trim().min(1).max(500) }));
+      const account = this.accountOf(identity);
+      const row = this.booking.get();
+      if (!row || !account || account === row.host_account) throw new HttpError(403, 'Only a buyer in this session can report a problem.');
+      this.booking.report(account, text);
+      return json({ ok: true });
+    }
     const over = await this.ending();
-    if (over) throw new HttpError(410, over === 'deleted' ? 'This room was deleted' : 'This room has ended');
+    if (over) throw new HttpError(410, endings[over].message);
+    if (path === '/create-session') {
+      const { name, market, booking } = await request.json() as { name: string; market?: Market; booking: NewBooking };
+      if (this.meta() || this.sql.exec('SELECT 1 FROM members LIMIT 1').toArray().length) throw new HttpError(409, 'Room already exists.');
+      await this.booking.create(booking);
+      const owner = crypto.randomUUID();
+      this.ctx.storage.transactionSync(() => {
+        this.sql.exec('INSERT INTO room_meta VALUES (1, ?, ?, ?, NULL)', booking.room, booking.host_account, booking.ends_at);
+        this.sql.exec('INSERT INTO members (identity, id, name, role, account) VALUES (?, ?, ?, ?, ?)', identity, owner, name, 'owner', booking.host_account);
+        if (market) this.savePresentation({ presenter: owner, view: { ...defaultChartView, market } });
+      });
+      await this.endAt(booking.starts_at);
+      return json({ ok: true });
+    }
+    if (path === '/enter') return this.enter(request, identity);
     if (path === '/create') {
       const { name, market } = await body(request, roomSetup);
       const room = request.headers.get('x-fourfivex-room');
@@ -182,6 +237,7 @@ export class TradingRoom extends DurableObject<Env> {
       return json({ ok: true });
     }
     if (path === '/join') {
+      if (this.booking.get()) throw new HttpError(403, 'Seats in this session are paid. Open its booking link.');
       const { name, token } = await body(request, z.object({ name: displayName, token: id }));
       const hash = await digest(token);
       this.ctx.storage.transactionSync(() => {
@@ -212,7 +268,11 @@ export class TradingRoom extends DurableObject<Env> {
       server.serializeAttachment({ identity, member: me.id, expires: Number(request.headers.get('x-fourfivex-expires')) } satisfies SocketData);
       const items = this.sql.exec('SELECT payload FROM items ORDER BY rowid').toArray().map(row => JSON.parse(String(row.payload)) as Item)
         .filter(item => item.data !== null && isMarket(item.market));
-      this.send(server, { type: 'snapshot', room: { me, members: this.members(), items, presentation: this.presentation(), endsAt: this.meta()!.ends_at } });
+      const booking = this.booking.get();
+      const session = booking && { startsAt: booking.starts_at, endsAt: booking.ends_at, host: booking.host_name, fills: this.booking.recentFills() };
+      this.send(server, { type: 'snapshot', room: {
+        me, members: this.members(), items, presentation: this.presentation(), endsAt: this.meta()!.ends_at, ...(session && { session }),
+      } });
       if (request.headers.get('x-fourfivex-reconnect') === '1') console.log('room_reconnected');
       this.presence();
       const protocol = request.headers.get('Sec-WebSocket-Protocol');
@@ -223,6 +283,7 @@ export class TradingRoom extends DurableObject<Env> {
       return json(this.sql.exec('SELECT hash AS inviteId, role, expires FROM invites WHERE expires > ? ORDER BY expires', Date.now()).toArray());
     }
     if (path === '/invite') {
+      if (this.booking.get()) throw new HttpError(400, 'Seats in this session are paid. Share its booking link instead.');
       const { role } = await body(request, z.object({ role: z.enum(['editor', 'viewer']) }));
       const token = crypto.randomUUID();
       const hash = await digest(token);
@@ -239,10 +300,17 @@ export class TradingRoom extends DurableObject<Env> {
       this.sql.exec('DELETE FROM invites WHERE hash = ?', inviteId);
       return json({ ok: true });
     }
-    if (path === '/delete') return json({ ok: true, ...await this.end('deleted') });
+    if (path === '/delete') {
+      if (!this.booking.get()) return json({ ok: true, ...await this.end('deleted') });
+      // Canceling a paid session refunds every seat. The alarm retries any refund that doesn't go through now.
+      await this.booking.cancel('host_canceled');
+      await this.endAt(Date.now() + 15_000);
+      return json({ ok: true });
+    }
     if (path === '/members/revoke') {
       const { member } = await body(request, z.object({ member: id }));
       if (member === me.id) throw new HttpError(400, 'The owner cannot be removed.');
+      const paid = this.booking.get() ? this.booking.seatOfMember(member) : undefined;
       this.sql.exec('UPDATE members SET revoked = 1 WHERE id = ?', member);
       for (const socket of this.ctx.getWebSockets(member)) socket.close(1008, 'Room access removed');
       this.broadcast({ type: 'members', members: this.members() });
@@ -252,9 +320,46 @@ export class TradingRoom extends DurableObject<Env> {
         this.savePresentation(updated);
         this.broadcast({ type: 'chart-presentation', presentation: updated });
       }
-      return json({ ok: true, voicePending: !(await this.voice.revoke(member)) });
+      const voicePending = !(await this.voice.revoke(member));
+      // Taking a paid seat away refunds it. The host can't keep the fee of someone they removed.
+      if (paid) {
+        await this.booking.remove(paid.account);
+        await this.endAt(Date.now() + 15_000);
+      }
+      return json({ ok: true, voicePending });
     }
     throw new HttpError(404, 'Unknown room endpoint.');
+  }
+
+  /** Lets a device into a paid session for an account the service has already proven. NEAR decides whether it has a seat. */
+  private async enter(request: Request, identity: string) {
+    const { name } = await body(request, z.object({ name: displayName }));
+    const account = request.headers.get('x-fourfivex-account');
+    const row = this.booking.get();
+    if (!row || !account) throw new HttpError(404, 'This room has no paid session.');
+    const bind = (member: string) => {
+      const current = this.member(identity);
+      if (current && current.id !== member) throw new HttpError(409, 'This device is already in this room as someone else.');
+      if (!current) this.sql.exec('INSERT INTO devices VALUES (?, ?) ON CONFLICT(identity) DO UPDATE SET member = excluded.member', identity, member);
+    };
+    if (account === row.host_account) {
+      this.ctx.storage.transactionSync(() => bind(this.owner()!));
+      return json({ ok: true, role: 'owner' });
+    }
+    const seat = this.booking.seat(account);
+    if (seat?.reason === 'removed') throw new HttpError(403, 'You were removed from this session. Your fee is refunded.');
+    if (!await this.booking.entitled(account)) throw new HttpError(402, 'This account has no seat in this session.');
+    this.ctx.storage.transactionSync(() => {
+      if (seat?.member) return bind(seat.member);
+      if (this.sql.exec('SELECT 1 FROM members WHERE identity = ?', identity).toArray().length) {
+        throw new HttpError(409, 'This device is already in this room as someone else.');
+      }
+      const member = crypto.randomUUID();
+      this.sql.exec('INSERT INTO members (identity, id, name, role, account) VALUES (?, ?, ?, ?, ?)', identity, member, name, 'viewer', account);
+      this.booking.bindSeat(account, member);
+    });
+    this.broadcast({ type: 'members', members: this.members() });
+    return json({ ok: true, role: 'viewer' });
   }
 
   async webSocketMessage(socket: WebSocket, data: string | ArrayBuffer) {

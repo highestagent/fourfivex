@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defaultMarket, isMarket, type Market } from './markets';
+import type { FeedFill } from './sessions';
 
 export const id = z.uuid();
 export const displayName = z.string().trim().min(1).max(32);
@@ -47,6 +48,8 @@ export const roomLifetime = 60 * 60_000;
 export const roomDeletedCode = 4410;
 /** The close code a room's sockets get when its hour is up. */
 export const roomEndedCode = 4408;
+/** The close code a paid session's sockets get when it's canceled, by the host or because the host never came. */
+export const roomCanceledCode = 4409;
 const key = { id, expected: z.number().int().nonnegative(), market: marketId };
 const trendline = z.object({ start: point, end: point });
 const setup = z.object({ entry: point, stop: price, target: price })
@@ -99,7 +102,9 @@ export type Idea = z.infer<typeof idea>;
 type Revision = { revision: number; author: string; updatedAt: number };
 export type Item = Mutation & Revision;
 export type Member = { id: string; name: string; role: Role };
-export type Room = { me: Member; members: Member[]; items: Item[]; presentation?: ChartPresentation; endsAt: number };
+/** A paid session's live part, for members only: when it runs, and the host's fills so far. */
+export type RoomSession = { startsAt: number; endsAt: number; host: string; fills: FeedFill[] };
+export type Room = { me: Member; members: Member[]; items: Item[]; presentation?: ChartPresentation; endsAt: number; session?: RoomSession };
 export type RoomEvent =
   | { type: 'snapshot'; room: Room }
   | { type: 'members'; members: Member[] }
@@ -108,6 +113,7 @@ export type RoomEvent =
   | { type: 'ack'; op: string; error?: string; item?: Item }
   | { type: 'error'; error: string }
   | { type: 'chart-presentation'; presentation: ChartPresentation }
+  | { type: 'fill'; fill: FeedFill }
   | { type: 'chart-camera'; market: Market; interval: Interval; camera: ChartCamera }
   | { type: 'pointer' | 'preview'; interval?: Interval; member: string; market?: Market; point: Point | null; id?: string };
 export type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number };

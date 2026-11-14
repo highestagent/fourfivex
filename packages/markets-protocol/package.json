@@ -4,7 +4,10 @@
   "type": "module",
   "exports": {
     "./markets": "./markets.ts",
-    "./protocol": "./protocol.ts"
+    "./protocol": "./protocol.ts",
+    "./sessions": "./sessions.ts"
   },
-  "dependencies": { "zod": "^4.6.7" }
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
 }

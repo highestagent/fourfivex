@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fourfivex/markets-protocol": "workspace:*",
+    "@noble/hashes": "^2.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

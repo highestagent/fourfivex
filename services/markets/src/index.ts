@@ -2,7 +2,9 @@ import type { Env } from './env';
 import { errorResponse, HttpError } from './http';
 import { marketsRoutes } from './routes/markets';
 import { roomsRoutes } from './routes/rooms';
+import { sessionsRoutes } from './routes/sessions';
 
+export { RoomSettler } from './escrow';
 export { RoomOwner } from './owner';
 export { TradingRoom } from './room';
 
@@ -15,7 +17,7 @@ export default {
         ((request.method !== 'GET' || socket) && (!env.APP_ORIGIN || request.headers.get('Origin') !== env.APP_ORIGIN))) {
         throw new HttpError(403, 'Invalid request origin.');
       }
-      const response = await marketsRoutes(request, env, url) ?? await roomsRoutes(request, env, url);
+      const response = await marketsRoutes(request, env, url) ?? await roomsRoutes(request, env, url) ?? await sessionsRoutes(request, env, url);
       if (!response) throw new HttpError(404, 'This endpoint is unavailable.');
       return response;
     } catch (error) {

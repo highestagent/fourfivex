@@ -28,12 +28,12 @@ docker run --rm --platform linux/amd64 \
   cargo near build non-reproducible-wasm --locked
 ```
 
-The output is `services/room-escrow/target/near/fourfivex_room_escrow.wasm`, 191,136 bytes.
+The output is `services/room-escrow/target/near/fourfivex_room_escrow.wasm`, 193,706 bytes.
 
 | Form | Value |
 | --- | --- |
-| Code hash (base58, what NEAR's RPC reports) | `GRmoSn3vnjwnngHqAtdbaJptr789Hn5EsbXGw1uunN5L` |
-| SHA-256 hex | `e537e652c86dd04bc3121bf4f8ee3f74e4825a9b504c934e532b24d68be9f3b7` |
+| Code hash (base58, what NEAR's RPC reports) | `RWwsVK3nisPeVu2Gsgs6c3QW5j1tWGdtvu79SkJ68Qv` |
+| SHA-256 hex | `0647ccad1b311c7f692fe2496d8f5d0279a8f69b9ddb8285babe82163e29ae5f` |
 
 ## Test
 

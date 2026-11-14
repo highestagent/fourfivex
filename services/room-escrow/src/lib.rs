@@ -25,6 +25,8 @@ const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 /// The longest a fee can wait for its refund deadline after a session ends.
 const MAX_REFUND_DELAY_MS: u64 = 30 * DAY_MS;
 const MAX_SEATS: u16 = 50;
+/// Refunds free seats, so a session can see more payers than seats. This bounds how many it remembers.
+const MAX_PAYERS_PER_SEAT: usize = 4;
 const TRANSFER_GAS: Gas = Gas::from_tgas(15);
 const CALLBACK_GAS: Gas = Gas::from_tgas(10);
 
@@ -59,6 +61,8 @@ pub struct Session {
     /// Seats held: paid, or being paid out. A refund frees its seat.
     pub sold: u16,
     pub canceled: bool,
+    /// Everyone who has held a seat, so the settler can settle every one of them.
+    pub payers: Vec<AccountId>,
 }
 
 #[near(serializers = [borsh, json])]
@@ -162,6 +166,22 @@ impl RoomEscrow {
         self.seats.get(&seat_key(&session, &payer)).cloned()
     }
 
+    /// Every seat a session has had, with its payer.
+    pub fn seats(&self, session: String) -> Vec<(AccountId, Seat)> {
+        let Some(entry) = self.sessions.get(&session) else {
+            return vec![];
+        };
+        entry
+            .payers
+            .iter()
+            .filter_map(|payer| {
+                self.seats
+                    .get(&seat_key(&session, payer))
+                    .map(|seat| (payer.clone(), seat.clone()))
+            })
+            .collect()
+    }
+
     fn require_settler(&self) {
         require!(
             env::predecessor_account_id() == self.settler,
@@ -209,6 +229,7 @@ impl RoomEscrow {
                 terms,
                 sold: 0,
                 canceled: false,
+                payers: vec![],
             },
         );
     }
@@ -294,15 +315,18 @@ impl RoomEscrow {
             return Err("wrong_amount");
         }
         let key = seat_key(&id, sender_id);
-        if self
-            .seats
-            .get(&key)
-            .is_some_and(|seat| seat.state != SeatState::Refunded)
-        {
+        let previous = self.seats.get(&key);
+        if previous.is_some_and(|seat| seat.state != SeatState::Refunded) {
             return Err("duplicate");
         }
         if session.sold >= session.terms.seats {
             return Err("sold_out");
+        }
+        if previous.is_none() {
+            if session.payers.len() >= usize::from(session.terms.seats) * MAX_PAYERS_PER_SEAT {
+                return Err("sold_out");
+            }
+            session.payers.push(sender_id.clone());
         }
         session.sold += 1;
         self.seats.insert(
@@ -473,6 +497,9 @@ mod tests {
         assert_eq!(pay(&mut late, "c.test", 25_000_000, START + 60_000), 25_000_000, "late");
         assert_eq!(pay(&mut late, "c.test", 24_000_000, START), 24_000_000, "wrong amount");
         assert_eq!(contract.seat("s1".into(), account("a.test")).unwrap().state, SeatState::Paid);
+        let seats = contract.seats("s1".into());
+        assert_eq!(seats.len(), 1);
+        assert_eq!(seats[0].0, account("a.test"));
     }
 
     #[test]
